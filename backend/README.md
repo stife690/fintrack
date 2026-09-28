@@ -89,6 +89,6 @@ Regla: los controllers **no** escriben SQL. Siempre pasan por un service, y el s
 
 - [ ] Variables de entorno (`.env` / `.env.example`)
 - [ ] Conexión a PostgreSQL (Docker en local)
-- [ ] `GET /health` con verificación de la base de datos
+- [x] `GET /health` (falta agregar la verificación de la base de datos)
 - [ ] Middleware central de errores
-- [ ] CORS para el frontend
+- [x] CORS para el frontend (variable `CORS_ORIGIN`, ver `.env.example`)
