@@ -28,3 +28,15 @@ test('una ruta inexistente responde 404 con el formato de error', async () => {
     assert.equal(body.error.code, 'NOT_FOUND');
   });
 });
+
+test('CORS: sin CORS_ORIGIN refleja el origen del cliente', async () => {
+  await withServer(async (base) => {
+    const res = await fetch(`${base}/health`, {
+      headers: { Origin: 'http://localhost:5173' },
+    });
+    assert.equal(
+      res.headers.get('access-control-allow-origin'),
+      'http://localhost:5173',
+    );
+  });
+});
