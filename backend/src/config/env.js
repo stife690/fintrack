@@ -1,10 +1,26 @@
-// Lectura centralizada de variables de entorno.
-// CORS_ORIGIN: uno o varios orígenes separados por coma (URL del frontend).
+/**
+ * Lectura centralizada de variables de entorno.
+ * Ningún otro módulo debe leer `process.env` directamente.
+ */
+
+/**
+ * Orígenes permitidos por CORS, tomados de `CORS_ORIGIN`
+ * (uno o varios separados por coma, sin barra final).
+ * Vacío significa "sin restricción" (solo desarrollo local).
+ * @type {string[]}
+ */
 const corsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((origin) => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
+/**
+ * Configuración del backend.
+ * @type {{ port: number, nodeEnv: string, corsOrigins: string[] }}
+ * @property {number} port Puerto HTTP (`PORT`, por defecto 3000).
+ * @property {string} nodeEnv Entorno de ejecución (`NODE_ENV`, por defecto "development").
+ * @property {string[]} corsOrigins Orígenes permitidos por CORS.
+ */
 export const env = {
   port: Number(process.env.PORT) || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',

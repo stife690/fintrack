@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react';
 
-// En Vercel se define VITE_API_URL con la URL pública del backend (Render).
+/**
+ * URL base del backend, sin barra final.
+ * En Vercel se define `VITE_API_URL` con la URL pública de Render;
+ * en local usa `http://localhost:3000`.
+ * @type {string}
+ */
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+/**
+ * Pantalla hello world de FinTrack.
+ *
+ * Al montarse consulta `GET {API_URL}/health` y muestra uno de tres estados:
+ * `loading` (conectando), `ok` (respuesta del backend) o `error` (falló la conexión).
+ *
+ * @returns {JSX.Element} Tarjeta con el estado de la conexión frontend ↔ backend.
+ */
 export default function App() {
   const [state, setState] = useState({ status: 'loading' });
 

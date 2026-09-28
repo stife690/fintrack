@@ -1,21 +1,54 @@
-// Smoke test del despliegue end-to-end (FT-0010). Requiere Node >= 20.
-// Uso: FRONTEND_URL=https://... API_URL=https://... node scripts/smoke-test.mjs
+/**
+ * Smoke test del despliegue end-to-end (FT-0010). Requiere Node >= 20.
+ *
+ * Verifica: frontend (200 HTML), `GET /health`, CORS para el origen del
+ * frontend y el formato de error 404.
+ *
+ * Uso:
+ *   FRONTEND_URL=https://... API_URL=https://... node scripts/smoke-test.mjs
+ *
+ * Código de salida: 0 = todo OK, 1 = alguna prueba falló, 2 = faltan variables.
+ */
+
+/** URL pública del frontend (Vercel), sin barra final. */
 const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+/** URL pública del backend (Render), sin barra final. */
 const API_URL = (process.env.API_URL || '').replace(/\/$/, '');
-const TIMEOUT_MS = 60_000; // Render free puede tardar en despertar
+/** Tiempo máximo por petición (ms); Render free puede tardar en despertar. */
+const TIMEOUT_MS = 60_000;
 
 if (!FRONTEND_URL || !API_URL) {
   console.error('Define FRONTEND_URL y API_URL');
   process.exit(2);
 }
 
+/**
+ * GET con timeout.
+ * @param {string} url URL a consultar.
+ * @param {Record<string, string>} [headers] Cabeceras opcionales.
+ * @returns {Promise<Response>}
+ */
 const get = (url, headers = {}) =>
   fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+/**
+ * Lanza un error si la condición es falsa.
+ * @param {unknown} cond Condición a verificar.
+ * @param {string} msg Mensaje del error.
+ * @returns {void}
+ */
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
 
+/** Cantidad de pruebas fallidas. */
 let failed = 0;
+
+/**
+ * Ejecuta una prueba, imprime ✅/❌ y acumula los fallos.
+ * @param {string} name Descripción de la prueba.
+ * @param {() => Promise<void>} fn Prueba (lanza si falla).
+ * @returns {Promise<void>}
+ */
 async function check(name, fn) {
   try {
     await fn();
