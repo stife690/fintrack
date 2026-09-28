@@ -2,6 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from './app.js';
 
+/**
+ * Levanta la app en un puerto libre, ejecuta `fn` y cierra el servidor.
+ *
+ * @param {(baseUrl: string) => Promise<void>} fn Prueba que recibe la URL base (`http://127.0.0.1:<puerto>`).
+ * @returns {Promise<void>}
+ */
 async function withServer(fn) {
   const server = createApp().listen(0);
   try {
