@@ -1,0 +1,6 @@
+body { margin: 0; font-family: system-ui, sans-serif; background: #f1f5f9; color: #0f172a; }
+.card { max-width: 480px; margin: 2rem auto; padding: 1.5rem; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.08); }
+h1 { margin-top: 0; color: #0f766e; }
+pre { background: #f8fafc; padding: 0.75rem; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; }
+.ok { color: #15803d; }
+.error { color: #b91c1c; }
