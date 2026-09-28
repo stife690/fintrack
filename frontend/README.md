@@ -2,24 +2,28 @@
 
 PWA *offline-first* de FinTrack: registro de gastos, categorización y visualización de insights.
 
-> **Estado:** pendiente. Esta carpeta está reservada para el código del frontend (a cargo del Integrante 1).
+> **Estado:** hello world (FT-0010). Pantalla mínima que consulta `GET /health` del backend para validar el despliegue de punta a punta. Manifest, íconos y service worker llegan con `vite-plugin-pwa` (a cargo del Integrante 1).
 
-## Stack previsto
+## Stack
 
 - **Vite + React**
-- **vite-plugin-pwa** (instalable y funcionamiento offline)
-- **Dexie.js** (almacenamiento local en IndexedDB)
+- **vite-plugin-pwa** *(pendiente)* · **Dexie.js** *(pendiente)*
 
-## Cómo subir el código aquí
-
-Trabajar en una rama propia e integrar con Pull Request:
+## Levantar en local
 
 ```bash
-git checkout -b feat/frontend-base
-# copiar el proyecto dentro de frontend/
-git add frontend
-git commit -m "feat: agregar frontend base (Vite + React PWA)"
-git push -u origin feat/frontend-base
+cd frontend
+cp .env.example .env    # VITE_API_URL apunta al backend
+npm install
+npm run dev             # http://localhost:5173
 ```
 
-Luego abrir la Pull Request en GitHub para que la revise otro integrante.
+## Variables de entorno
+
+| Variable | Descripción |
+|---|---|
+| `VITE_API_URL` | URL pública del backend, sin barra final. En Vercel se define en *Settings → Environment Variables*. |
+
+## Despliegue (Vercel)
+
+Importar el repo con **Root Directory = `frontend`**. `vercel.json` ya define el build (`npm run build` → `dist`) y la reescritura a `index.html`.
