@@ -7,14 +7,15 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "test": "node --test"
+    "dev": "node --env-file=.env --watch src/server.js",
+    "test": "node --env-file-if-exists=.env --test"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   }
 }
