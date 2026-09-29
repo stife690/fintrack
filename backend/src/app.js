@@ -3,11 +3,13 @@ import cors from 'cors';
 import { env } from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
 import { notFound } from './middlewares/not-found.middleware.js';
+import { errorHandler } from './middlewares/error.middleware.js';
 
 /**
  * Crea y configura la aplicación Express de FinTrack (sin iniciar el servidor).
  *
- * Registra, en orden: CORS, parser JSON, rutas de la API y el manejador 404.
+ * Registra, en orden: CORS, parser JSON, rutas de la API, el manejador 404
+ * y el manejador central de errores.
  * Se separa de `server.js` para poder probarla sin abrir un puerto fijo.
  *
  * @returns {import('express').Express} Aplicación Express lista para `listen()`.
@@ -20,6 +22,7 @@ export function createApp() {
   app.use(express.json());
   app.use(healthRoutes);
   app.use(notFound);
+  app.use(errorHandler);
 
   return app;
 }
