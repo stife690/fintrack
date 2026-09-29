@@ -16,13 +16,16 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
 
 /**
  * Configuración del backend.
- * @type {{ port: number, nodeEnv: string, corsOrigins: string[] }}
+ * @type {{ port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined }}
  * @property {number} port Puerto HTTP (`PORT`, por defecto 3000).
  * @property {string} nodeEnv Entorno de ejecución (`NODE_ENV`, por defecto "development").
  * @property {string[]} corsOrigins Orígenes permitidos por CORS.
+ * @property {string|undefined} databaseUrl Cadena de conexion a PostgreSQL (`DATABASE_URL`).
  */
 export const env = {
   port: Number(process.env.PORT) || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigins,
+  databaseUrl: process.env.DATABASE_URL,
 };
+

@@ -1,6 +1,10 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from './app.js';
+import { pool } from './config/db.js';
+
+// Cierra las conexiones a PostgreSQL al terminar todas las pruebas.
+after(() => pool.end());
 
 /**
  * Levanta la app en un puerto libre, ejecuta `fn` y cierra el servidor.
@@ -23,6 +27,7 @@ test('GET /health responde 200 con status ok', async () => {
     const body = await res.json();
     assert.equal(res.status, 200);
     assert.equal(body.status, 'ok');
+    assert.equal(body.database, 'up');
   });
 });
 
