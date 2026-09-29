@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/*
+ * Línea gráfica de FinTrack, basada en la plantilla Revio (Lovable):
+ * negro obsidiana + acento violeta, Inter Tight, radios amplios y brillo violeta.
+ * Los tokens siguen la convención de shadcn/ui (background, primary, muted…).
+ */
+@theme {
+  --font-sans: 'Inter Tight Variable', system-ui, sans-serif;
+
+  --color-background: #ffffff;
+  --color-foreground: #141414;
+  --color-card: #f4f4f4;
+  --color-card-foreground: #323232;
+  --color-primary: #6142ff;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f4f4f4;
+  --color-secondary-foreground: #323232;
+  --color-muted: #bebebe;
+  --color-muted-foreground: #6e6e6e;
+  --color-accent: #6142ff;
+  --color-accent-foreground: #ffffff;
+  --color-border: #e6e6e6;
+  --color-input: #323232;
+  --color-ring: #6142ff;
+  --color-destructive: #f04438;
+
+  --color-obsidian: #141414;
+  --color-violet: #6142ff;
+  --color-violet-light: #8b66ff;
+  --color-orchid: #d8a0df;
+  --color-pink: #f6e2f8;
+  --color-mint: #ccfff0;
+  --color-success: #2fd6a3;
+
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+
+  --shadow-violet-glow: 0 0 60px rgba(97, 66, 255, 0.3);
+  --shadow-card: 0 4px 24px rgba(20, 20, 20, 0.08);
+  --shadow-elevated: 0 20px 60px rgba(20, 20, 20, 0.15);
+
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-violet text-white;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-violet;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .animate-float {
+      animation: none;
+    }
+  }
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8;
+}
+
+@utility bg-gradient-violet {
+  background-image: linear-gradient(135deg, #6142ff, #8b66ff);
+}
+
+@utility bg-glass {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(12px);
+}
