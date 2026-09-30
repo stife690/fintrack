@@ -106,6 +106,7 @@ Reglas:
 | Variable | Obligatoria | Ejemplo | Descripción |
 |---|---|---|---|
 | `DATABASE_URL` | Sí | `postgresql://fintrack:fintrack_dev@localhost:5434/fintrack` | Cadena de conexión a PostgreSQL. En producción la entrega el proveedor (Render, Neon, Supabase). |
+| `DB_POOL_MAX` | No | `10` | Máximo de conexiones simultáneas del pool. En producción debe quedar por debajo del límite de conexiones del plan de la BD. Por defecto 10. |
 | `PORT` | No | `3000` | Puerto HTTP. Render lo define automáticamente. |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Origen(es) permitidos del frontend, separados por coma y sin barra final. Vacío = cualquier origen (solo desarrollo). |
 | `NODE_ENV` | No | `production` | Entorno de ejecución. Por defecto `development`. |
