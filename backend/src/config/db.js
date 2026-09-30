@@ -7,7 +7,10 @@ import { env } from './env.js';
  * Solo la capa `repositories/` debe usarlo.
  */
 export const pool = new pg.Pool({
-  connectionString: env.databaseUrl,// Si la BD no responde en 5 s, falla en vez de esperar para siempre.
+  connectionString: env.databaseUrl,
+  // Máximo de conexiones simultáneas; debe quedar por debajo del límite del plan de la BD.
+  max: env.dbPoolMax,
+  // Si la BD no responde en 5 s, falla en vez de esperar para siempre.
   connectionTimeoutMillis: 5000,
 });
 
