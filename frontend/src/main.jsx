@@ -32,17 +32,29 @@ window.addEventListener('load', () => {
 });
 
 /**
+ * En desarrollo, MSW simula los endpoints que el backend aún no expone.
+ * Se desactiva con `VITE_API_MOCKS=false`. Nunca entra en el build de producción.
+ */
+async function enableMocking() {
+  if (!import.meta.env.DEV || import.meta.env.VITE_API_MOCKS === 'false') return;
+  const { worker } = await import('./mocks/browser');
+  await worker.start({ onUnhandledRequest: 'bypass' });
+}
+
+/**
  * Punto de entrada del frontend: monta `<App />` en `#root` con el router
  * y desactiva las animaciones si el sistema pide movimiento reducido.
  * La fuente se sirve desde el propio bundle (no Google Fonts) para que
  * el futuro service worker pueda precachearla y funcione sin conexión.
  */
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <MotionConfig reducedMotion="user">
-        <App />
-      </MotionConfig>
-    </BrowserRouter>
-  </StrictMode>,
+enableMocking().then(() =>
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <BrowserRouter>
+        <MotionConfig reducedMotion="user">
+          <App />
+        </MotionConfig>
+      </BrowserRouter>
+    </StrictMode>,
+  ),
 );
