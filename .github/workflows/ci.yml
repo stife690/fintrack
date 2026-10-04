@@ -1,0 +1,66 @@
+# Integración continua: se ejecuta en cada Pull Request y en cada push a main.
+# Solo verifica (tests y build); el despliegue lo hacen Render y Vercel desde main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancela la ejecución anterior de la misma rama si llega un push nuevo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # PostgreSQL de prueba, por si los tests usan la base de datos.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fintrack
+          POSTGRES_PASSWORD: fintrack_ci
+          POSTGRES_DB: fintrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintrack -d fintrack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://fintrack:fintrack_ci@localhost:5432/fintrack
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
