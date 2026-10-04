@@ -1,0 +1,45 @@
+# Entorno local de FinTrack: PostgreSQL + backend.
+# Solo para desarrollo; en producción se usan servicios gestionados (Render/Vercel).
+#
+# Uso:
+#   docker compose up -d db        # solo la base de datos (backend con `npm run dev`)
+#   docker compose up --build      # base de datos + backend en contenedores
+#   docker compose down            # apagar (conserva los datos)
+#   docker compose down -v         # apagar y borrar los datos
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: fintrack-db
+    environment:
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: fintrack_dev # solo desarrollo local
+      POSTGRES_DB: fintrack
+    ports:
+      # Puerto 5434 en tu máquina para no chocar con un Postgres local en el 5432.
+      - "5434:5432"
+    volumes:
+      - fintrack-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintrack -d fintrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: fintrack-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      # Dentro de la red de Docker la BD se llama `db` y usa su puerto interno 5432.
+      DATABASE_URL: postgresql://fintrack:fintrack_dev@db:5432/fintrack
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3000:3000"
+
+volumes:
+  fintrack-db-data:
