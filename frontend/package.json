@@ -32,7 +32,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "msw": "^2.15.0",
     "tailwindcss": "^4.3.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^2.0.0"
   },
   "msw": {
     "workerDirectory": [
