@@ -2,7 +2,7 @@ import { env } from '../config/env.js';
 import { pingDatabase } from '../repositories/health.repository.js';
 
 /**
- * @typedef {Object} HealthStatus
+ * @typedef {object} HealthStatus
  * @property {'ok'|'error'} status Estado general del servicio.
  * @property {string} service Nombre del servicio.
  * @property {string} message Mensaje de bienvenida (hello world).
