@@ -1,4 +1,4 @@
-import { login, refresh, register } from '../services/auth.service.js';
+import { login, logout, refresh, register } from '../services/auth.service.js';
 import {
   parseCredentials,
   parseNewCredentials,
@@ -36,4 +36,15 @@ export async function postLogin(req, res) {
 export async function postRefresh(req, res) {
   const tokens = await refresh(parseRefreshToken(req.body));
   res.json(tokens);
+}
+
+/**
+ * `POST /api/v1/auth/logout`: revoca el refresh token de la sesión y responde 204.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postLogout(req, res) {
+  await logout({ userId: req.userId, refreshToken: parseRefreshToken(req.body) });
+  res.status(204).end();
 }

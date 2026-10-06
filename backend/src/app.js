@@ -3,6 +3,7 @@ import cors from 'cors';
 import { env } from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import usersRoutes from './routes/users.routes.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 
@@ -23,6 +24,7 @@ export function createApp() {
   app.use(express.json());
   app.use(healthRoutes);
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/users', usersRoutes);
   app.use(notFound);
   app.use(errorHandler);
 
