@@ -1,0 +1,659 @@
+openapi: 3.0.3
+info:
+  title: FinTrack API
+  description: >
+    PWA de control de gastos e ingresos con categorización e insights por IA,
+    presupuestos con alertas, sincronización offline y notificaciones push.
+    Contrato v2.0 (28/09/2026) — acompaña a Contrato_API_FinTrack.docx, que
+    es la referencia narrativa; este documento es la referencia ejecutable
+    para pruebas manuales durante la sustentación.
+  version: "2.0.0"
+  contact:
+    name: Equipo FinTrack
+servers:
+  - url: https://api.fintrack.app/api/v1
+    description: Producción (ejemplo)
+  - url: http://localhost:3000/api/v1
+    description: Desarrollo local
+
+tags:
+  - name: Auth
+    description: Registro, login, refresh y logout (F1)
+  - name: Health
+    description: Verificación de disponibilidad del servicio
+  - name: Users
+    description: Perfil y configuración del usuario
+  - name: Transactions
+    description: Registro y consulta de transacciones (F2, F3)
+  - name: Categories
+    description: Catálogo de categorías (fijo)
+  - name: Budgets
+    description: Presupuestos y alertas (F5, F6)
+  - name: Insights
+    description: Insights financieros generados por IA (F7)
+  - name: Sync
+    description: Sincronización offline (F8, F9)
+  - name: Push
+    description: Notificaciones push (F11)
+  - name: Reports
+    description: Exportación de reportes (F12)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Prueba de humo del despliegue
+      security: []
+      responses:
+        "200":
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registra un nuevo usuario
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 8 }
+      responses:
+        "201":
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: El correo ya existe (REQ-003)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Datos de registro inválidos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica y entrega access + refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Credenciales inválidas, sin indicar cuál campo falló (REQ-004)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          description: Demasiados intentos (rate limit anti fuerza bruta)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renueva el access token usando un refresh token vigente
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: Nuevo access token (y refresh token rotado)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        "401":
+          description: Refresh token inválido, revocado o expirado (TOKEN_EXPIRED)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoca el refresh token de la sesión actual
+      responses:
+        "204":
+          description: Sesión cerrada
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Perfil del usuario autenticado
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+
+  /users/me/reminder-settings:
+    get:
+      tags: [Users, Push]
+      summary: Consulta la configuración del recordatorio diario
+      responses:
+        "200":
+          description: Configuración actual
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReminderSettings" }
+    put:
+      tags: [Users, Push]
+      summary: Configura la hora y zona horaria del recordatorio diario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReminderSettings" }
+      responses:
+        "200":
+          description: Configuración actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReminderSettings" }
+        "422":
+          description: Hora o timezone inválida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: Lista transacciones del usuario autenticado (REQ-009)
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [ingreso, gasto] } }
+        - { name: category, in: query, schema: { type: string }, description: "key de la categoría" }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: Listado paginado, orden por fecha desc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Transaction" }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  total: { type: integer }
+    post:
+      tags: [Transactions]
+      summary: Registra una transacción; si category viene vacío, se envía a categorización IA (REQ-010/011)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, description, type, date]
+              properties:
+                amount: { type: number, format: double, minimum: 0.01 }
+                description: { type: string }
+                type: { type: string, enum: [ingreso, gasto] }
+                category: { type: string, nullable: true, description: "key de categoría; opcional" }
+                date: { type: string, format: date }
+      responses:
+        "201":
+          description: Transacción creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "422":
+          description: "amount <= 0 u otro campo inválido (REQ-007); incluye details"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /transactions/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [Transactions]
+      summary: Edita una transacción existente
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: number }
+                description: { type: string }
+                type: { type: string, enum: [ingreso, gasto] }
+                category: { type: string, nullable: true }
+                date: { type: string, format: date }
+      responses:
+        "200":
+          description: Transacción actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "404":
+          description: No existe o pertenece a otro usuario (RN-01)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [Transactions]
+      summary: Elimina (borrado lógico) una transacción
+      responses:
+        "204":
+          description: Eliminada
+        "404":
+          description: No existe o pertenece a otro usuario (RN-01)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /transactions/summary:
+    get:
+      tags: [Transactions]
+      summary: Resumen agregado por categoría y periodo (F4, REQ-013/014)
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [week, month, year] }, required: true }
+        - { name: date, in: query, schema: { type: string, format: date }, required: true }
+      responses:
+        "200":
+          description: Resumen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period: { type: string }
+                  totalIncome: { type: number }
+                  totalExpense: { type: number }
+                  byCategory:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category: { type: string }
+                        total: { type: number }
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Catálogo fijo de categorías, separado por tipo (RN-02)
+      responses:
+        "200":
+          description: Catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expense:
+                    type: array
+                    items: { $ref: "#/components/schemas/Category" }
+                  income:
+                    type: array
+                    items: { $ref: "#/components/schemas/Category" }
+
+  /budgets:
+    get:
+      tags: [Budgets]
+      summary: Lista presupuestos del periodo, con consumo y alerta
+      parameters:
+        - { name: month, in: query, schema: { type: string, example: "2026-09" } }
+      responses:
+        "200":
+          description: Listado de presupuestos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Budget" }
+    post:
+      tags: [Budgets]
+      summary: Crea un presupuesto por categoría/mes (solo categorías de gasto)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, month, amount]
+              properties:
+                category: { type: string }
+                month: { type: string, example: "2026-09" }
+                amount: { type: number }
+      responses:
+        "201":
+          description: Presupuesto creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Budget" }
+        "409":
+          description: Ya existe un presupuesto activo para esa categoría/mes (RN-03)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: category no es de tipo gasto, u otro dato inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /budgets/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [Budgets]
+      summary: Edita el monto de un presupuesto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number }
+      responses:
+        "200":
+          description: Presupuesto actualizado, con percentage recalculado (REQ-017)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Budget" }
+    delete:
+      tags: [Budgets]
+      summary: Elimina un presupuesto
+      responses:
+        "204":
+          description: Eliminado
+
+  /insights:
+    get:
+      tags: [Insights]
+      summary: Obtiene los insights del mes actual (los genera y cachea si no existen)
+      responses:
+        "200":
+          description: Insights del mes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  month: { type: string, example: "2026-09" }
+                  insights:
+                    type: array
+                    items: { $ref: "#/components/schemas/Insight" }
+        "422":
+          description: INSUFFICIENT_HISTORY — menos de un mes de historial
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: AI_UNAVAILABLE — el proveedor de IA no respondió
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /sync/batch:
+    post:
+      tags: [Sync]
+      summary: Sincroniza un lote de operaciones offline (creates, updates, deletes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operations]
+              properties:
+                lastSyncedAt: { type: string, format: date-time, nullable: true }
+                operations:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [op, localId]
+                    properties:
+                      op: { type: string, enum: [create, update, delete] }
+                      localId: { type: string }
+                      amount: { type: number }
+                      description: { type: string }
+                      type: { type: string, enum: [ingreso, gasto] }
+                      category: { type: string, nullable: true }
+                      date: { type: string, format: date }
+                      updatedAt: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Resultado de la sincronización
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        localId: { type: string }
+                        serverId: { type: string }
+                  conflicts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        localId: { type: string }
+                        resolution: { type: string, enum: [server_wins, client_wins] }
+                  serverChanges:
+                    type: array
+                    items: { $ref: "#/components/schemas/Transaction" }
+                  syncedAt: { type: string, format: date-time }
+
+  /push/vapid-public-key:
+    get:
+      tags: [Push]
+      summary: Clave pública VAPID para suscribir al navegador
+      responses:
+        "200":
+          description: Clave pública
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key: { type: string }
+
+  /push/subscribe:
+    post:
+      tags: [Push]
+      summary: Registra la suscripción push del navegador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscription]
+              properties:
+                subscription: { type: object }
+      responses:
+        "201":
+          description: Suscripción registrada
+    delete:
+      tags: [Push]
+      summary: Elimina la suscripción push del navegador actual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: { type: string }
+      responses:
+        "204":
+          description: Suscripción eliminada
+
+  /reports/export:
+    get:
+      tags: [Reports]
+      summary: Exporta transacciones o reporte del periodo
+      parameters:
+        - { name: format, in: query, required: true, schema: { type: string, enum: [csv, pdf] } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Archivo generado (Content-Disposition con nombre de archivo)
+          content:
+            text/csv: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        "422":
+          description: NO_DATA — no hay transacciones en el periodo (REQ-033)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: VALIDATION_ERROR }
+            message: { type: string }
+            details:
+              type: array
+              nullable: true
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  problem: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        timezone: { type: string, example: "America/Bogota" }
+        reminderTime: { type: string, nullable: true, example: "20:00" }
+
+    ReminderSettings:
+      type: object
+      properties:
+        time: { type: string, example: "20:00", nullable: true }
+        timezone: { type: string, example: "America/Bogota" }
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string, format: email }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+
+    Category:
+      type: object
+      properties:
+        key: { type: string, example: alimentacion }
+        name: { type: string, example: Alimentación }
+
+    Transaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        amount: { type: number }
+        description: { type: string }
+        type: { type: string, enum: [ingreso, gasto] }
+        category: { type: string, nullable: true, example: alimentacion }
+        source: { type: string, enum: [manual, ia, sin_clasificar] }
+        date: { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+
+    Budget:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        category: { type: string }
+        month: { type: string, example: "2026-09" }
+        amount: { type: number }
+        consumed: { type: number }
+        percentage: { type: number }
+        alert: { $ref: "#/components/schemas/Alert" }
+
+    Alert:
+      type: object
+      properties:
+        level: { type: string, enum: [none, warning_80, exceeded_100] }
+        percentage: { type: number }
+
+    Insight:
+      type: object
+      properties:
+        type: { type: string, example: saving_opportunity }
+        title: { type: string }
+        detail: { type: string }
