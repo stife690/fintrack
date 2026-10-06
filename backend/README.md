@@ -41,6 +41,7 @@ Regla: los controllers **no** escriben SQL. Siempre pasan por un service, y el s
 
 - [Node.js](https://nodejs.org/) 20 o superior (`node -v`)
 - [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (para PostgreSQL en local)
 
 ### Pasos
 
@@ -57,13 +58,32 @@ Regla: los controllers **no** escriben SQL. Siempre pasan por un service, y el s
    npm install
    ```
 
-3. Iniciar en modo desarrollo (se reinicia solo al guardar cambios):
+3. Levantar PostgreSQL con Docker (desde la **raíz** del repositorio, no desde `backend/`):
+
+   ```bash
+   cd ..
+   docker compose up -d db
+   cd backend
+   ```
+
+   La primera vez crea las 8 tablas del Modelo Relacional v2.0 y carga el catálogo de 15 categorías
+   (`db/init/`). Copiar `backend/.env.example` a `backend/.env` para usar la misma conexión.
+
+4. Iniciar en modo desarrollo (se reinicia solo al guardar cambios):
 
    ```bash
    npm run dev
    ```
 
-4. Abrir <http://localhost:3000>.
+5. Probar <http://localhost:3000/health>.
+
+### Todo en contenedores (opcional)
+
+```bash
+docker compose up --build    # PostgreSQL + backend en http://localhost:3000
+docker compose down          # apaga (conserva los datos)
+docker compose down -v       # apaga y borra los datos; el esquema se recrea al volver a levantar
+```
 
 ## Scripts
 
@@ -71,6 +91,7 @@ Regla: los controllers **no** escriben SQL. Siempre pasan por un service, y el s
 |---|---|
 | `npm run dev` | Inicia el servidor con `node --watch` (recarga automática). |
 | `npm start` | Inicia el servidor en modo normal (el que usa producción). |
+| `npm test` | Corre las pruebas (`node --test`). Es lo que ejecuta el CI. |
 
 ## Convenciones de la API
 
@@ -88,7 +109,8 @@ Regla: los controllers **no** escriben SQL. Siempre pasan por un service, y el s
 ## Próximamente
 
 - [ ] Variables de entorno (`.env` / `.env.example`)
-- [ ] Conexión a PostgreSQL (Docker en local)
+- [x] PostgreSQL en local con Docker (`docker compose up -d db`, esquema en `db/init/`)
+- [ ] Conexión del backend a PostgreSQL con `pg` (usa `DATABASE_URL`)
 - [x] `GET /health` (falta agregar la verificación de la base de datos)
 - [ ] Middleware central de errores
 - [x] CORS para el frontend (variable `CORS_ORIGIN`, ver `.env.example`)

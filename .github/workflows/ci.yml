@@ -1,0 +1,138 @@
+# Integración continua de FinTrack.
+# Se ejecuta en cada push a main y en cada Pull Request hacia main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Si se sube un commit nuevo a la misma rama, cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (tests + esquema SQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fintrack
+          POSTGRES_PASSWORD: fintrack_ci
+          POSTGRES_DB: fintrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintrack -d fintrack"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (si el proyecto define el script)
+        run: npm run lint --if-present
+
+      - name: Tests
+        run: npm test
+
+      - name: Validar que el esquema SQL se aplica sobre PostgreSQL
+        working-directory: .
+        env:
+          PGPASSWORD: fintrack_ci
+        run: |
+          for f in db/init/*.sql; do
+            echo "Aplicando $f"
+            psql -h localhost -U fintrack -d fintrack -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          tablas=$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from information_schema.tables where table_schema='public'")
+          categorias=$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from categorias")
+          echo "Tablas: $tablas — Categorías: $categorias"
+          test "$tablas" -eq 8
+          test "$categorias" -eq 15
+
+  docker:
+    name: Docker (imagen y compose)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar docker-compose.yml
+        run: docker compose config -q
+
+      - name: Construir la imagen del backend
+        run: docker build -t fintrack-backend:ci backend
+
+      - name: Probar la imagen (GET /health)
+        run: |
+          docker run -d --name fintrack-ci -p 3000:3000 fintrack-backend:ci
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:3000/health; then echo; exit 0; fi
+            sleep 1
+          done
+          docker logs fintrack-ci
+          exit 1
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # El frontend aún no existe (tarea de Integrante 1); estos pasos se activan solos
+      # cuando se suba frontend/package.json.
+      - name: Detectar frontend
+        id: detect
+        working-directory: .
+        run: |
+          if [ -f frontend/package.json ] && [ -f frontend/package-lock.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "frontend/package.json o package-lock.json aún no existen: se omite el job."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        if: steps.detect.outputs.present == 'true'
+        run: npm ci
+
+      - name: Lint (si existe el script)
+        if: steps.detect.outputs.present == 'true'
+        run: npm run lint --if-present
+
+      - name: Tests (si existe el script)
+        if: steps.detect.outputs.present == 'true'
+        run: npm test --if-present
+
+      - name: Build
+        if: steps.detect.outputs.present == 'true'
+        run: npm run build --if-present
