@@ -30,3 +30,7 @@
 | `FRONTEND_URL`, `API_URL` | `scripts/smoke-test.mjs` | URLs a verificar tras un despliegue | — |
 
 Entorno local: [docs/entorno-local.md](docs/entorno-local.md). Despliegue: [docs/despliegue.md](docs/despliegue.md).
+
+## Calidad de código
+
+En `backend/`: `npm run lint` (ESLint + reglas JSDoc, obligatorio en CI), `npm run format` (Prettier) y `npm run format:check`. El editor debe respetar `.editorconfig` (LF, 2 espacios).
