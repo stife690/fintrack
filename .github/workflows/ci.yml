@@ -48,6 +48,16 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm test
+      - name: Validar que el esquema SQL se aplica sobre PostgreSQL
+        working-directory: .
+        env:
+          PGPASSWORD: fintrack_ci
+        run: |
+          for f in db/init/*.sql; do
+            psql -h localhost -U fintrack -d fintrack -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          test "$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from information_schema.tables where table_schema='public'")" -eq 8
+          test "$(psql -h localhost -U fintrack -d fintrack -Atc 'select count(*) from categorias')" -eq 15
 
   frontend:
     name: Frontend (build)

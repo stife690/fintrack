@@ -20,6 +20,8 @@ services:
       - "5434:5432"
     volumes:
       - fintrack-db-data:/var/lib/postgresql/data
+      # Esquema y catálogo de categorías: se ejecutan solo cuando el volumen está vacío.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fintrack -d fintrack"]
       interval: 5s
