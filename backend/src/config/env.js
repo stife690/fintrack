@@ -24,7 +24,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
 
 /**
  * Configuración del backend.
- * @type {{ port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number }}
+ * @type {{ port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, trustProxy: number }}
  * @property {number} port Puerto HTTP (`PORT`, por defecto 3000).
  * @property {string} nodeEnv Entorno de ejecución (`NODE_ENV`, por defecto "development").
  * @property {string[]} corsOrigins Orígenes permitidos por CORS.
@@ -33,6 +33,8 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string} jwtSecret Secreto que firma los access tokens (`JWT_SECRET`; obligatorio en producción).
  * @property {string} accessTokenTtl Duración del access token (`ACCESS_TOKEN_TTL`, por defecto "15m").
  * @property {number} refreshTokenTtlDays Días de vida del refresh token (`REFRESH_TOKEN_TTL_DAYS`, por defecto 30).
+ * @property {number} authRateLimitMax Intentos de login/registro por IP cada 15 min (`AUTH_RATE_LIMIT_MAX`, por defecto 20).
+ * @property {number} trustProxy Cantidad de proxies delante del servidor (`TRUST_PROXY`, por defecto 0).
  */
 export const env = {
   port: Number(process.env.PORT) || 3000,
@@ -43,4 +45,6 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || 'secreto-solo-para-desarrollo-local',
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL || '15m',
   refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 30,
+  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+  trustProxy: Number(process.env.TRUST_PROXY) || 0,
 };
