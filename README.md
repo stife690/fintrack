@@ -19,6 +19,7 @@ Frontend (PWA, React)  →  Backend (API REST, Express)  →  PostgreSQL
 | Carpeta | Contenido |
 |---|---|
 | [`backend/`](backend/) | API REST en Node.js + Express. Ver [backend/README.md](backend/README.md). |
+| [`docs/api/`](docs/api/) | Contrato de la API (OpenAPI) y convenciones de errores. |
 | `frontend/` | PWA en Vite + React *(pendiente)*. |
 
 ## Flujo de trabajo
@@ -26,3 +27,5 @@ Frontend (PWA, React)  →  Backend (API REST, Express)  →  PostgreSQL
 - La rama `main` es la versión estable. Se trabaja en ramas propias y se integra con Pull Request.
 - Toda PR la revisa un integrante distinto al autor.
 - Los secretos (`.env`) nunca se suben al repositorio.
+
+Ver la [guía de contribución](CONTRIBUTING.md).
