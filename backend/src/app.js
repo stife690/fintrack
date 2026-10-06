@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 
@@ -21,6 +22,7 @@ export function createApp() {
   app.use(cors({ origin: env.corsOrigins.length ? env.corsOrigins : true }));
   app.use(express.json());
   app.use(healthRoutes);
+  app.use('/api/v1/auth', authRoutes);
   app.use(notFound);
   app.use(errorHandler);
 
