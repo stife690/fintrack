@@ -5,6 +5,7 @@ import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
+import transactionsRoutes from './routes/transactions.routes.js';
 import { createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -32,6 +33,7 @@ export function createApp() {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/categories', categoriesRoutes);
+  app.use('/api/v1/transactions', transactionsRoutes);
   app.use(notFound);
   app.use(errorHandler);
 
