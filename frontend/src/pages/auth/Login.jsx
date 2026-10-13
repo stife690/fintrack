@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import AuthLayout from '@/components/auth/AuthLayout';
 import FormField from '@/components/auth/FormField';
 import PasswordInput from '@/components/auth/PasswordInput';
@@ -13,16 +13,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
 import { loginSchema } from '@/lib/validation/auth';
-import { login } from '@/services/authService';
+import { useAuth } from '@/auth/AuthContext';
 
 /**
- * Pantalla de inicio de sesión. Valida en el cliente (zod) y llama a `authService.login`,
- * que por ahora es simulado. Si viene del registro, precarga el correo.
+ * Pantalla de inicio de sesión. Valida en el cliente (zod), inicia la sesión con `signIn`
+ * (AuthContext) y lleva a la página que el usuario pidió, o a `/app`.
+ * Si viene del registro, precarga el correo.
  */
 export default function Login() {
   usePageTitle('Iniciar sesión');
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const { user, signIn } = useAuth();
   const [serverError, setServerError] = useState('');
 
   const {
@@ -38,27 +40,16 @@ export default function Login() {
   const onSubmit = async (values) => {
     setServerError('');
     try {
-      const { user: loggedUser } = await login(values);
-      setUser(loggedUser);
+      await signIn(values);
+      navigate(location.state?.from ?? '/app', { replace: true });
     } catch (err) {
       setServerError(err.message || 'No pudimos iniciar sesión. Inténtalo de nuevo.');
     }
   };
 
+  // Si ya hay sesión, no tiene sentido mostrar el formulario.
   if (user) {
-    return (
-      <AuthLayout title="¡Hola de nuevo!" subtitle={`Iniciaste sesión como ${user.email}.`}>
-        <div className="space-y-6 rounded-3xl border border-white/10 bg-glass p-6 text-center" role="status">
-          <CheckCircle2 className="mx-auto size-12 text-success" aria-hidden="true" />
-          <p className="text-white/70">
-            Este inicio de sesión es una simulación: la autenticación real se conectará cuando la API esté lista.
-          </p>
-          <Button asChild size="lg" className="w-full">
-            <Link to="/">Ir al inicio</Link>
-          </Button>
-        </div>
-      </AuthLayout>
-    );
+    return <Navigate to="/app" replace />;
   }
 
   return (

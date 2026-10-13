@@ -2,11 +2,13 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import Home from '@/pages/Home';
 import ErrorBoundary, { hasChunkFailed } from '@/components/common/ErrorBoundary';
+import ProtectedRoute from '@/auth/ProtectedRoute';
 
 // Code splitting por ruta: login/registro/404 se descargan solo al visitarlas.
 const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
 function ScrollToTop() {
@@ -36,7 +38,7 @@ function RouteFallback() {
 
 /**
  * Rutas del frontend:
- * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `*` 404.
+ * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `/app` zona privada · `*` 404.
  */
 export default function App() {
   const { pathname } = useLocation();
@@ -51,6 +53,9 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Register />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/app" element={<Dashboard />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
