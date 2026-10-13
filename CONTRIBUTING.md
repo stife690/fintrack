@@ -28,7 +28,7 @@
 | `CORS_ORIGIN` | backend | Orígenes permitidos, separados por coma y sin barra final | cualquiera (solo local) |
 | `DATABASE_URL` | backend | Cadena de conexión a PostgreSQL | ver `docs/entorno-local.md` |
 | `AI_PROVIDER`, `AI_API_KEY` | backend | Proveedor de IA (`gemini` por defecto o `anthropic`) y clave personal. Sin clave, las transacciones sin categoría quedan "Sin clasificar" | `gemini`, — |
-| `AI_MODEL`, `AI_API_URL`, `AI_TIMEOUT_MS` | backend | Modelo, endpoint propio y espera máxima (ms) | `gemini-flash-latest`, oficial, 8000 |
+| `AI_MODEL`, `AI_API_URL`, `AI_TIMEOUT_MS` | backend | Modelo, endpoint propio y espera máxima (ms) | `gemini-flash-lite-latest`, oficial, 8000 |
 | `FRONTEND_URL`, `API_URL` | `scripts/smoke-test.mjs` | URLs a verificar tras un despliegue | — |
 
 Entorno local: [docs/entorno-local.md](docs/entorno-local.md). Despliegue: [docs/despliegue.md](docs/despliegue.md).

@@ -61,9 +61,14 @@ export function createCategorizer(deps = {}) {
     }
 
     const key = normalizeKey(answer);
-    return keys.has(key)
-      ? { category: key, source: 'ia' }
-      : { category: null, source: 'sin_clasificar' };
+    if (!keys.has(key)) {
+      // Ayuda a diagnosticar: la IA respondió, pero no con una clave del catálogo.
+      console.warn(
+        `La IA respondió "${answer.trim().slice(0, 60)}", que no es una categoría de tipo ${type}`,
+      );
+      return { category: null, source: 'sin_clasificar' };
+    }
+    return { category: key, source: 'ia' };
   }
 
   /**
