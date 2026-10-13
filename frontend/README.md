@@ -2,7 +2,7 @@
 
 PWA *offline-first* de FinTrack: registro de gastos, categorización y visualización de insights.
 
-> **Estado (Sprint 1):** landing, inicio de sesión y registro, con los endpoints de autenticación simulados por MSW mientras el backend los expone. La base PWA (service worker y precache) ya está configurada; los íconos, colores y la pantalla de carga del manifest llegan con la tarea de manifest de FT-0010.
+> **Estado (Sprint 1):** landing, inicio de sesión y registro, con los endpoints de autenticación simulados por MSW mientras el backend los expone. La PWA es instalable: service worker con precache, manifest (nombre, colores, íconos normales y *maskable*) y pantallas de carga para iOS en `public/splash/`. En Android la pantalla de carga sale del manifest (fondo negro, nombre e ícono de 512 px).
 
 ## Stack
 
