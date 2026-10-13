@@ -112,25 +112,48 @@ test('cliente de IA: sin API key responde AI_UNAVAILABLE', async () => {
   }
 });
 
-test('cliente de IA: devuelve el texto y envía la clave en la cabecera', async (t) => {
-  const previous = env.aiApiKey;
+test('cliente de IA (Gemini): envía la clave en cabecera y lee el texto', async (t) => {
+  const previous = { key: env.aiApiKey, provider: env.aiProvider };
   env.aiApiKey = 'clave-de-prueba';
+  env.aiProvider = 'gemini';
   let sent;
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     sent = { url, init };
-    return Response.json({ content: [{ type: 'text', text: 'alimentacion' }] });
+    return Response.json({ candidates: [{ content: { parts: [{ text: 'alimentacion' }] } }] });
   });
   try {
     assert.equal(await completeText({ system: 's', prompt: 'p' }), 'alimentacion');
+    assert.equal(sent.init.headers['x-goog-api-key'], 'clave-de-prueba');
+    assert.doesNotMatch(sent.url, /clave-de-prueba/);
+    assert.match(sent.url, /generativelanguage\.googleapis\.com/);
+  } finally {
+    env.aiApiKey = previous.key;
+    env.aiProvider = previous.provider;
+  }
+});
+
+test('cliente de IA (Anthropic): usa su formato cuando AI_PROVIDER=anthropic', async (t) => {
+  const previous = { key: env.aiApiKey, provider: env.aiProvider };
+  env.aiApiKey = 'clave-de-prueba';
+  env.aiProvider = 'anthropic';
+  let sent;
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    sent = { url, init };
+    return Response.json({ content: [{ type: 'text', text: 'transporte' }] });
+  });
+  try {
+    assert.equal(await completeText({ system: 's', prompt: 'p' }), 'transporte');
     assert.equal(sent.init.headers['x-api-key'], 'clave-de-prueba');
   } finally {
-    env.aiApiKey = previous;
+    env.aiApiKey = previous.key;
+    env.aiProvider = previous.provider;
   }
 });
 
 test('cliente de IA: error HTTP, red caída y respuesta rara dan AI_UNAVAILABLE', async (t) => {
   const previous = env.aiApiKey;
   env.aiApiKey = 'clave-de-prueba';
+  env.aiProvider = 'gemini';
   t.mock.method(console, 'error', () => {});
   const isUnavailable = (err) => err.code === 'AI_UNAVAILABLE';
   try {
@@ -144,7 +167,7 @@ test('cliente de IA: error HTTP, red caída y respuesta rara dan AI_UNAVAILABLE'
       async () => {
         throw new TypeError('network');
       },
-      async () => Response.json({ content: [] }),
+      async () => Response.json({ candidates: [] }),
     ]) {
       fetchMock.mock.mockImplementation(behavior);
       await assert.rejects(() => completeText({ system: 's', prompt: 'p' }), isUnavailable);
