@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import '@fontsource-variable/inter-tight';
 import App from './App.jsx';
+import { AuthProvider } from './auth/AuthContext.jsx';
 import './index.css';
 
 /*
@@ -51,9 +52,11 @@ enableMocking().then(() =>
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <BrowserRouter>
-        <MotionConfig reducedMotion="user">
-          <App />
-        </MotionConfig>
+        <AuthProvider>
+          <MotionConfig reducedMotion="user">
+            <App />
+          </MotionConfig>
+        </AuthProvider>
       </BrowserRouter>
     </StrictMode>,
   ),
