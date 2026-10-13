@@ -150,8 +150,10 @@ export default function Transactions() {
         </Button>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-8 px-4 pb-16 lg:grid-cols-[380px_1fr]">
-        <section aria-labelledby="form-title" className="h-fit rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      {/* grid-cols-1 fija una columna que no crece con el contenido (los campos de fecha nativos
+          de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
+      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 pb-16 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <section aria-labelledby="form-title" className="h-fit min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <h1 id="form-title" className="mb-5 text-xl font-semibold tracking-tight">
             {editing ? 'Editar transacción' : 'Registrar transacción'}
           </h1>
@@ -163,13 +165,13 @@ export default function Transactions() {
           />
         </section>
 
-        <section aria-labelledby="list-title" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <section aria-labelledby="list-title" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <h2 id="list-title" className="text-xl font-semibold tracking-tight">
             Mis transacciones
           </h2>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="f-type">Tipo</Label>
               <Select id="f-type" value={filters.type} onChange={(e) => changeFilter('type', e.target.value)}>
                 <option value="">Todos</option>
@@ -177,7 +179,7 @@ export default function Transactions() {
                 <option value="ingreso">Ingresos</option>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="f-category">Categoría</Label>
               <Select id="f-category" value={filters.category} onChange={(e) => changeFilter('category', e.target.value)}>
                 <option value="">Todas</option>
@@ -188,11 +190,11 @@ export default function Transactions() {
                 ))}
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="f-from">Desde</Label>
               <Input id="f-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => changeFilter('from', e.target.value)} />
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="f-to">Hasta</Label>
               <Input id="f-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(e) => changeFilter('to', e.target.value)} />
             </div>
