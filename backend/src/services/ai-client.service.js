@@ -13,11 +13,9 @@ function aiUnavailable() {
  * @returns {{ url: string, headers: Record<string, string>, body: object, readText: (data: object) => unknown }}
  */
 function buildGeminiRequest({ system, prompt, maxTokens }) {
-  const generationConfig = { maxOutputTokens: maxTokens, temperature: 0 };
-  // Los modelos "flash" permiten desactivar el razonamiento, que si no consume los tokens de salida.
-  if (env.aiModel.includes('flash')) {
-    generationConfig.thinkingConfig = { thinkingBudget: 0 };
-  }
+  // Margen de sobra para modelos que razonan antes de responder. No se envía `thinkingConfig`:
+  // los modelos "lite" lo rechazan con 400 y su formato cambia entre versiones.
+  const generationConfig = { maxOutputTokens: Math.max(maxTokens, 256), temperature: 0 };
   return {
     url:
       env.aiApiUrl ??
