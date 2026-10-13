@@ -63,6 +63,7 @@ function buildAnthropicRequest({ system, prompt, maxTokens }) {
  */
 export async function completeText({ system, prompt, maxTokens = 64 }) {
   if (!env.aiApiKey) {
+    console.error('IA desactivada: falta AI_API_KEY en backend/.env');
     throw aiUnavailable();
   }
 
@@ -83,7 +84,13 @@ export async function completeText({ system, prompt, maxTokens = 64 }) {
   }
 
   if (!response.ok) {
-    console.error('El proveedor de IA respondió con estado', response.status);
+    // El motivo que devuelve el proveedor (cuota, facturación, modelo inexistente...) ayuda a
+    // diagnosticar. Es un texto de Google, no contiene la clave ni datos del usuario.
+    const reason = await response
+      .json()
+      .then((data) => data?.error?.message)
+      .catch(() => undefined);
+    console.error('El proveedor de IA respondió con estado', response.status, reason ?? '');
     throw aiUnavailable();
   }
 
