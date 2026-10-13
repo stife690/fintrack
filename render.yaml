@@ -12,3 +12,11 @@ services:
         value: 20
       - key: CORS_ORIGIN
         sync: false # pegar la URL de Vercel en el dashboard de Render
+      - key: JWT_SECRET
+        generateValue: true # Render genera un secreto aleatorio
+      - key: DATABASE_URL
+        sync: false # Supabase → Session pooler, con ?sslmode=no-verify
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_API_KEY
+        sync: false # clave de Google AI Studio; se pega en el dashboard
