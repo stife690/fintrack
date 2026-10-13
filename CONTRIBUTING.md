@@ -27,6 +27,8 @@
 | `NODE_ENV` | backend | `development` / `production` (en producción no se exponen mensajes de errores internos) | `development` |
 | `CORS_ORIGIN` | backend | Orígenes permitidos, separados por coma y sin barra final | cualquiera (solo local) |
 | `DATABASE_URL` | backend | Cadena de conexión a PostgreSQL | ver `docs/entorno-local.md` |
+| `AI_API_KEY` | backend | Clave personal del proveedor de IA. Sin ella, las transacciones sin categoría quedan "Sin clasificar" | — |
+| `AI_MODEL`, `AI_API_URL`, `AI_TIMEOUT_MS` | backend | Modelo, endpoint y espera máxima (ms) del proveedor de IA | Claude Haiku 4.5, API de Anthropic, 8000 |
 | `FRONTEND_URL`, `API_URL` | `scripts/smoke-test.mjs` | URLs a verificar tras un despliegue | — |
 
 Entorno local: [docs/entorno-local.md](docs/entorno-local.md). Despliegue: [docs/despliegue.md](docs/despliegue.md).

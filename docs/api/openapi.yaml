@@ -342,6 +342,40 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/Category" }
 
+  /categories/suggest:
+    post:
+      tags: [Categories]
+      summary: Sugiere con IA la categoría de una descripción (REQ-010/011)
+      description: >
+        Solo se envía al proveedor de IA la descripción y las claves del catálogo.
+        Siempre responde 200; si la IA no responde o devuelve algo fuera del catálogo,
+        `category` es null y `source` es `sin_clasificar`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description, type]
+              properties:
+                description: { type: string, maxLength: 200 }
+                type: { type: string, enum: [ingreso, gasto] }
+      responses:
+        "200":
+          description: Categoría sugerida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category: { type: string, nullable: true, example: alimentacion }
+                  source: { type: string, enum: [ia, sin_clasificar] }
+        "422":
+          description: Descripción vacía o tipo inválido (incluye details)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /budgets:
     get:
       tags: [Budgets]
