@@ -2,7 +2,7 @@ import { http, HttpResponse, delay } from 'msw';
 import { API_V1 } from '@/lib/api';
 
 /**
- * Handlers de MSW que simulan los endpoints de auth mientras el backend no los expone.
+ * Handlers de MSW que simulan auth, categorías y transacciones mientras se desarrolla sin backend.
  * Siguen `fintrack-openapi.yaml` (v2.0.1): rutas bajo `/api/v1`, errores con la forma
  * `{ error: { code, message, details? } }` y `AuthResponse` con tokens.
  * Los usuarios y sesiones viven en memoria: se reinician al recargar la página.
@@ -66,6 +66,84 @@ function authUser(request) {
   return email ? users.get(email) : null;
 }
 
+/** Catálogo cerrado de categorías (mismas claves que `db/init/02_seed_categorias.sql`). */
+const CATALOG = [
+  ['alimentacion', 'Alimentación', 'gasto'],
+  ['transporte', 'Transporte', 'gasto'],
+  ['vivienda', 'Vivienda', 'gasto'],
+  ['servicios_publicos', 'Servicios públicos', 'gasto'],
+  ['salud', 'Salud', 'gasto'],
+  ['educacion', 'Educación', 'gasto'],
+  ['entretenimiento', 'Entretenimiento', 'gasto'],
+  ['ropa_accesorios', 'Ropa y accesorios', 'gasto'],
+  ['tecnologia', 'Tecnología', 'gasto'],
+  ['ahorro_inversion', 'Ahorro/Inversión', 'gasto'],
+  ['otros', 'Otros', 'gasto'],
+  ['salario', 'Salario', 'ingreso'],
+  ['freelance', 'Freelance', 'ingreso'],
+  ['inversion_rendimientos', 'Inversión y rendimientos', 'ingreso'],
+  ['otros_ingresos', 'Otros ingresos', 'ingreso'],
+].map(([key, name, type]) => ({ key, name, type }));
+
+/** Palabras que el mock usa en lugar de la IA para sugerir una categoría. */
+const KEYWORDS = {
+  alimentacion: /almuerzo|cena|desayuno|restaurante|mercado|comida|caf[eé]|super/i,
+  transporte: /taxi|uber|bus|gasolina|metro|transporte|peaje/i,
+  vivienda: /arriendo|alquiler|hipoteca|vivienda/i,
+  servicios_publicos: /luz|agua|internet|gas natural|energ[ií]a|tel[eé]fono/i,
+  salud: /m[eé]dico|farmacia|salud|droguer[ií]a/i,
+  educacion: /curso|matr[ií]cula|universidad|libro/i,
+  entretenimiento: /cine|netflix|spotify|concierto|juego/i,
+  salario: /n[oó]mina|salario|sueldo/i,
+  freelance: /freelance|proyecto|honorarios/i,
+};
+
+/** user id → transacciones (en memoria, como los usuarios). */
+const transactions = new Map();
+
+/** Sugerencia del mock: la primera categoría del tipo cuyo patrón coincide, o `null`. */
+function mockSuggest(description, type) {
+  const match = CATALOG.find((c) => c.type === type && KEYWORDS[c.key]?.test(description));
+  return match ? match.key : null;
+}
+
+/** Valida el cuerpo de crear/editar como lo hace la API (422 con `details`). */
+function checkTransaction(body, { partial }) {
+  const details = [];
+  const has = (f) => body && f in body;
+  if ((!partial || has('amount')) && !(typeof body?.amount === 'number' && body.amount > 0)) {
+    details.push({ field: 'amount', problem: 'Debe ser un número mayor que 0' });
+  }
+  if ((!partial || has('description')) && !(typeof body?.description === 'string' && body.description.trim())) {
+    details.push({ field: 'description', problem: 'Es obligatoria' });
+  }
+  if ((!partial || has('type')) && !['ingreso', 'gasto'].includes(body?.type)) {
+    details.push({ field: 'type', problem: 'Debe ser "ingreso" o "gasto"' });
+  }
+  if ((!partial || has('date')) && !/^\d{4}-\d{2}-\d{2}$/.test(body?.date ?? '')) {
+    details.push({ field: 'date', problem: 'Debe ser una fecha válida AAAA-MM-DD' });
+  }
+  return details.length ? error(422, 'VALIDATION_ERROR', 'Datos inválidos', details) : null;
+}
+
+/** Comprueba que la categoría exista y sea del tipo indicado. */
+function checkCategory(key, type) {
+  const found = CATALOG.find((c) => c.key === key);
+  if (found && found.type === type) return null;
+  return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+    { field: 'category', problem: `No es una categoría de ${type} del catálogo` },
+  ]);
+}
+
+/** Decide categoría y origen: la del usuario o la que "sugiere la IA". */
+function resolve(category, description, type) {
+  if (category) return { category, source: 'manual' };
+  const suggested = mockSuggest(description, type);
+  return suggested
+    ? { category: suggested, source: 'ia' }
+    : { category: null, source: 'sin_clasificar' };
+}
+
 export const handlers = [
   http.post(`${API_V1}/auth/register`, async ({ request }) => {
     const body = await readJson(request);
@@ -113,5 +191,102 @@ export const handlers = [
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     return HttpResponse.json({ id: user.id, email: user.email, timezone: user.timezone });
+  }),
+
+  http.get(`${API_V1}/categories`, ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const pick = (type) => CATALOG.filter((c) => c.type === type).map(({ key, name }) => ({ key, name }));
+    return HttpResponse.json({ expense: pick('gasto'), income: pick('ingreso') });
+  }),
+
+  http.post(`${API_V1}/categories/suggest`, async ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    await delay(400);
+    const category = mockSuggest(body?.description ?? '', body?.type);
+    return HttpResponse.json({ category, source: category ? 'ia' : 'sin_clasificar' });
+  }),
+
+  http.get(`${API_V1}/transactions`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const q = new URL(request.url).searchParams;
+    const page = Number(q.get('page') ?? 1);
+    const pageSize = Number(q.get('pageSize') ?? 20);
+    const rows = (transactions.get(user.id) ?? [])
+      .filter((t) => (!q.get('type') || t.type === q.get('type')))
+      .filter((t) => (!q.get('category') || t.category === q.get('category')))
+      .filter((t) => (!q.get('from') || t.date >= q.get('from')))
+      .filter((t) => (!q.get('to') || t.date <= q.get('to')))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    return HttpResponse.json({
+      data: rows.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total: rows.length,
+    });
+  }),
+
+  http.post(`${API_V1}/transactions`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    await delay(500);
+    const invalid = checkTransaction(body, { partial: false });
+    if (invalid) return invalid;
+    if (body.category) {
+      const wrong = checkCategory(body.category, body.type);
+      if (wrong) return wrong;
+    }
+    const now = new Date().toISOString();
+    const transaction = {
+      id: crypto.randomUUID(),
+      userId: user.id,
+      amount: body.amount,
+      description: body.description.trim(),
+      type: body.type,
+      date: body.date,
+      ...resolve(body.category, body.description, body.type),
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    };
+    transactions.set(user.id, [transaction, ...(transactions.get(user.id) ?? [])]);
+    return HttpResponse.json(transaction, { status: 201 });
+  }),
+
+  http.put(`${API_V1}/transactions/:id`, async ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const current = (transactions.get(user.id) ?? []).find((t) => t.id === params.id);
+    if (!current) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
+    const body = await readJson(request);
+    await delay(400);
+    const invalid = checkTransaction(body, { partial: true });
+    if (invalid) return invalid;
+    const type = body.type ?? current.type;
+    const next = { ...current };
+    for (const field of ['amount', 'description', 'date']) if (field in body) next[field] = body[field];
+    next.type = type;
+    if ('category' in body || type !== current.type) {
+      const category = 'category' in body ? body.category : null;
+      if (category) {
+        const wrong = checkCategory(category, type);
+        if (wrong) return wrong;
+      }
+      Object.assign(next, resolve(category, next.description, type));
+    }
+    next.updatedAt = new Date().toISOString();
+    Object.assign(current, next);
+    return HttpResponse.json(current);
+  }),
+
+  http.delete(`${API_V1}/transactions/:id`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const list = transactions.get(user.id) ?? [];
+    if (!list.some((t) => t.id === params.id)) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
+    transactions.set(user.id, list.filter((t) => t.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

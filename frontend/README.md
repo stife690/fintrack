@@ -51,6 +51,8 @@ Vite incrusta estas variables en el build: si cambian, hay que volver a compilar
 | `/` | Landing |
 | `/login` | Inicio de sesión |
 | `/registro` | Crear cuenta |
+| `/app` | Zona privada (requiere sesión) |
+| `/app/transacciones` | Registrar, listar, filtrar, editar y eliminar transacciones; la categoría la sugiere la IA si no se elige |
 | `*` | 404 |
 
 ## Estructura
@@ -75,7 +77,7 @@ El alias `@` apunta a `src/`.
 
 ## Mocks de la API (MSW)
 
-Mientras el backend no expone los endpoints de autenticación, MSW los intercepta en el navegador y responde según `fintrack-openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
+En desarrollo, MSW intercepta en el navegador los endpoints de autenticación, categorías y transacciones y responde según `fintrack-openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
 
 - Solo arrancan en `npm run dev`; nunca entran en el build de producción.
 - Para probar contra el backend real, pon `VITE_API_MOCKS=false` en `.env` y reinicia el servidor de desarrollo.
