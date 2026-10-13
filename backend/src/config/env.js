@@ -15,7 +15,7 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean);
 
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
-const DEFAULT_MODELS = { gemini: 'gemini-flash-latest', anthropic: 'claude-haiku-4-5-20251001' };
+const DEFAULT_MODELS = { gemini: 'gemini-flash-lite-latest', anthropic: 'claude-haiku-4-5-20251001' };
 
 const aiProvider = process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : 'gemini';
 
