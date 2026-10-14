@@ -77,7 +77,7 @@ El alias `@` apunta a `src/`.
 
 ## Mocks de la API (MSW)
 
-En desarrollo, MSW intercepta en el navegador los endpoints de autenticación, categorías y transacciones y responde según `fintrack-openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
+En desarrollo, MSW intercepta en el navegador los endpoints de autenticación, categorías y transacciones y responde según `docs/api/openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
 
 - Solo arrancan en `npm run dev`; nunca entran en el build de producción.
 - Para probar contra el backend real, pon `VITE_API_MOCKS=false` en `.env` y reinicia el servidor de desarrollo.

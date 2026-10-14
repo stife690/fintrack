@@ -3,7 +3,7 @@ import { API_V1 } from '@/lib/api';
 
 /**
  * Handlers de MSW que simulan auth, categorías y transacciones mientras se desarrolla sin backend.
- * Siguen `fintrack-openapi.yaml` (v2.0.1): rutas bajo `/api/v1`, errores con la forma
+ * Siguen `docs/api/openapi.yaml` (v2.0.1): rutas bajo `/api/v1`, errores con la forma
  * `{ error: { code, message, details? } }` y `AuthResponse` con tokens.
  * Los usuarios y sesiones viven en memoria: se reinician al recargar la página.
  */
@@ -197,14 +197,6 @@ export const handlers = [
     if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const pick = (type) => CATALOG.filter((c) => c.type === type).map(({ key, name }) => ({ key, name }));
     return HttpResponse.json({ expense: pick('gasto'), income: pick('ingreso') });
-  }),
-
-  http.post(`${API_V1}/categories/suggest`, async ({ request }) => {
-    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
-    const body = await readJson(request);
-    await delay(400);
-    const category = mockSuggest(body?.description ?? '', body?.type);
-    return HttpResponse.json({ category, source: category ? 'ia' : 'sin_clasificar' });
   }),
 
   http.get(`${API_V1}/transactions`, ({ request }) => {

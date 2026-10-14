@@ -4,8 +4,6 @@ import { createCategorizer } from './services/categorization.service.js';
 import { completeText } from './services/ai-client.service.js';
 import { env } from './config/env.js';
 import { AppError } from './errors/app-error.js';
-import { createApp } from './app.js';
-import { signAccessToken } from './services/token.service.js';
 
 /** Catálogo de prueba (mismo contenido que `db/init/02_seed_categorias.sql`, resumido). */
 const CATALOG = [
@@ -175,54 +173,4 @@ test('cliente de IA: error HTTP, red caída y respuesta rara dan AI_UNAVAILABLE'
   } finally {
     env.aiApiKey = previous;
   }
-});
-
-/**
- * Levanta la app en un puerto libre y ejecuta `fn` con un helper para llamar a la API.
- * @param {(post: (path: string, body: unknown, token?: string) => Promise<{ status: number, body: { error: { code: string, details: Array<{ field: string }> } } }>) => Promise<void>} fn
- * @returns {Promise<void>}
- */
-async function withApi(fn) {
-  const server = createApp().listen(0);
-  const base = `http://127.0.0.1:${server.address().port}/api/v1`;
-  const post = async (path, body, token) => {
-    const res = await fetch(base + path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify(body),
-    });
-    return { status: res.status, body: await res.json() };
-  };
-  try {
-    await fn(post);
-  } finally {
-    server.close();
-  }
-}
-
-test('POST /categories/suggest sin token responde 401', async () => {
-  await withApi(async (post) => {
-    const { status, body } = await post('/categories/suggest', { description: 'x', type: 'gasto' });
-    assert.equal(status, 401);
-    assert.equal(body.error.code, 'UNAUTHORIZED');
-  });
-});
-
-test('POST /categories/suggest valida descripción y tipo (422)', async () => {
-  const token = signAccessToken('00000000-0000-0000-0000-000000000001');
-  await withApi(async (post) => {
-    const { status, body } = await post(
-      '/categories/suggest',
-      { description: ' ', type: 'x' },
-      token,
-    );
-    assert.equal(status, 422);
-    assert.deepEqual(
-      body.error.details.map((d) => d.field),
-      ['description', 'type'],
-    );
-  });
 });
