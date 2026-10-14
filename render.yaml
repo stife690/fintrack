@@ -20,3 +20,9 @@ services:
         value: gemini
       - key: AI_API_KEY
         sync: false # clave de Google AI Studio; se pega en el dashboard
+      - key: VAPID_PUBLIC_KEY
+        sync: false # par generado con: npx web-push generate-vapid-keys
+      - key: VAPID_PRIVATE_KEY
+        sync: false # secreto; se pega solo en el dashboard de Render
+      - key: VAPID_SUBJECT
+        sync: false # mailto:correo-del-equipo

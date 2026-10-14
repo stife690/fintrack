@@ -119,6 +119,11 @@ Reglas:
 | `REFRESH_TOKEN_TTL_DAYS` | No | `30` | Días de vida del refresh token. |
 | `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login/registro permitidos por IP cada 15 minutos. |
 | `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
+| `VAPID_PUBLIC_KEY` | Para push | *(par generado con `npx web-push generate-vapid-keys`)* | Llave pública VAPID; el navegador la usa para suscribirse a las notificaciones. Sin las dos llaves el push y el recordatorio diario quedan desactivados. |
+| `VAPID_PRIVATE_KEY` | Para push | *(secreto)* | Llave privada VAPID con la que el servidor firma cada notificación. Nunca se sube al repo. |
+| `VAPID_SUBJECT` | No | `mailto:equipo@ejemplo.com` | Contacto del servidor ante el servicio push del navegador (`mailto:` o URL https). |
+| `REMINDERS_ENABLED` | No | `true` | Con `false` no corre el programador del recordatorio diario. |
+| `REMINDER_CHECK_INTERVAL_MS` | No | `60000` | Cada cuánto revisa qué recordatorios tocan, en milisegundos. |
 | `TRUST_PROXY` | No | `1` | Cantidad de proxies delante del servidor (0 en local). Necesario detrás de un proxy para que el límite de intentos use la IP real del cliente. |
 | `PORT` | No | `3000` | Puerto HTTP. Render lo define automáticamente. |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Origen(es) permitidos del frontend, separados por coma y sin barra final. Vacío = cualquier origen (solo desarrollo). |
@@ -146,6 +151,11 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | `POST` | `/api/v1/auth/refresh` | Body `{ refreshToken }`. **200** `{ accessToken, refreshToken }`; el token usado queda revocado (rotación) · **401** `UNAUTHORIZED`. |
 | `POST` | `/api/v1/auth/logout` | Requiere access token. Body `{ refreshToken }`. Revoca esa sesión. **204**. |
 | `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, timezone }`. |
+| `GET` | `/api/v1/users/me/reminder-settings` | Requiere access token. **200** `{ time, timezone }` (`time` en `HH:mm`, o `null` si el recordatorio está desactivado). |
+| `PUT` | `/api/v1/users/me/reminder-settings` | Requiere access token. Body `{ time, timezone }` (`time: null` desactiva). **200** con la configuración guardada · **400** tipos incorrectos · **422** `VALIDATION_ERROR` con `details` (hora o zona inválidas). |
+| `GET` | `/api/v1/push/vapid-public-key` | Requiere access token. **200** `{ key }` con la llave pública VAPID · **500** `INTERNAL_ERROR` si el servidor no tiene llaves. |
+| `POST` | `/api/v1/push/subscribe` | Requiere access token. Body `{ subscription: { endpoint, keys: { p256dh, auth } } }`. **201** sin cuerpo · **400** `VALIDATION_ERROR`. Si el `endpoint` ya existía, pasa a ser del usuario actual. |
+| `DELETE` | `/api/v1/push/subscribe` | Requiere access token. Body `{ endpoint }`. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
 
 ## Autenticación
 
@@ -213,5 +223,6 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] CORS para el frontend (variable `CORS_ORIGIN`)
 - [x] `docker-compose` para levantar PostgreSQL y backend con un comando
 - [x] Autenticación con JWT: registro, login, refresh, logout y `GET /users/me`
+- [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
 - [ ] Documentación Swagger del contrato
