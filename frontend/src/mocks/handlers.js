@@ -17,6 +17,14 @@ const refreshTokens = new Map();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Llave pública VAPID de ejemplo (válida, solo para desarrollo): permite suscribirse sin backend. */
+const MOCK_VAPID_PUBLIC_KEY =
+  'BKQMg0AmJJ34cFCv2R9ZhYsC5nfn4yDHX59UkDTz9Oxt7hVPlf6syvjSKfGKnk3TbL73wdayjvf5NNN5fsevPJU';
+/** endpoint de suscripción push → id del usuario */
+const pushEndpoints = new Map();
+/** id del usuario → configuración del recordatorio diario */
+const reminders = new Map();
+
 addUser('demo@fintrack.com', 'demo1234');
 
 function addUser(email, password) {
@@ -280,6 +288,58 @@ export const handlers = [
     next.updatedAt = new Date().toISOString();
     Object.assign(current, next);
     return HttpResponse.json({ transaction: current, alert: null });
+  }),
+
+  http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ key: MOCK_VAPID_PUBLIC_KEY });
+  }),
+
+  http.post(`${API_V1}/push/subscribe`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    const { endpoint, keys } = body?.subscription ?? {};
+    if (typeof endpoint !== 'string' || typeof keys?.p256dh !== 'string' || typeof keys?.auth !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    pushEndpoints.set(endpoint, user.id);
+    return new HttpResponse(null, { status: 201 });
+  }),
+
+  http.delete(`${API_V1}/push/subscribe`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    if (typeof body?.endpoint !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    if (pushEndpoints.get(body.endpoint) !== user.id) return error(404, 'NOT_FOUND', 'Suscripción no encontrada');
+    pushEndpoints.delete(body.endpoint);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/users/me/reminder-settings`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json(reminders.get(user.id) ?? { time: null, timezone: user.timezone });
+  }),
+
+  http.put(`${API_V1}/users/me/reminder-settings`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    if (!body || !(body.time === null || typeof body.time === 'string') || typeof body.timezone !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    if (body.time !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)) {
+      return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+        { field: 'time', problem: 'Debe tener el formato HH:mm (00:00 a 23:59) o ser null' },
+      ]);
+    }
+    const settings = { time: body.time, timezone: body.timezone };
+    reminders.set(user.id, settings);
+    return HttpResponse.json(settings);
   }),
 
   http.delete(`${API_V1}/transactions/:id`, ({ request, params }) => {

@@ -38,6 +38,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Manejadores de notificaciones push (public/push-sw.js), importados por el service worker.
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,webp,png,woff2}'],
         // Las pantallas de carga de iOS las lee el sistema; no hace falta precachearlas.
         globIgnores: ['**/mockServiceWorker.js', 'splash/**'],
