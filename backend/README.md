@@ -118,6 +118,7 @@ Reglas:
 | `ACCESS_TOKEN_TTL` | No | `15m` | Duración del access token. |
 | `REFRESH_TOKEN_TTL_DAYS` | No | `30` | Días de vida del refresh token. |
 | `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login/registro permitidos por IP cada 15 minutos. |
+| `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
 | `TRUST_PROXY` | No | `1` | Cantidad de proxies delante del servidor (0 en local). Necesario detrás de un proxy para que el límite de intentos use la IP real del cliente. |
 | `PORT` | No | `3000` | Puerto HTTP. Render lo define automáticamente. |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Origen(es) permitidos del frontend, separados por coma y sin barra final. Vacío = cualquier origen (solo desarrollo). |

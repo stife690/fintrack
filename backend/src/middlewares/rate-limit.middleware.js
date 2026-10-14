@@ -27,3 +27,28 @@ export function createAuthRateLimit() {
     },
   });
 }
+
+/**
+ * Crea el limitador de los endpoints que consumen la IA (contrato §1): evita que un bucle del
+ * frontend agote la cuota de la clave. Responde 429 `RATE_LIMITED` al superar el tope por IP
+ * en un minuto.
+ * @param {{ limit?: number }} [options] `limit` sustituye al valor de `AI_RATE_LIMIT_MAX` (pruebas).
+ * @returns {import('express').RequestHandler}
+ */
+export function createAiRateLimit({ limit = env.aiRateLimitMax } = {}) {
+  return rateLimit({
+    windowMs: 60 * 1000,
+    limit,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(
+        new AppError(
+          429,
+          'RATE_LIMITED',
+          'Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.',
+        ),
+      );
+    },
+  });
+}

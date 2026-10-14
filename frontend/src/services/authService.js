@@ -1,5 +1,5 @@
 /**
- * Capa de autenticación del frontend, según `fintrack-openapi.yaml`.
+ * Capa de autenticación del frontend, según `docs/api/openapi.yaml`.
  *
  * Llama a `POST /api/v1/auth/login` y `POST /api/v1/auth/register`. Mientras la API
  * no los exponga, en desarrollo MSW los intercepta (ver `src/mocks/handlers.js`).
