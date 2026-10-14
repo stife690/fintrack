@@ -6,7 +6,11 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TYPES = ['ingreso', 'gasto'];
+const PERIODS = ['week', 'month', 'year'];
 
+function isValidPeriod(value) {
+  return PERIODS.includes(value);
+}
 /**
  * @typedef {{ field: string, problem: string }} FieldProblem
  */
@@ -186,4 +190,24 @@ export function parseListQuery(query) {
 
   throwIfInvalid(details);
   return out;
+}
+/**
+ * Valida los parámetros de `GET /transactions/summary`. Si no llega `date`, usa la fecha
+ * de hoy en Colombia.
+ * @param {Record<string, unknown>} query Parámetros de la URL.
+ * @returns {{ period: 'week'|'month'|'year', date: string }}
+ * @throws {AppError} 422 `VALIDATION_ERROR`.
+ */
+export function parseSummaryQuery(query) {
+  const details = [];
+  if (!isValidPeriod(query.period)) {
+    details.push({ field: 'period', problem: 'Debe ser "week", "month" o "year"' });
+  }
+  if (query.date !== undefined && !isValidDate(query.date)) {
+    details.push({ field: 'date', problem: 'Debe ser una fecha válida AAAA-MM-DD' });
+  }
+  throwIfInvalid(details);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const date = query.date || today;
+  return { period: query.period, date };
 }
