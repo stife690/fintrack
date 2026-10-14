@@ -126,3 +126,9 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 ## Despliegue (Vercel)
 
 Importar el repo con **Root Directory = `frontend`**. `vercel.json` ya define el build (`npm run build` → `dist`) y la reescritura a `index.html`. Guía completa en [`docs/despliegue.md`](../docs/despliegue.md).
+## Notificaciones push (FT-0011)
+
+- Pantalla: `/app/notificaciones` (activar notificaciones del dispositivo y hora del recordatorio diario).
+- `public/push-sw.js` contiene los manejadores `push` y `notificationclick`; `vite.config.js` lo importa en el service worker generado (`workbox.importScripts`).
+- Con mocks (`VITE_USE_MOCKS`) se puede probar la pantalla, pero el aviso real exige el backend con llaves VAPID configuradas.
+- Probar en un dispositivo real: HTTPS (Vercel) y PWA instalada; en iPhone solo funciona con la PWA añadida a la pantalla de inicio.

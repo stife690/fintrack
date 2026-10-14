@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, LogOut, Receipt } from 'lucide-react';
+import { Bell, Loader2, LogOut, Receipt } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
@@ -33,6 +33,12 @@ export default function Dashboard() {
         <Link to="/app/transacciones">
           <Receipt aria-hidden="true" />
           Mis transacciones
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="lg">
+        <Link to="/app/notificaciones">
+          <Bell aria-hidden="true" />
+          Notificaciones
         </Link>
       </Button>
       <Button variant="outline" size="lg" onClick={handleSignOut} disabled={leaving}>
