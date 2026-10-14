@@ -58,10 +58,10 @@ export async function findTransaction(id, userId) {
 
 /**
  * Lista las transacciones de un usuario, de la más reciente a la más antigua.
- * @param {{ userId: string, type?: string, category?: string, from?: string, to?: string, limit: number, offset: number }} filters
+ * @param {{ userId: string, type?: string, category?: string, q?: string, from?: string, to?: string, limit: number, offset: number }} filters
  * @returns {Promise<{ rows: TransactionRecord[], total: number }>}
  */
-export async function listTransactions({ userId, type, category, from, to, limit, offset }) {
+export async function listTransactions({ userId, type, category, q, from, to, limit, offset }) {
   const params = [userId];
   const where = ['t.usuario_id = $1', 't.deleted_at IS NULL'];
   const add = (condition, value) => {
@@ -70,6 +70,8 @@ export async function listTransactions({ userId, type, category, from, to, limit
   };
   if (type) add('t.tipo = ?', type);
   if (category) add('c.key = ?', category);
+  // Búsqueda por texto en la descripción; se escapan % y _ para tomarlos literalmente.
+  if (q) add("t.descripcion ILIKE ? ESCAPE '\\'", `%${q.replace(/[\\%_]/g, '\\$&')}%`);
   if (from) add('t.fecha >= ?', from);
   if (to) add('t.fecha <= ?', to);
   const clause = where.join(' AND ');

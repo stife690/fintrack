@@ -216,6 +216,7 @@ export const handlers = [
     const rows = (transactions.get(user.id) ?? [])
       .filter((t) => (!q.get('type') || t.type === q.get('type')))
       .filter((t) => (!q.get('category') || t.category === q.get('category')))
+      .filter((t) => (!q.get('q') || t.description.toLowerCase().includes(q.get('q').toLowerCase())))
       .filter((t) => (!q.get('from') || t.date >= q.get('from')))
       .filter((t) => (!q.get('to') || t.date <= q.get('to')))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
@@ -252,7 +253,15 @@ export const handlers = [
       deletedAt: null,
     };
     transactions.set(user.id, [transaction, ...(transactions.get(user.id) ?? [])]);
-    return HttpResponse.json(transaction, { status: 201 });
+    return HttpResponse.json({ transaction, alert: null }, { status: 201 });
+  }),
+
+  http.get(`${API_V1}/transactions/:id`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const found = (transactions.get(user.id) ?? []).find((t) => t.id === params.id);
+    if (!found) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
+    return HttpResponse.json(found);
   }),
 
   http.put(`${API_V1}/transactions/:id`, async ({ request, params }) => {
@@ -278,7 +287,7 @@ export const handlers = [
     }
     next.updatedAt = new Date().toISOString();
     Object.assign(current, next);
-    return HttpResponse.json(current);
+    return HttpResponse.json({ transaction: current, alert: null });
   }),
 
   http.delete(`${API_V1}/transactions/:id`, ({ request, params }) => {
