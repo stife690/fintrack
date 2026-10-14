@@ -49,10 +49,14 @@ function buildAnthropicRequest({ system, prompt, maxTokens }) {
   };
 }
 
+/** Intentos totales por petición: el original más un reintento. */
+const MAX_ATTEMPTS = 2;
+
 /**
  * Envía un prompt al proveedor de IA configurado (`AI_PROVIDER`: Gemini por defecto,
  * o Anthropic) y devuelve el texto de la respuesta. Cualquier fallo (sin clave, red,
- * tiempo agotado, respuesta no válida) se convierte en `AI_UNAVAILABLE` (503); los
+ * tiempo agotado, respuesta no válida) se convierte en `AI_UNAVAILABLE` (503), tras un reintento
+ * si el fallo es transitorio (red, tiempo agotado o 5xx); los
  * detalles solo van al log del servidor, sin incluir la clave.
  *
  * @param {{ system: string, prompt: string, maxTokens?: number }} request
@@ -68,17 +72,28 @@ export async function completeText({ system, prompt, maxTokens = 64 }) {
   const build = env.aiProvider === 'anthropic' ? buildAnthropicRequest : buildGeminiRequest;
   const { url, headers, body, readText } = build({ system, prompt, maxTokens });
 
-  let response;
-  try {
-    response = await fetch(url, {
+  const send = () =>
+    fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(env.aiTimeoutMs),
     });
-  } catch (err) {
-    console.error('Fallo al contactar al proveedor de IA:', err.name);
-    throw aiUnavailable();
+
+  // Arquitectura de IA §4: un (1) reintento automático ante un fallo transitorio (error de red,
+  // tiempo agotado o 5xx del proveedor) antes de aplicar el fallback.
+  let response;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      response = await send();
+    } catch (err) {
+      if (attempt === MAX_ATTEMPTS) {
+        console.error('Fallo al contactar al proveedor de IA:', err.name);
+        throw aiUnavailable();
+      }
+      continue;
+    }
+    if (response.status < 500 || attempt === MAX_ATTEMPTS) break;
   }
 
   if (!response.ok) {
