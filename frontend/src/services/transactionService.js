@@ -76,7 +76,7 @@ export function getCategories() {
 
 /**
  * Lista paginada de transacciones propias, de la más reciente a la más antigua.
- * @param {{ type?: string, category?: string, from?: string, to?: string, page?: number, pageSize?: number }} [filters]
+ * @param {{ type?: string, category?: string, q?: string, from?: string, to?: string, page?: number, pageSize?: number }} [filters]
  * @returns {Promise<{ data: Transaction[], page: number, pageSize: number, total: number }>}
  */
 export function listTransactions(filters = {}) {
@@ -94,8 +94,19 @@ export function listTransactions(filters = {}) {
  * @param {{ amount: number, description: string, type: string, date: string, category?: string|null }} data
  * @returns {Promise<Transaction>}
  */
-export function createTransaction(data) {
-  return request('/transactions', { method: 'POST', body: data });
+export async function createTransaction(data) {
+  // El contrato responde { transaction, alert }; la alerta de presupuesto llega con F5/F6.
+  const { transaction } = await request('/transactions', { method: 'POST', body: data });
+  return transaction;
+}
+
+/**
+ * Obtiene una transacción puntual, para abrir la edición sin tener el listado en memoria.
+ * @param {string} id
+ * @returns {Promise<Transaction>}
+ */
+export function getTransaction(id) {
+  return request(`/transactions/${id}`);
 }
 
 /**
@@ -104,8 +115,9 @@ export function createTransaction(data) {
  * @param {Partial<{ amount: number, description: string, type: string, date: string, category: string|null }>} changes
  * @returns {Promise<Transaction>}
  */
-export function updateTransaction(id, changes) {
-  return request(`/transactions/${id}`, { method: 'PUT', body: changes });
+export async function updateTransaction(id, changes) {
+  const { transaction } = await request(`/transactions/${id}`, { method: 'PUT', body: changes });
+  return transaction;
 }
 
 /**

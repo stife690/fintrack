@@ -84,13 +84,14 @@ test(
         body: { ...GASTO, category: 'alimentacion' },
       });
       assert.equal(res.status, 201);
-      assert.match(res.body.id, /^[0-9a-f-]{36}$/);
-      assert.equal(res.body.amount, 12500.5);
-      assert.equal(res.body.type, 'gasto');
-      assert.equal(res.body.category, 'alimentacion');
-      assert.equal(res.body.source, 'manual');
-      assert.equal(res.body.date, '2026-10-12');
-      assert.equal(res.body.deletedAt, null);
+      assert.equal(res.body.alert, null);
+      assert.match(res.body.transaction.id, /^[0-9a-f-]{36}$/);
+      assert.equal(res.body.transaction.amount, 12500.5);
+      assert.equal(res.body.transaction.type, 'gasto');
+      assert.equal(res.body.transaction.category, 'alimentacion');
+      assert.equal(res.body.transaction.source, 'manual');
+      assert.equal(res.body.transaction.date, '2026-10-12');
+      assert.equal(res.body.transaction.deletedAt, null);
     });
   },
 );
@@ -102,8 +103,8 @@ test(
     await withApi(async ({ api, alice }) => {
       const res = await api('/transactions', { method: 'POST', token: alice, body: GASTO });
       assert.equal(res.status, 201);
-      assert.equal(res.body.category, null);
-      assert.equal(res.body.source, 'sin_clasificar');
+      assert.equal(res.body.transaction.category, null);
+      assert.equal(res.body.transaction.source, 'sin_clasificar');
     });
   },
 );
@@ -161,6 +162,12 @@ test('GET lista solo las transacciones propias, con filtros y paginación', opti
     assert.equal(page.body.data.length, 1);
     assert.equal(page.body.total, 3);
 
+    const search = await api('/transactions?q=n%C3%B3mi', { token: alice });
+    assert.equal(search.body.total, 1);
+    assert.equal(search.body.data[0].description, 'Nómina');
+    const noMatch = await api('/transactions?q=%25', { token: alice });
+    assert.equal(noMatch.body.total, 0, 'el % se busca como texto literal, no como comodín');
+
     const bad = await api('/transactions?type=x', { token: alice });
     assert.equal(bad.status, 422);
   });
@@ -176,7 +183,7 @@ test(
         token: alice,
         body: { ...GASTO, category: 'alimentacion' },
       });
-      const id = created.body.id;
+      const id = created.body.transaction.id;
 
       const edited = await api(`/transactions/${id}`, {
         method: 'PUT',
@@ -184,26 +191,26 @@ test(
         body: { amount: 20000, description: 'Cena' },
       });
       assert.equal(edited.status, 200);
-      assert.equal(edited.body.amount, 20000);
-      assert.equal(edited.body.description, 'Cena');
-      assert.equal(edited.body.category, 'alimentacion');
+      assert.equal(edited.body.transaction.amount, 20000);
+      assert.equal(edited.body.transaction.description, 'Cena');
+      assert.equal(edited.body.transaction.category, 'alimentacion');
 
       const recategorized = await api(`/transactions/${id}`, {
         method: 'PUT',
         token: alice,
         body: { category: 'transporte' },
       });
-      assert.equal(recategorized.body.category, 'transporte');
-      assert.equal(recategorized.body.source, 'manual');
+      assert.equal(recategorized.body.transaction.category, 'transporte');
+      assert.equal(recategorized.body.transaction.source, 'manual');
 
       const typeChange = await api(`/transactions/${id}`, {
         method: 'PUT',
         token: alice,
         body: { type: 'ingreso' },
       });
-      assert.equal(typeChange.body.type, 'ingreso');
-      assert.equal(typeChange.body.category, null);
-      assert.equal(typeChange.body.source, 'sin_clasificar');
+      assert.equal(typeChange.body.transaction.type, 'ingreso');
+      assert.equal(typeChange.body.transaction.category, null);
+      assert.equal(typeChange.body.transaction.source, 'sin_clasificar');
 
       const empty = await api(`/transactions/${id}`, { method: 'PUT', token: alice, body: {} });
       assert.equal(empty.status, 422);
@@ -217,12 +224,13 @@ test(
   async () => {
     await withApi(async ({ api, alice, bob }) => {
       const created = await api('/transactions', { method: 'POST', token: alice, body: GASTO });
-      const path = `/transactions/${created.body.id}`;
+      const path = `/transactions/${created.body.transaction.id}`;
       assert.equal(
         (await api(path, { method: 'PUT', token: bob, body: { amount: 1 } })).status,
         404,
       );
       assert.equal((await api(path, { method: 'DELETE', token: bob })).status, 404);
+      assert.equal((await api(path, { token: bob })).status, 404);
       assert.equal((await api('/transactions', { token: bob })).body.total, 0);
       assert.equal(
         (await api('/transactions/no-es-uuid', { method: 'DELETE', token: bob })).status,
@@ -232,13 +240,27 @@ test(
   },
 );
 
+test('GET /transactions/:id devuelve la transacción propia y 404 si no existe', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    const created = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, category: 'alimentacion' },
+    });
+    const one = await api(`/transactions/${created.body.transaction.id}`, { token: alice });
+    assert.equal(one.status, 200);
+    assert.deepEqual(one.body, created.body.transaction);
+    assert.equal((await api('/transactions/no-es-uuid', { token: alice })).status, 404);
+  });
+});
+
 test(
   'DELETE hace borrado lógico: desaparece del listado pero la fila queda marcada',
   options,
   async () => {
     await withApi(async ({ api, alice }) => {
       const created = await api('/transactions', { method: 'POST', token: alice, body: GASTO });
-      const path = `/transactions/${created.body.id}`;
+      const path = `/transactions/${created.body.transaction.id}`;
 
       assert.equal((await api(path, { method: 'DELETE', token: alice })).status, 204);
       assert.equal((await api('/transactions', { token: alice })).body.total, 0);
@@ -246,7 +268,7 @@ test(
 
       const { rows: kept } = await pool.query(
         'SELECT deleted_at FROM transacciones WHERE id = $1',
-        [created.body.id],
+        [created.body.transaction.id],
       );
       assert.ok(kept[0].deleted_at, 'la fila debe seguir existiendo con deleted_at');
     });

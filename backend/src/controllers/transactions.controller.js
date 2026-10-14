@@ -5,6 +5,11 @@ import {
 } from '../validators/transactions.validator.js';
 import * as transactions from '../services/transactions.service.js';
 
+/*
+ * El contrato (§3) envuelve la respuesta de POST y PUT como `{ transaction, alert }`.
+ * La alerta de presupuesto llega con F5/F6; mientras no existan presupuestos es siempre `null`.
+ */
+
 /**
  * `POST /api/v1/transactions`: registra una transacción (categoría opcional → IA).
  * @param {import('express').Request} req
@@ -13,7 +18,7 @@ import * as transactions from '../services/transactions.service.js';
  */
 export async function postTransaction(req, res) {
   const input = parseCreateTransaction(req.body);
-  res.status(201).json(await transactions.create(req.userId, input));
+  res.status(201).json({ transaction: await transactions.create(req.userId, input), alert: null });
 }
 
 /**
@@ -27,6 +32,16 @@ export async function getTransactions(req, res) {
 }
 
 /**
+ * `GET /api/v1/transactions/:id`: una transacción propia (para abrir la edición sin el listado).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getTransaction(req, res) {
+  res.json(await transactions.get(req.userId, req.params.id));
+}
+
+/**
  * `PUT /api/v1/transactions/:id`: modifica una transacción propia.
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -34,7 +49,7 @@ export async function getTransactions(req, res) {
  */
 export async function putTransaction(req, res) {
   const changes = parseUpdateTransaction(req.body);
-  res.json(await transactions.update(req.userId, req.params.id, changes));
+  res.json({ transaction: await transactions.update(req.userId, req.params.id, changes), alert: null });
 }
 
 /**
