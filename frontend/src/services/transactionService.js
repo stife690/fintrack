@@ -5,8 +5,7 @@
  * Los errores de la API (`{ error: { code, message, details? } }`) se convierten en un
  * `Error` con mensaje para el usuario; en los 422, `err.fields` trae el problema por campo.
  */
-import { API_V1 } from '@/lib/api';
-import { getSession } from '@/auth/tokenStorage';
+import { authFetch } from '@/lib/authFetch';
 
 /**
  * @typedef {object} Transaction
@@ -35,17 +34,9 @@ const SESSION_EXPIRED = 'Tu sesión venció. Inicia sesión de nuevo.';
  * @throws {Error} Con `code` y, en validaciones, `fields`.
  */
 async function request(path, { method = 'GET', body } = {}) {
-  const session = getSession();
   let res;
   try {
-    res = await fetch(`${API_V1}${path}`, {
-      method,
-      headers: {
-        ...(body !== undefined && { 'Content-Type': 'application/json' }),
-        ...(session && { Authorization: `Bearer ${session.accessToken}` }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    res = await authFetch(path, { method, body });
   } catch {
     throw new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
   }
@@ -55,7 +46,7 @@ async function request(path, { method = 'GET', body } = {}) {
   if (!res.ok) {
     const { code, message, details } = data.error ?? {};
     const err = new Error(
-      code === 'UNAUTHORIZED'
+      code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED'
         ? SESSION_EXPIRED
         : details?.[0]?.problem || message || 'Algo salió mal. Inténtalo de nuevo.',
     );
