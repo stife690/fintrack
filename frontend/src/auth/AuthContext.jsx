@@ -1,6 +1,6 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { saveSession, getSession, clearSession } from './tokenStorage';
-import { apiFetch } from '@/api/client';
+import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
 import { login } from '@/services/authService';
 import { unsubscribeThisDevice } from '@/services/pushService';
 
@@ -9,6 +9,13 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getSession()?.user ?? null);
 
+  // Si la sesión ya no se puede renovar (refresh token vencido o revocado), ProtectedRoute lleva al login.
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
   async function signIn(credentials) {
     const session = await login(credentials);
     saveSession(session);
@@ -16,7 +23,6 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    const session = getSession();
     try {
       // Antes de perder el token: este dispositivo deja de recibir avisos de esta cuenta.
       await unsubscribeThisDevice();
@@ -24,7 +30,7 @@ export function AuthProvider({ children }) {
       // Sin conexión o sin suscripción: no impide cerrar la sesión.
     }
     try {
-      await apiFetch('/auth/logout', { method: 'POST', body: { refreshToken: session?.refreshToken } });
+      await authFetch('/auth/logout', { method: 'POST', body: () => ({ refreshToken: getSession()?.refreshToken }) });
     } catch {
       // Si falla (sin conexión o token vencido), igual cerramos la sesión local.
     }
