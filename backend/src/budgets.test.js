@@ -258,3 +258,92 @@ test('borrar responde 204, y después el presupuesto ya no existe (404)', option
     assert.equal((await api('/budgets/no-es-un-uuid', { method: 'DELETE', token })).status, 404);
   });
 });
+
+/**
+ * Registra una transacción de prueba y devuelve la respuesta completa (`{ transaction, alert }`).
+ * @param {Api} api
+ * @param {string} token
+ * @param {object} [overrides]
+ * @returns {Promise<{ status: number, body: object }>}
+ */
+function registerExpense(api, token, overrides = {}) {
+  return api('/transactions', {
+    method: 'POST',
+    token,
+    body: {
+      amount: 1,
+      description: 'prueba',
+      type: 'gasto',
+      category: 'alimentacion',
+      date: '2026-10-15',
+      ...overrides,
+    },
+  });
+}
+
+test(
+  'registrar un gasto devuelve la alerta acumulada del presupuesto (REQ-017/018/019)',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const token = await newUserToken(api);
+      await createBudget(api, token);
+
+      const first = await registerExpense(api, token, { amount: 50000 });
+      assert.equal(first.status, 201);
+      assert.deepEqual(first.body.alert, { level: 'none', percentage: 50 });
+
+      const second = await registerExpense(api, token, { amount: 35000 });
+      assert.deepEqual(second.body.alert, { level: 'warning_80', percentage: 85 });
+
+      const third = await registerExpense(api, token, { amount: 20000 });
+      assert.deepEqual(third.body.alert, { level: 'exceeded_100', percentage: 105 });
+    });
+  },
+);
+
+test(
+  'la alerta es null si no es un gasto, no hay presupuesto o es de otro mes',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const token = await newUserToken(api);
+      await createBudget(api, token);
+
+      const income = await registerExpense(api, token, {
+        amount: 3000000,
+        type: 'ingreso',
+        category: 'salario',
+      });
+      assert.equal(income.body.alert, null);
+
+      const noBudget = await registerExpense(api, token, { category: 'transporte' });
+      assert.equal(noBudget.body.alert, null);
+
+      const otherMonth = await registerExpense(api, token, { date: '2026-11-02' });
+      assert.equal(otherMonth.body.alert, null);
+    });
+  },
+);
+
+test(
+  'editar una transacción devuelve la alerta del presupuesto que queda afectado',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const token = await newUserToken(api);
+      await createBudget(api, token);
+      await registerExpense(api, token, { amount: 90000 });
+      const november = await registerExpense(api, token, { amount: 20000, date: '2026-11-02' });
+      assert.equal(november.body.alert, null);
+
+      const moved = await api(`/transactions/${november.body.transaction.id}`, {
+        method: 'PUT',
+        token,
+        body: { date: '2026-10-20' },
+      });
+      assert.equal(moved.status, 200);
+      assert.deepEqual(moved.body.alert, { level: 'exceeded_100', percentage: 110 });
+    });
+  },
+);
