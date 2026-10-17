@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import transactionsRoutes from './routes/transactions.routes.js';
+import budgetsRoutes from './routes/budgets.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/categories', categoriesRoutes);
   app.use('/api/v1/transactions', transactionsRoutes);
+  app.use('/api/v1/budgets', budgetsRoutes);
   app.use('/api/v1/push', pushRoutes);
   app.use(notFound);
   app.use(errorHandler);
