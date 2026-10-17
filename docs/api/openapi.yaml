@@ -367,17 +367,25 @@ paths:
     get:
       tags: [Budgets]
       summary: Lista presupuestos del mes con consumo y alerta
+      description: |
+        `consumed` suma los gastos no borrados del usuario en esa categoría y mes.
+        `percentage` = consumed / amount × 100 (2 decimales); `alert.level` es `warning_80`
+        desde el 80 % y `exceeded_100` desde el 100 % (RN-04).
       parameters:
-        - { name: month, in: query, schema: { $ref: "#/components/schemas/Month" } }
+        - name: month
+          in: query
+          description: Mes AAAA-MM. Si se omite, el mes actual en la zona horaria del usuario.
+          schema: { $ref: "#/components/schemas/Month" }
       responses:
         "200":
-          description: Listado de presupuestos
+          description: Listado de presupuestos (lista vacía si no hay ninguno en el mes)
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Budget" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     post:
       tags: [Budgets]
       summary: Crea un presupuesto por categoría y mes (solo categorías de gasto)
