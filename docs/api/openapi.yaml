@@ -488,11 +488,20 @@ paths:
       tags: [Sync]
       summary: Sincroniza un lote de operaciones hechas offline (máx. 200)
       description: |
-        - `serverChanges` devuelve toda transacción del usuario (incluidas las borradas
-          lógicamente) modificada después de `lastSyncedAt` (REQ-025).
-        - Conflictos: last-write-wins comparando `updatedAt` (RN-07); se devuelve `serverVersion`.
-        - Una transacción creada offline sin categoría se categoriza con IA al sincronizar;
-          si la IA falla, queda con `source: sin_clasificar`.
+        - Primero se valida todo el lote: si alguna operación es inválida responde 422
+          (`details[].field` indica la operación, p. ej. `operations[3].serverId`) y no aplica nada.
+        - Las operaciones se aplican en orden. `create` no duplica: si ese `localId` ya
+          existe para el usuario, se devuelve el mismo `serverId` en `synced`.
+        - Hay conflicto en `update`/`delete` cuando la transacción cambió en el servidor
+          después de `lastSyncedAt`. Gana el `updatedAt` más reciente (last-write-wins, RN-07):
+          `client_wins` aplica el cambio; `server_wins` lo descarta. Ambos casos van en
+          `conflicts` con la `serverVersion` final. Sin conflicto, va en `synced`.
+        - Una transacción creada offline sin categoría se categoriza con IA al sincronizar,
+          solo para las primeras `SYNC_AI_MAX` del lote (por defecto 20); las demás y las que
+          la IA no logra clasificar quedan con `source: sin_clasificar`.
+        - `serverChanges` devuelve las transacciones del usuario (incluidas las borradas
+          lógicamente) modificadas después de `lastSyncedAt`, sin las de este lote (REQ-025).
+          Con `lastSyncedAt: null` (primera vez) devuelve todas las no borradas.
         - `syncStatus` vive solo en IndexedDB; el servidor no lo almacena.
       requestBody:
         required: true
@@ -920,10 +929,28 @@ components:
       required: [op, localId]
       properties:
         op: { type: string, enum: [create, update, delete] }
-        localId: { type: string, description: Id generado en IndexedDB }
+        localId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: |
+            Id generado en IndexedDB. En `create` el servidor lo guarda: si el mismo lote
+            se reenvía (respuesta perdida), devuelve el mismo `serverId` sin duplicar.
+        serverId:
+          type: string
+          format: uuid
+          description: Id de la transacción en el servidor. Obligatorio en `update` y `delete`.
+        updatedAt:
+          type: string
+          format: date-time
+          description: |
+            Hora en que se hizo el cambio en el dispositivo. Obligatoria en `update` y
+            `delete`; se compara con el `updatedAt` del servidor (last-write-wins, RN-07).
         transaction:
-          allOf: [{ $ref: "#/components/schemas/TransactionInput" }]
-          description: Obligatorio en create y update; se omite en delete.
+          type: object
+          description: |
+            En `create`, la transacción completa (`TransactionInput`). En `update`, solo los
+            campos que cambian (`TransactionUpdate`). Se omite en `delete`.
     SyncRequest:
       type: object
       required: [lastSyncedAt, operations]
@@ -958,7 +985,13 @@ components:
               localId: { type: string }
               serverId: { type: string, format: uuid }
               resolution: { type: string, enum: [server_wins, client_wins] }
-              serverVersion: { $ref: "#/components/schemas/Transaction" }
+              serverVersion:
+                type: object
+                nullable: true
+                allOf: [{ $ref: "#/components/schemas/Transaction" }]
+                description: |
+                  Versión que queda en el servidor (la del cliente si ganó). `null` si el
+                  `serverId` no existe o es de otro usuario: el cliente debe descartar el cambio.
         serverChanges:
           type: array
           items: { $ref: "#/components/schemas/Transaction" }
