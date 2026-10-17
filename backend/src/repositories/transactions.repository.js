@@ -15,13 +15,13 @@ import { pool } from '../config/db.js';
  * @property {Date|null} deletedAt Fecha de borrado lógico (siempre `null` en lo que devuelve la API).
  */
 
-const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amount,
+export const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amount,
   t.descripcion AS description, t.tipo AS type, c.key AS category, t.origen AS source,
   to_char(t.fecha, 'YYYY-MM-DD') AS date, t.created_at AS "createdAt",
   t.updated_at AS "updatedAt", t.deleted_at AS "deletedAt"`;
 
 /** Une la transacción con su categoría para obtener la clave. */
-const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
+export const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
 
 /**
  * Inserta una transacción.
