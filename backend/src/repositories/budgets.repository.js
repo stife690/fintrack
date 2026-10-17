@@ -96,3 +96,19 @@ export async function deleteBudget(id, userId) {
   );
   return rowCount > 0;
 }
+
+/**
+ * Busca el presupuesto de una categoría en un mes, con lo gastado.
+ * Lo usa la alerta que acompaña a cada transacción registrada o editada.
+ * @param {string} userId
+ * @param {string} categoryKey Clave de la categoría (p. ej. `alimentacion`).
+ * @param {string} month AAAA-MM
+ * @returns {Promise<BudgetRecord|null>} `null` si esa categoría no tiene presupuesto ese mes.
+ */
+export async function findBudgetForCategory(userId, categoryKey, month) {
+  const { rows } = await pool.query(
+    `${SELECT_WITH_CONSUMED} WHERE p.usuario_id = $1 AND c.key = $2 AND p.mes = $3`,
+    [userId, categoryKey, month],
+  );
+  return rows[0] ?? null;
+}

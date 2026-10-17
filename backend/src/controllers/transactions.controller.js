@@ -3,11 +3,13 @@ import {
   parseListQuery,
   parseUpdateTransaction,
 } from '../validators/transactions.validator.js';
+import { getTransactionAlert } from '../services/budgets.service.js';
 import * as transactions from '../services/transactions.service.js';
 
 /*
  * El contrato (§3) envuelve la respuesta de POST y PUT como `{ transaction, alert }`.
- * La alerta de presupuesto llega con F5/F6; mientras no existan presupuestos es siempre `null`.
+ * `alert` es el estado del presupuesto de la categoría y el mes de la transacción (F5),
+ * o `null` si no es un gasto, no tiene categoría o esa categoría no tiene presupuesto.
  */
 
 /**
@@ -18,9 +20,9 @@ import * as transactions from '../services/transactions.service.js';
  */
 export async function postTransaction(req, res) {
   const input = parseCreateTransaction(req.body);
-  res.status(201).json({ transaction: await transactions.create(req.userId, input), alert: null });
+  const transaction = await transactions.create(req.userId, input);
+  res.status(201).json({ transaction, alert: await getTransactionAlert(req.userId, transaction) });
 }
-
 /**
  * `GET /api/v1/transactions`: lista paginada con filtros, de la más reciente a la más antigua.
  * @param {import('express').Request} req
@@ -49,7 +51,8 @@ export async function getTransaction(req, res) {
  */
 export async function putTransaction(req, res) {
   const changes = parseUpdateTransaction(req.body);
-  res.json({ transaction: await transactions.update(req.userId, req.params.id, changes), alert: null });
+  const transaction = await transactions.update(req.userId, req.params.id, changes);
+  res.json({ transaction, alert: await getTransactionAlert(req.userId, transaction) });
 }
 
 /**

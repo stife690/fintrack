@@ -132,3 +132,20 @@ export async function remove(userId, id) {
     throw notFound();
   }
 }
+
+/**
+ * Alerta del presupuesto afectado por una transacción (REQ-017/018/019).
+ * Se calcula con lo gastado en la categoría y el mes de la transacción, ya incluida esta.
+ * @param {string} userId
+ * @param {{ type: 'ingreso'|'gasto', category: string|null, date: string }} transaction
+ * @returns {Promise<BudgetStatus['alert']|null>} `null` si no es un gasto, no tiene categoría
+ *   o esa categoría no tiene presupuesto en ese mes.
+ */
+export async function getTransactionAlert(userId, { type, category, date }) {
+  if (type !== 'gasto' || !category) return null;
+
+  const budget = await repo.findBudgetForCategory(userId, category, date.slice(0, 7));
+  if (!budget) return null;
+
+  return buildBudgetStatus(budget.amount, budget.consumed).alert;
+}
