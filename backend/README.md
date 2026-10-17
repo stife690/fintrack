@@ -156,6 +156,10 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | `GET` | `/api/v1/push/vapid-public-key` | Requiere access token. **200** `{ key }` con la llave pública VAPID · **500** `INTERNAL_ERROR` si el servidor no tiene llaves. |
 | `POST` | `/api/v1/push/subscribe` | Requiere access token. Body `{ subscription: { endpoint, keys: { p256dh, auth } } }`. **201** sin cuerpo · **400** `VALIDATION_ERROR`. Si el `endpoint` ya existía, pasa a ser del usuario actual. |
 | `DELETE` | `/api/v1/push/subscribe` | Requiere access token. Body `{ endpoint }`. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
+| `GET` | `/api/v1/budgets?month=AAAA-MM` | Requiere access token. Presupuestos del mes (sin `month`, el actual en la zona horaria del usuario). **200** `[{ id, category, month, amount, consumed, percentage, alert: { level, percentage } }]` · **422** mes inválido. `consumed` suma los gastos no borrados de esa categoría y mes; `alert.level` es `none`, `warning_80` (desde 80 %) o `exceeded_100` (desde 100 %). |
+| `POST` | `/api/v1/budgets` | Requiere access token. Body `{ category, month, amount }`. **201** `{ id, category, month, amount }` · **409** `BUDGET_EXISTS` (ya hay uno para esa categoría y mes, RN-03) · **422** `VALIDATION_ERROR` (incluye categorías que no son de gasto). |
+| `PUT` | `/api/v1/budgets/:id` | Requiere access token. Body `{ amount }`. **200** con el presupuesto y el porcentaje recalculado · **404** `NOT_FOUND` · **422**. |
+| `DELETE` | `/api/v1/budgets/:id` | Requiere access token. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
 
 ## Autenticación
 
@@ -225,4 +229,5 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Autenticación con JWT: registro, login, refresh, logout y `GET /users/me`
 - [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
+- [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [ ] Documentación Swagger del contrato
