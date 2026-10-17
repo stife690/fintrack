@@ -7,6 +7,7 @@ import usersRoutes from './routes/users.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import transactionsRoutes from './routes/transactions.routes.js';
 import budgetsRoutes from './routes/budgets.routes.js';
+import syncRoutes from './routes/sync.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
@@ -36,6 +37,8 @@ export function createApp() {
   const aiRateLimit = createAiRateLimit();
   app.post('/api/v1/transactions', aiRateLimit);
   app.put('/api/v1/transactions/:id', aiRateLimit);
+  app.post('/api/v1/sync/batch', aiRateLimit);
+  app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/categories', categoriesRoutes);
