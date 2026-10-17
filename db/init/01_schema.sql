@@ -42,8 +42,12 @@ CREATE TABLE transacciones (
   origen VARCHAR(15) NOT NULL CHECK (origen IN ('manual','ia','sin_clasificar')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  deleted_at TIMESTAMPTZ NULL
+  deleted_at TIMESTAMPTZ NULL,
+  -- Id de IndexedDB de las creadas offline: evita duplicarlas si un lote de /sync/batch se reenvía.
+  local_id VARCHAR(64) NULL
 );
+CREATE UNIQUE INDEX ux_transacciones_usuario_local
+  ON transacciones(usuario_id, local_id) WHERE local_id IS NOT NULL;
 CREATE INDEX idx_transacciones_usuario_fecha
   ON transacciones(usuario_id, fecha DESC) WHERE deleted_at IS NULL;
 CREATE INDEX idx_transacciones_usuario_cat_fecha
