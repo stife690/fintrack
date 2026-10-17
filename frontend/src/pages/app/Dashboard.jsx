@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Loader2, LogOut, Receipt } from 'lucide-react';
+import { Bell, Loader2, LogOut, PiggyBank, Receipt } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
@@ -8,7 +8,7 @@ import usePageTitle from '@/hooks/usePageTitle';
 
 /**
  * Página privada provisional (`/app`). Muestra quién inició sesión, da acceso a las
- * transacciones y permite cerrar la sesión.
+ * transacciones y los presupuestos, y permite cerrar la sesión.
  */
 export default function Dashboard() {
   usePageTitle('Mi cuenta');
@@ -33,6 +33,12 @@ export default function Dashboard() {
         <Link to="/app/transacciones">
           <Receipt aria-hidden="true" />
           Mis transacciones
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="lg">
+        <Link to="/app/presupuestos">
+          <PiggyBank aria-hidden="true" />
+          Mis presupuestos
         </Link>
       </Button>
       <Button asChild variant="outline" size="lg">

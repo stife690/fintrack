@@ -10,6 +10,7 @@ const Register = lazy(() => import('@/pages/auth/Register'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
+const Budgets = lazy(() => import('@/pages/app/Budgets'));
 const Notifications = lazy(() => import('@/pages/app/Notifications'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
@@ -40,7 +41,7 @@ function RouteFallback() {
 
 /**
  * Rutas del frontend:
- * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `/app` zona privada · `/app/transacciones` registro y listado · `/app/notificaciones` recordatorio diario · `*` 404.
+ * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `/app` zona privada · `/app/transacciones` registro y listado · `/app/presupuestos` presupuestos por categoría y mes · `/app/notificaciones` recordatorio diario · `*` 404.
  */
 export default function App() {
   const { pathname } = useLocation();
@@ -58,6 +59,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/app" element={<Dashboard />} />
               <Route path="/app/transacciones" element={<Transactions />} />
+              <Route path="/app/presupuestos" element={<Budgets />} />
               <Route path="/app/notificaciones" element={<Notifications />} />
             </Route>
             <Route path="*" element={<NotFound />} />
