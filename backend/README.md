@@ -146,11 +146,12 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/health` | Estado del servicio y de la base de datos. **200** `{ status: "ok", database: "up", ... }` o **503** `{ status: "error", database: "down", ... }` si PostgreSQL no responde. Lo usan Render (health check) y el smoke test. |
-| `POST` | `/api/v1/auth/register` | Crea una cuenta. Body `{ email, password }` (contraseña de 8+ caracteres). **201** `{ user: { id, email }, accessToken, refreshToken }` · **409** `EMAIL_TAKEN` · **422** `VALIDATION_ERROR` con `details` · **429** `RATE_LIMITED`. |
+| `POST` | `/api/v1/auth/register` | Crea una cuenta. Body `{ email, password }` (contraseña de 8+ caracteres). **201** `{ user: { id, email, name }, accessToken, refreshToken }` (`name` empieza en `null`) · **409** `EMAIL_TAKEN` · **422** `VALIDATION_ERROR` con `details` · **429** `RATE_LIMITED`. |
 | `POST` | `/api/v1/auth/login` | Inicia sesión. **200** con la misma forma que el registro · **401** `UNAUTHORIZED` (sin indicar qué campo falló) · **429** `RATE_LIMITED`. |
 | `POST` | `/api/v1/auth/refresh` | Body `{ refreshToken }`. **200** `{ accessToken, refreshToken }`; el token usado queda revocado (rotación) · **401** `UNAUTHORIZED`. |
 | `POST` | `/api/v1/auth/logout` | Requiere access token. Body `{ refreshToken }`. Revoca esa sesión. **204**. |
-| `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, timezone }`. |
+| `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, name, timezone }` (`name` es `null` si no lo ha puesto). |
+| `PATCH` | `/api/v1/users/me` | Requiere access token. Body `{ name }` (máx. 60; `null` o `""` lo borran). **200** con el perfil · **400** cuerpo inválido · **422** `VALIDATION_ERROR`. |
 | `GET` | `/api/v1/users/me/reminder-settings` | Requiere access token. **200** `{ time, timezone }` (`time` en `HH:mm`, o `null` si el recordatorio está desactivado). |
 | `PUT` | `/api/v1/users/me/reminder-settings` | Requiere access token. Body `{ time, timezone }` (`time: null` desactiva). **200** con la configuración guardada · **400** tipos incorrectos · **422** `VALIDATION_ERROR` con `details` (hora o zona inválidas). |
 | `GET` | `/api/v1/push/vapid-public-key` | Requiere access token. **200** `{ key }` con la llave pública VAPID · **500** `INTERNAL_ERROR` si el servidor no tiene llaves. |

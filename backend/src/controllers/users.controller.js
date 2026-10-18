@@ -1,6 +1,7 @@
 import { pushService } from '../services/push.service.js';
-import { getProfile } from '../services/users.service.js';
+import { getProfile, updateProfile } from '../services/users.service.js';
 import { parseReminderSettings } from '../validators/push.validator.js';
+import { parseUpdateProfile } from '../validators/users.validator.js';
 
 /**
  * `GET /api/v1/users/me`: perfil del usuario dueño del token.
@@ -10,6 +11,16 @@ import { parseReminderSettings } from '../validators/push.validator.js';
  */
 export async function getMe(req, res) {
   res.json(await getProfile(req.userId));
+}
+
+/**
+ * `PATCH /api/v1/users/me`: cambia el nombre visible del usuario.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function patchMe(req, res) {
+  res.json(await updateProfile(req.userId, parseUpdateProfile(req.body)));
 }
 
 /**

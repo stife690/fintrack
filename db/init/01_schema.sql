@@ -7,6 +7,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto; -- gen_random_uuid()
 CREATE TABLE usuarios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
+  nombre VARCHAR(60) NULL, -- nombre visible; opcional (las cuentas viejas no lo tienen)
   password_hash VARCHAR(255) NOT NULL,
   timezone VARCHAR(50) NOT NULL DEFAULT 'America/Bogota',
   reminder_time TIME NULL,
