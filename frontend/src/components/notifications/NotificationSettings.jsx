@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff, BellRing, Loader2 } from 'lucide-react';
+import Panel from '@/components/layout/Panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +11,13 @@ import { getReminderSettings, saveReminderSettings } from '@/services/pushServic
 /** Hora que se propone la primera vez que el usuario programa el recordatorio. */
 const SUGGESTED_TIME = '20:00';
 
-/** Tarjeta con el estilo de la zona privada. */
+/** Tarjeta de ajustes de la zona privada. */
 function Card({ title, children }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <Panel>
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <div className="mt-3 flex flex-col gap-4">{children}</div>
-    </section>
+    </Panel>
   );
 }
 
@@ -85,24 +86,24 @@ export default function NotificationSettings() {
   const unchanged = saved?.time === time && saved?.timezone === timezone;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <Card title="Notificaciones en este dispositivo">
         {!push.supported ? (
-          <p className="text-white/60">
+          <p className="text-ink/60">
             Este navegador no permite notificaciones. En iPhone, instala FinTrack en la pantalla de inicio y ábrela
             desde allí.
           </p>
         ) : push.permission === 'denied' ? (
-          <p className="text-white/60">
+          <p className="text-ink/60">
             Bloqueaste las notificaciones de FinTrack. Para activarlas, permítelas en los ajustes del sitio de tu
             navegador (el candado junto a la dirección) y recarga la página.
           </p>
         ) : push.checking ? (
-          <p className="text-white/60">Comprobando…</p>
+          <p className="text-ink/60">Comprobando…</p>
         ) : push.subscribed ? (
           <>
-            <p className="flex items-center gap-2 text-white/60">
-              <BellRing className="size-4 text-success" aria-hidden="true" />
+            <p className="flex items-center gap-2 text-ink/60">
+              <BellRing className="size-4 text-positive" aria-hidden="true" />
               Activadas en este dispositivo.
             </p>
             <Button variant="outline" onClick={handleDisable} disabled={push.busy} className="self-start">
@@ -112,7 +113,7 @@ export default function NotificationSettings() {
           </>
         ) : (
           <>
-            <p className="text-white/60">
+            <p className="text-ink/60">
               Activa las notificaciones para recibir el recordatorio diario. El navegador te pedirá permiso.
             </p>
             <Button onClick={handleEnable} disabled={push.busy} className="self-start">
@@ -122,16 +123,16 @@ export default function NotificationSettings() {
           </>
         )}
         {push.error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-sm text-negative">
             {push.error}
           </p>
         )}
       </Card>
 
       <Card title="Recordatorio diario">
-        <p className="text-white/60">Un aviso cada día para que registres tus gastos.</p>
+        <p className="text-ink/60">Un aviso cada día para que registres tus gastos.</p>
         {loading ? (
-          <p className="text-white/60">Cargando…</p>
+          <p className="text-ink/60">Cargando…</p>
         ) : (
           <>
             <div className="flex max-w-xs flex-col gap-2">
@@ -143,7 +144,7 @@ export default function NotificationSettings() {
                 onChange={(event) => setTime(event.target.value)}
                 disabled={saving}
               />
-              <p className="text-sm text-white/40">Zona horaria: {timezone}</p>
+              <p className="text-sm text-ink/50">Zona horaria: {timezone}</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => saveReminder(time || SUGGESTED_TIME)} disabled={saving || (unchanged && reminderOn)}>
@@ -157,7 +158,7 @@ export default function NotificationSettings() {
               )}
             </div>
             {reminderOn && push.supported && !push.checking && !push.subscribed && (
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-ink/60">
                 Tienes un recordatorio programado, pero este dispositivo no tiene las notificaciones activadas, así
                 que no te llegará.
               </p>
@@ -165,14 +166,14 @@ export default function NotificationSettings() {
           </>
         )}
         {error && !push.error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-sm text-negative">
             {error}
           </p>
         )}
       </Card>
 
       {notice && (
-        <p role="status" className="text-sm text-success">
+        <p role="status" className="text-sm text-positive">
           {notice}
         </p>
       )}

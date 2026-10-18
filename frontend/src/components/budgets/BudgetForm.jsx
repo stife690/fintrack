@@ -76,7 +76,7 @@ export default function BudgetForm({
 
   if (!initial && available.length === 0 && categories.length > 0) {
     return (
-      <p className="text-white/60">
+      <p className="text-ink/60">
         Todas tus categorías de gasto ya tienen presupuesto en {monthLabel}. Puedes cambiar sus
         límites desde la lista.
       </p>
@@ -87,7 +87,7 @@ export default function BudgetForm({
     <form onSubmit={submit} noValidate className="space-y-5" aria-label="Formulario de presupuesto">
       {initial ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-white/80">Categoría</p>
+          <p className="text-sm font-medium text-ink/80">Categoría</p>
           <p className="text-lg">{editingName ?? initial.category}</p>
         </div>
       ) : (
@@ -115,13 +115,13 @@ export default function BudgetForm({
         />
       </FormField>
 
-      <p className="-mt-2 text-sm text-white/50">
+      <p className="-mt-2 text-sm text-ink/50">
         {initial ? 'Aplica a ' : 'Se crea para '}
         {monthLabel}. Te avisamos al llegar al 80 % y al pasarte del 100 %.
       </p>
 
       {serverError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-negative">
           {serverError}
         </p>
       )}

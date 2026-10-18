@@ -30,15 +30,15 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
       <div className="min-w-0 flex-1 basis-48">
-        <p className="truncate font-medium text-white">{t.description}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/50">
+        <p className="truncate font-medium">{t.description}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink/50">
           <span>{formatDate(t.date)}</span>
           <span aria-hidden="true">·</span>
-          <span className={t.category ? '' : 'text-orchid'}>
+          <span className={t.category ? '' : 'italic'}>
             {t.category ? categoryNames[t.category] ?? t.category : 'Sin clasificar'}
           </span>
           {t.source === 'ia' && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs text-violet-light">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-xs text-brand">
               <Sparkles className="size-3" aria-hidden="true" />
               Sugerida por IA
             </span>
@@ -46,7 +46,7 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
         </p>
       </div>
 
-      <p className={cn('text-lg font-semibold tabular-nums', income ? 'text-success' : 'text-white')}>
+      <p className={cn('text-lg font-semibold tabular-nums', income ? 'text-positive' : 'text-ink')}>
         <span className="sr-only">{income ? 'Ingreso de ' : 'Gasto de '}</span>
         {income ? '+' : '−'}
         {formatMoney(t.amount)}
@@ -55,7 +55,7 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
       <div className="flex items-center gap-1">
         {confirming ? (
           <>
-            <span className="mr-1 text-sm text-white/60">¿Eliminar?</span>
+            <span className="mr-1 text-sm text-ink/60">¿Eliminar?</span>
             <Button size="sm" variant="outline" onClick={remove} disabled={busy}>
               Sí, eliminar
             </Button>
@@ -105,7 +105,7 @@ export default function TransactionList({
 
   return (
     <div>
-      <ul className="divide-y divide-white/10">
+      <ul className="divide-y divide-ink/10">
         {transactions.map((t) => (
           <Row key={t.id} transaction={t} categoryNames={categoryNames} onEdit={onEdit} onDelete={onDelete} />
         ))}
@@ -115,7 +115,7 @@ export default function TransactionList({
           <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
             Anterior
           </Button>
-          <span className="text-sm text-white/60">
+          <span className="text-sm text-ink/60">
             Página {page} de {pages}
           </span>
           <Button size="sm" variant="outline" disabled={page >= pages} onClick={() => onPageChange(page + 1)}>

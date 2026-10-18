@@ -1,56 +1,59 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Loader2, LogOut, PiggyBank, Receipt } from 'lucide-react';
-import Logo from '@/components/common/Logo';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { ArrowLeftRight, ChevronRight, Target } from 'lucide-react';
+import PageHeader from '@/components/layout/PageHeader';
 import { useAuth } from '@/auth/AuthContext';
 import usePageTitle from '@/hooks/usePageTitle';
+import { getDisplayName } from '@/lib/displayName';
+
+const SHORTCUTS = [
+  {
+    to: '/app/transacciones',
+    icon: ArrowLeftRight,
+    title: 'Movimientos',
+    text: 'Registra un gasto o un ingreso y revisa tu historial.',
+  },
+  {
+    to: '/app/presupuestos',
+    icon: Target,
+    title: 'Presupuestos',
+    text: 'Pon un límite por categoría y mira cuánto llevas.',
+  },
+];
 
 /**
- * Página privada provisional (`/app`). Muestra quién inició sesión, da acceso a las
- * transacciones y los presupuestos, y permite cerrar la sesión.
+ * Página privada `/app`. Por ahora saluda y lleva a cada sección; el resumen del mes
+ * (saldo, alertas y últimos movimientos) llega en la siguiente fase del rediseño.
  */
 export default function Dashboard() {
-  usePageTitle('Mi cuenta');
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const [leaving, setLeaving] = useState(false);
-
-  const handleSignOut = async () => {
-    setLeaving(true);
-    await signOut();
-    navigate('/login', { replace: true });
-  };
+  usePageTitle('Inicio');
+  const { user } = useAuth();
+  const name = getDisplayName(user);
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-black p-4 text-center text-white">
-      <Logo />
-      <h1 className="text-3xl font-semibold tracking-tight">¡Hola!</h1>
-      <p className="text-white/60">
-        Iniciaste sesión como <span className="text-white">{user.email}</span>.
-      </p>
-      <Button asChild size="lg">
-        <Link to="/app/transacciones">
-          <Receipt aria-hidden="true" />
-          Mis transacciones
-        </Link>
-      </Button>
-      <Button asChild variant="outline" size="lg">
-        <Link to="/app/presupuestos">
-          <PiggyBank aria-hidden="true" />
-          Mis presupuestos
-        </Link>
-      </Button>
-      <Button asChild variant="outline" size="lg">
-        <Link to="/app/notificaciones">
-          <Bell aria-hidden="true" />
-          Notificaciones
-        </Link>
-      </Button>
-      <Button variant="outline" size="lg" onClick={handleSignOut} disabled={leaving}>
-        {leaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut aria-hidden="true" />}
-        {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
-      </Button>
-    </main>
+    <>
+      <PageHeader title={name ? `Hola, ${name}` : 'Hola'} description="¿Qué quieres hacer hoy?" />
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {SHORTCUTS.map(({ to, icon: Icon, title, text }) => (
+          <li key={to}>
+            <Link
+              to={to}
+              className="group flex h-full items-center gap-4 rounded-2xl border border-ink/10 bg-surface p-5 transition-colors hover:border-brand/40"
+            >
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+                <Icon className="size-6" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{title}</span>
+                <span className="block text-sm text-ink/60">{text}</span>
+              </span>
+              <ChevronRight
+                className="size-5 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:text-brand"
+                aria-hidden="true"
+              />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
