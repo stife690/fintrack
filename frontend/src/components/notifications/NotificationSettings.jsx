@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff, BellRing, Loader2 } from 'lucide-react';
+import ChipGroup from '@/components/common/ChipGroup';
 import Panel from '@/components/layout/Panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,23 @@ import { getReminderSettings, saveReminderSettings } from '@/services/pushServic
 
 /** Hora que se propone la primera vez que el usuario programa el recordatorio. */
 const SUGGESTED_TIME = '20:00';
+
+/** Horas sugeridas (al final del día, cuando se repasan los gastos) y la opción de elegir otra. */
+const CUSTOM = 'custom';
+const TIME_OPTIONS = [
+  { value: '19:00', label: '7 p. m.' },
+  { value: '20:00', label: '8 p. m.' },
+  { value: '21:00', label: '9 p. m.' },
+  { value: '22:00', label: '10 p. m.' },
+  { value: CUSTOM, label: 'Otra hora' },
+];
+const isPreset = (time) => TIME_OPTIONS.some((o) => o.value === time);
+
+/** `20:00` → `8:00 p. m.` (formato es-CO). */
+function formatTime(time) {
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
+}
 
 /** Tarjeta de ajustes de la zona privada. */
 function Card({ title, children }) {
@@ -30,7 +48,8 @@ export default function NotificationSettings() {
   const timezone = getDeviceTimezone();
 
   const [saved, setSaved] = useState(null);
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState(SUGGESTED_TIME);
+  const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -42,7 +61,8 @@ export default function NotificationSettings() {
       .then((settings) => {
         if (cancelled) return;
         setSaved(settings);
-        setTime(settings.time ?? '');
+        setTime(settings.time ?? SUGGESTED_TIME);
+        setCustomOpen(Boolean(settings.time) && !isPreset(settings.time));
       })
       .catch((err) => !cancelled && setError(err.message))
       .finally(() => !cancelled && setLoading(false));
@@ -59,9 +79,10 @@ export default function NotificationSettings() {
     try {
       const settings = await saveReminderSettings({ time: nextTime, timezone });
       setSaved(settings);
-      setTime(settings.time ?? '');
+      setTime(settings.time ?? SUGGESTED_TIME);
+      if (!settings.time) setCustomOpen(false);
       setNotice(
-        settings.time ? `Listo: te recordaremos todos los días a las ${settings.time}.` : 'Recordatorio desactivado.',
+        settings.time ? `Listo: te recordaremos todos los días a las ${formatTime(settings.time)}.` : 'Recordatorio desactivado.',
       );
     } catch (err) {
       setError(err.message);
@@ -135,15 +156,29 @@ export default function NotificationSettings() {
           <p className="text-ink/60">Cargando…</p>
         ) : (
           <>
-            <div className="flex max-w-xs flex-col gap-2">
-              <Label htmlFor="reminder-time">Hora del recordatorio</Label>
-              <Input
-                id="reminder-time"
-                type="time"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
+            <div className="flex flex-col gap-3">
+              <ChipGroup
+                legend="Hora del recordatorio"
+                options={TIME_OPTIONS}
+                value={customOpen ? CUSTOM : time}
+                onChange={(value) => {
+                  setCustomOpen(value === CUSTOM);
+                  if (value !== CUSTOM) setTime(value);
+                }}
                 disabled={saving}
               />
+              {customOpen && (
+                <div className="flex max-w-xs flex-col gap-2">
+                  <Label htmlFor="reminder-time">Elige la hora</Label>
+                  <Input
+                    id="reminder-time"
+                    type="time"
+                    value={time}
+                    onChange={(event) => setTime(event.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+              )}
               <p className="text-sm text-ink/50">Zona horaria: {timezone}</p>
             </div>
             <div className="flex flex-wrap gap-3">
