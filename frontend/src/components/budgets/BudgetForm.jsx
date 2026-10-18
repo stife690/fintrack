@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import FormField from '@/components/auth/FormField';
+import CategoryIcon from '@/components/categories/CategoryIcon';
+import CategoryPicker from '@/components/categories/CategoryPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { budgetSchema } from '@/lib/validation/budget';
 
 /**
@@ -45,6 +46,7 @@ export default function BudgetForm({
 }) {
   const [serverError, setServerError] = useState('');
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -88,19 +90,27 @@ export default function BudgetForm({
       {initial ? (
         <div className="space-y-2">
           <p className="text-sm font-medium text-ink/80">Categoría</p>
-          <p className="text-lg">{editingName ?? initial.category}</p>
+          <p className="flex items-center gap-3 text-lg font-medium">
+            <CategoryIcon category={initial.category} />
+            {editingName ?? initial.category}
+          </p>
         </div>
       ) : (
-        <FormField id="budget-category" label="Categoría" error={errors.category?.message}>
-          <Select disabled={disabled} {...register('category')}>
-            <option value="">Elige una categoría de gasto</option>
-            {available.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
+        <Controller
+          control={control}
+          name="category"
+          render={({ field }) => (
+            <CategoryPicker
+              legend="Categoría de gasto"
+              categories={available}
+              value={field.value}
+              onChange={field.onChange}
+              inputRef={field.ref}
+              error={errors.category?.message}
+              disabled={disabled}
+            />
+          )}
+        />
       )}
 
       <FormField id="budget-amount" label="Límite del mes (COP)" error={errors.amount?.message}>

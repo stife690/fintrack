@@ -3,12 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import usePageTitle from '@/hooks/usePageTitle';
 import {
   createTransaction,
@@ -19,7 +16,6 @@ import {
 } from '@/services/transactionService';
 
 const PAGE_SIZE = 10;
-const NO_FILTERS = { type: '', category: '', from: '', to: '' };
 
 /**
  * Calcula qué campos cambiaron al editar. Si el usuario deja la categoría en
@@ -100,8 +96,8 @@ export default function Transactions() {
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
-  const changeFilter = (name, value) => {
-    setFilters((f) => ({ ...f, [name]: value, ...(name === 'type' && { category: '' }) }));
+  const changeFilters = (changes) => {
+    setFilters((f) => ({ ...f, ...changes }));
     setPage(1);
   };
 
@@ -135,12 +131,6 @@ export default function Transactions() {
     }
   };
 
-  const filterCategories =
-    filters.type === 'gasto'
-      ? categories.expense
-      : filters.type === 'ingreso'
-        ? categories.income
-        : [...categories.expense, ...categories.income];
   const hasFilters = Object.values(filters).some(Boolean);
 
   return (
@@ -169,40 +159,9 @@ export default function Transactions() {
             Historial
           </h2>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="min-w-0 space-y-2">
-              <Label htmlFor="f-type">Tipo</Label>
-              <Select id="f-type" value={filters.type} onChange={(e) => changeFilter('type', e.target.value)}>
-                <option value="">Todos</option>
-                <option value="gasto">Gastos</option>
-                <option value="ingreso">Ingresos</option>
-              </Select>
-            </div>
-            <div className="min-w-0 space-y-2">
-              <Label htmlFor="f-category">Categoría</Label>
-              <Select id="f-category" value={filters.category} onChange={(e) => changeFilter('category', e.target.value)}>
-                <option value="">Todas</option>
-                {filterCategories.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="min-w-0 space-y-2">
-              <Label htmlFor="f-from">Desde</Label>
-              <Input id="f-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => changeFilter('from', e.target.value)} />
-            </div>
-            <div className="min-w-0 space-y-2">
-              <Label htmlFor="f-to">Hasta</Label>
-              <Input id="f-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(e) => changeFilter('to', e.target.value)} />
-            </div>
+          <div className="mt-4">
+            <TransactionFilters filters={filters} categories={categories} onChange={changeFilters} />
           </div>
-          {hasFilters && (
-            <Button variant="link" size="sm" className="mt-2 px-0" onClick={() => (setFilters(NO_FILTERS), setPage(1))}>
-              Quitar filtros
-            </Button>
-          )}
 
           <p role="status" className="mt-4 min-h-5 text-sm text-positive">
             {notice}

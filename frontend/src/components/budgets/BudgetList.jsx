@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import CategoryIcon from '@/components/categories/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/components/transactions/format';
 import { cn } from '@/lib/utils';
@@ -99,7 +100,10 @@ function Row({ budget, name, disabled, onEdit, onDelete }) {
   return (
     <li className="py-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="font-medium">{name}</p>
+        <p className="flex items-center gap-3 font-medium">
+          <CategoryIcon category={budget.category} className="size-9" />
+          {name}
+        </p>
         <p className="tabular-nums text-ink/60">
           <span className="text-lg font-semibold text-ink">{formatMoney(budget.consumed)}</span>{' '}
           de {formatMoney(budget.amount)}
