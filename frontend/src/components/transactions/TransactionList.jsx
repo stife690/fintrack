@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pencil, Sparkles, Trash2 } from 'lucide-react';
+import CategoryIcon from '@/components/categories/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatDate, formatMoney } from './format';
@@ -29,7 +30,8 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
-      <div className="min-w-0 flex-1 basis-48">
+      <CategoryIcon category={t.category} />
+      <div className="min-w-0 flex-1 basis-40">
         <p className="truncate font-medium">{t.description}</p>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink/50">
           <span>{formatDate(t.date)}</span>

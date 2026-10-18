@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Sparkles } from 'lucide-react';
 import FormField from '@/components/auth/FormField';
+import CategoryPicker, { AUTO_CATEGORY } from '@/components/categories/CategoryPicker';
+import DateQuickPick from '@/components/transactions/DateQuickPick';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { today, transactionSchema } from '@/lib/validation/transaction';
 
@@ -26,13 +27,14 @@ function toDefaults(initial, defaultType = 'gasto') {
     amount: initial ? String(initial.amount) : '',
     description: initial?.description ?? '',
     date: initial?.date ?? today(),
-    category: initial?.category ?? '',
+    category: initial?.category ?? AUTO_CATEGORY,
   };
 }
 
 /**
- * Formulario para registrar o editar una transacción (monto, descripción, tipo, categoría, fecha).
- * Si se deja la categoría en "Que la IA la sugiera", la API la categoriza al guardar.
+ * Formulario para registrar o editar una transacción (tipo, monto, descripción, fecha y categoría).
+ * La fecha se elige con "Hoy / Ayer / Otra fecha" y la categoría en una cuadrícula con íconos.
+ * Con "Sugerir con IA" la API la categoriza al guardar.
  *
  * @param {object} props
  * @param {{ expense: import('@/services/transactionService').Category[], income: import('@/services/transactionService').Category[] }} props.categories Catálogo por tipo.
@@ -52,7 +54,10 @@ export default function TransactionForm({
   autoFocus = false,
 }) {
   const [serverError, setServerError] = useState('');
+  // Cambia en cada reinicio del formulario para que la fecha vuelva a "Hoy".
+  const [resetKey, setResetKey] = useState(0);
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -66,6 +71,7 @@ export default function TransactionForm({
   useEffect(() => {
     reset(toDefaults(initial, defaultType));
     setServerError('');
+    setResetKey((k) => k + 1);
   }, [initial, defaultType, reset]);
 
   // Referencia propia al monto (además de la de react-hook-form) para poner el cursor ahí
@@ -81,14 +87,17 @@ export default function TransactionForm({
 
   const pickType = (value) => {
     setValue('type', value, { shouldDirty: true });
-    setValue('category', '', { shouldDirty: true }); // la categoría anterior era del otro tipo
+    setValue('category', AUTO_CATEGORY, { shouldDirty: true }); // la categoría anterior era del otro tipo
   };
 
   const submit = handleSubmit(async (values) => {
     setServerError('');
     try {
       await onSubmit({ ...values, category: values.category || null });
-      if (!initial) reset(toDefaults(null, defaultType));
+      if (!initial) {
+        reset(toDefaults(null, defaultType));
+        setResetKey((k) => k + 1);
+      }
     } catch (err) {
       for (const [field, problem] of Object.entries(err.fields ?? {})) {
         if (field in toDefaults(null)) setError(field, { message: problem });
@@ -98,8 +107,8 @@ export default function TransactionForm({
   });
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-5" aria-label="Formulario de transacción">
-      <div role="group" aria-label="Tipo de movimiento" className="grid grid-cols-2 gap-2">
+    <form onSubmit={submit} noValidate className="space-y-5" aria-label="Formulario de movimiento">
+      <div role="group" aria-label="Tipo de movimiento" className="grid grid-cols-2 gap-1 rounded-xl bg-ink/5 p-1">
         {TYPES.map(({ value, label }) => (
           <button
             key={value}
@@ -107,10 +116,8 @@ export default function TransactionForm({
             aria-pressed={type === value}
             onClick={() => pickType(value)}
             className={cn(
-              'h-11 rounded-xl border text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet',
-              type === value
-                ? 'border-brand bg-brand-soft text-brand'
-                : 'border-ink/15 text-ink/60 hover:text-ink',
+              'h-10 rounded-lg text-[15px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet',
+              type === value ? 'bg-surface text-ink shadow-sm ring-1 ring-ink/10' : 'text-ink/60 hover:text-ink',
             )}
           >
             {label}
@@ -126,6 +133,7 @@ export default function TransactionForm({
           step="0.01"
           min="0"
           placeholder="0"
+          className="h-14 text-2xl font-semibold tabular-nums"
           {...amountField}
           ref={(el) => {
             amountField.ref(el);
@@ -135,27 +143,36 @@ export default function TransactionForm({
       </FormField>
 
       <FormField id="tx-description" label="Descripción" error={errors.description?.message}>
-        <Input maxLength={200} placeholder="Ej.: almuerzo en el restaurante" {...register('description')} />
+        <Input maxLength={200} placeholder="Almuerzo en el restaurante" {...register('description')} />
       </FormField>
 
-      <FormField id="tx-date" label="Fecha" error={errors.date?.message}>
-        <Input type="date" {...register('date')} />
-      </FormField>
+      <Controller
+        control={control}
+        name="date"
+        render={({ field }) => (
+          <DateQuickPick key={resetKey} value={field.value} onChange={field.onChange} error={errors.date?.message} />
+        )}
+      />
 
-      <FormField id="tx-category" label="Categoría" error={errors.category?.message}>
-        <Select {...register('category')}>
-          <option value="">Que la IA la sugiera</option>
-          {options.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      {!watch('category') && (
-        <p className="-mt-3 flex items-center gap-1.5 text-sm text-ink/50">
-          <Sparkles className="size-4 text-brand" aria-hidden="true" />
-          Si no eliges una, la clasificamos por ti al guardar.
+      <Controller
+        control={control}
+        name="category"
+        render={({ field }) => (
+          <CategoryPicker
+            legend="Categoría"
+            categories={options}
+            value={field.value}
+            onChange={field.onChange}
+            inputRef={field.ref}
+            allowAuto
+            error={errors.category?.message}
+          />
+        )}
+      />
+      {watch('category') === AUTO_CATEGORY && (
+        <p className="-mt-3 flex items-center gap-1.5 text-sm text-ink/55">
+          <Sparkles className="size-4 shrink-0 text-brand" aria-hidden="true" />
+          La clasificamos por ti al guardar.
         </p>
       )}
 
@@ -168,7 +185,7 @@ export default function TransactionForm({
       <div className="flex gap-3">
         <Button type="submit" size="lg" className="flex-1" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="animate-spin" aria-hidden="true" />}
-          {isSubmitting ? 'Guardando…' : initial ? 'Guardar cambios' : 'Registrar'}
+          {isSubmitting ? 'Guardando…' : initial ? 'Guardar cambios' : type === 'ingreso' ? 'Guardar ingreso' : 'Guardar gasto'}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={isSubmitting}>
