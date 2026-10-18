@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, LogOut } from 'lucide-react';
+import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -8,7 +9,6 @@ import NotificationSettings from '@/components/notifications/NotificationSetting
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
 import usePageTitle from '@/hooks/usePageTitle';
-import { getDisplayName, getInitial } from '@/lib/displayName';
 
 /** Bloque con título de una sección de ajustes. */
 function Section({ id, title, description, children }) {
@@ -24,12 +24,12 @@ function Section({ id, title, description, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`: datos del usuario, tema de la app, notificaciones
+ * Página privada `/app/cuenta`: perfil (nombre editable), tema de la app, notificaciones
  * (REQ-029 y REQ-030) y cierre de sesión.
  */
 export default function Account() {
   usePageTitle('Cuenta');
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
 
@@ -44,18 +44,7 @@ export default function Account() {
       <PageHeader title="Cuenta" />
 
       <div className="flex flex-col gap-5">
-        <Panel className="flex items-center gap-4">
-          <span
-            aria-hidden="true"
-            className="grid size-14 shrink-0 place-items-center rounded-full bg-brand-soft text-xl font-semibold text-brand"
-          >
-            {getInitial(user)}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold">{getDisplayName(user) || 'Tu cuenta'}</p>
-            <p className="truncate text-ink/60">{user.email}</p>
-          </div>
-        </Panel>
+        <ProfileCard />
 
         <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
           <ThemeSelector />

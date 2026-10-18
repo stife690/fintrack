@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { ArrowLeftRight, CircleUserRound, House, Loader2, Target, WifiOff } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/AuthContext';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { getDisplayName, getInitial } from '@/lib/displayName';
 import { cn } from '@/lib/utils';
+import { getProfile } from '@/services/userService';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 /** Secciones de la zona privada. `end` evita que "Inicio" quede activo en las subrutas. */
@@ -111,6 +112,26 @@ function BottomNav() {
   );
 }
 
+/** Se trae el perfil una vez por carga de la app (el marco se vuelve a montar al cambiar de ruta). */
+let profileSynced = false;
+
+/**
+ * Actualiza el nombre guardado en la sesión con el del servidor, por si se cambió en otro
+ * dispositivo. Sin conexión o si falla, se queda con el que ya tenía.
+ */
+function useSyncProfile() {
+  const { updateUser } = useAuth();
+  useEffect(() => {
+    if (profileSynced) return;
+    profileSynced = true;
+    getProfile()
+      .then((profile) => 'name' in profile && updateUser({ name: profile.name }))
+      .catch(() => {
+        profileSynced = false; // se reintenta en la próxima navegación
+      });
+  }, [updateUser]);
+}
+
 /** Mientras descarga el código de una sección, el menú sigue visible. */
 function SectionFallback() {
   return (
@@ -125,6 +146,7 @@ function Shell() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const online = useOnlineStatus();
+  useSyncProfile();
 
   return (
     <div data-theme={theme} className="min-h-dvh bg-canvas text-ink antialiased md:flex">
