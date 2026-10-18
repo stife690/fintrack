@@ -4,11 +4,12 @@ import { pool } from '../config/db.js';
  * @typedef {object} UserRecord
  * @property {string} id Identificador UUID.
  * @property {string} email Correo en minúsculas.
+ * @property {string|null} name Nombre visible; `null` si el usuario no lo ha puesto.
  * @property {string} passwordHash Hash bcrypt de la contraseña (nunca sale de la API).
  * @property {string} timezone Zona horaria del usuario.
  */
 
-const USER_COLUMNS = 'id, email, password_hash AS "passwordHash", timezone';
+const USER_COLUMNS = 'id, email, nombre AS name, password_hash AS "passwordHash", timezone';
 
 /**
  * Crea un usuario. Si el correo ya existe no inserta nada.
@@ -45,5 +46,19 @@ export async function findUserByEmail(email) {
  */
 export async function findUserById(id) {
   const { rows } = await pool.query(`SELECT ${USER_COLUMNS} FROM usuarios WHERE id = $1`, [id]);
+  return rows[0] ?? null;
+}
+
+/**
+ * Cambia el nombre visible de un usuario.
+ * @param {string} id
+ * @param {string|null} name Nombre ya validado; `null` lo borra.
+ * @returns {Promise<UserRecord|null>} El usuario actualizado, o `null` si no existe.
+ */
+export async function updateUserName(id, name) {
+  const { rows } = await pool.query(
+    `UPDATE usuarios SET nombre = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+    [id, name],
+  );
   return rows[0] ?? null;
 }

@@ -36,7 +36,7 @@ async function issueTokens(userId) {
 /**
  * Registra un usuario nuevo y le abre sesión (REQ-001, REQ-003).
  * @param {{ email: string, password: string }} data Datos ya validados.
- * @returns {Promise<{ user: { id: string, email: string }, accessToken: string, refreshToken: string }>}
+ * @returns {Promise<{ user: { id: string, email: string, name: string|null }, accessToken: string, refreshToken: string }>}
  */
 export async function register({ email, password }) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -44,13 +44,13 @@ export async function register({ email, password }) {
   if (!user) {
     throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
   }
-  return { user: { id: user.id, email: user.email }, ...(await issueTokens(user.id)) };
+  return { user: { id: user.id, email: user.email, name: user.name }, ...(await issueTokens(user.id)) };
 }
 
 /**
  * Inicia sesión. No revela si falló el correo o la contraseña (REQ-004).
  * @param {{ email: string, password: string }} data Datos ya validados.
- * @returns {Promise<{ user: { id: string, email: string }, accessToken: string, refreshToken: string }>}
+ * @returns {Promise<{ user: { id: string, email: string, name: string|null }, accessToken: string, refreshToken: string }>}
  */
 export async function login({ email, password }) {
   const user = await findUserByEmail(email.trim().toLowerCase());
@@ -58,7 +58,7 @@ export async function login({ email, password }) {
   if (!user || !matches) {
     throw new AppError(401, 'UNAUTHORIZED', 'Correo o contraseña incorrectos');
   }
-  return { user: { id: user.id, email: user.email }, ...(await issueTokens(user.id)) };
+  return { user: { id: user.id, email: user.email, name: user.name }, ...(await issueTokens(user.id)) };
 }
 
 /**

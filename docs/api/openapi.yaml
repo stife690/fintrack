@@ -192,6 +192,26 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [Users]
+      summary: Cambia el nombre visible del usuario
+      description: >
+        El nombre es opcional y solo se usa para saludar en la app. Se recorta y los espacios
+        repetidos quedan en uno. `null` o un texto vacío lo borran.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses:
+        "200":
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /users/me/reminder-settings:
     get:
@@ -760,19 +780,31 @@ components:
       properties:
         user:
           type: object
-          required: [id, email]
+          required: [id, email, name]
           properties:
             id: { type: string, format: uuid }
             email: { type: string, format: email }
+            name: { type: string, nullable: true, maxLength: 60, example: Felipe }
         accessToken: { type: string }
         refreshToken: { type: string }
     User:
       type: object
-      required: [id, email, timezone]
+      required: [id, email, name, timezone]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
+        name:
+          type: string
+          nullable: true
+          maxLength: 60
+          description: Nombre visible. `null` si el usuario no lo ha puesto.
+          example: Felipe
         timezone: { type: string, example: America/Bogota }
+    UpdateProfileRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, nullable: true, maxLength: 60, example: Felipe }
     ReminderSettings:
       type: object
       required: [time, timezone]
