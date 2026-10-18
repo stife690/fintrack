@@ -23,6 +23,26 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-1640x2360.png" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
     <link rel="preload" as="image" href="/images/homepage/coin.webp" type="image/webp" />
     <title>FinTrack</title>
+    <script>
+      // Al abrir /app (p. ej. la PWA instalada), pinta el fondo del tema elegido antes de que cargue
+      // React, para que no haya un destello negro en modo claro. Los colores son los de
+      // THEME_COLOR en src/theme/ThemeProvider.jsx.
+      (function () {
+        try {
+          if (location.pathname.indexOf('/app') !== 0) return;
+          var pref = localStorage.getItem('fintrack:theme') || 'light';
+          var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          var bg = dark ? '#0c0b11' : '#f5f4f9';
+          var root = document.documentElement;
+          root.style.setProperty('--boot-bg', bg);
+          root.style.backgroundColor = bg;
+          root.style.colorScheme = dark ? 'dark' : 'light';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', bg);
+        } catch (e) {
+          // Sin almacenamiento: se queda el fondo oscuro por defecto.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

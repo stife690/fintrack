@@ -35,9 +35,12 @@ function ReloadAfterChunkError() {
   return null;
 }
 
-/** Pantalla negra mientras carga una ruta diferida (evita un destello blanco). */
+/**
+ * Pantalla vacía mientras carga una ruta diferida. Negra en la landing; en /app usa el fondo del
+ * tema que index.html dejó en `--boot-bg`, así no hay destello al abrir en modo claro.
+ */
 function RouteFallback() {
-  return <div className="min-h-dvh bg-black" aria-busy="true" />;
+  return <div className="min-h-dvh bg-[var(--boot-bg,#000)]" aria-busy="true" />;
 }
 
 /**

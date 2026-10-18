@@ -7,8 +7,14 @@ const STORAGE_KEY = 'fintrack:theme';
 const DEFAULT_PREFERENCE = 'light';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
-/** Color de la barra del sistema (PWA instalada y navegador móvil) para cada tema; igual al fondo. */
+/**
+ * Color de la barra del sistema (PWA instalada y navegador móvil) para cada tema; igual al fondo.
+ * El script de index.html usa los mismos valores al arrancar.
+ */
 const THEME_COLOR = { light: '#f5f4f9', dark: '#0c0b11' };
+
+/** theme-color de index.html para la landing, el login y el registro (diseño oscuro). */
+const LANDING_THEME_COLOR = '#000000';
 
 const ThemeContext = createContext(null);
 
@@ -52,15 +58,23 @@ export function ThemeProvider({ children }) {
     }
   }, []);
 
-  // Barra de estado y controles nativos (scroll, calendario) acordes al tema mientras se está en /app.
+  // Barra de estado, controles nativos (scroll, calendario) y el fondo que se ve al estirar la
+  // página en el celular, acordes al tema mientras se está en /app. Al salir se vuelve a los
+  // valores de la landing (no a los anteriores: el script de index.html ya los había cambiado).
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
-    const previous = { color: meta?.content, scheme: document.documentElement.style.colorScheme };
+    const root = document.documentElement;
     meta?.setAttribute('content', THEME_COLOR[theme]);
-    document.documentElement.style.colorScheme = theme;
+    root.style.colorScheme = theme;
+    root.style.backgroundColor = THEME_COLOR[theme];
+    document.body.style.backgroundColor = THEME_COLOR[theme];
+    root.style.setProperty('--boot-bg', THEME_COLOR[theme]);
     return () => {
-      if (previous.color) meta?.setAttribute('content', previous.color);
-      document.documentElement.style.colorScheme = previous.scheme;
+      meta?.setAttribute('content', LANDING_THEME_COLOR);
+      root.style.removeProperty('color-scheme');
+      root.style.removeProperty('background-color');
+      root.style.removeProperty('--boot-bg');
+      document.body.style.removeProperty('background-color');
     };
   }, [theme]);
 
