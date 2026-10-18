@@ -91,8 +91,8 @@ export default function TransactionForm({ categories, initial = null, onSubmit, 
             className={cn(
               'h-11 rounded-xl border text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet',
               type === value
-                ? 'border-primary bg-primary/15 text-white'
-                : 'border-white/15 text-white/60 hover:text-white',
+                ? 'border-brand bg-brand-soft text-brand'
+                : 'border-ink/15 text-ink/60 hover:text-ink',
             )}
           >
             {label}
@@ -124,14 +124,14 @@ export default function TransactionForm({ categories, initial = null, onSubmit, 
         </Select>
       </FormField>
       {!watch('category') && (
-        <p className="-mt-3 flex items-center gap-1.5 text-sm text-white/50">
-          <Sparkles className="size-4 text-violet-light" aria-hidden="true" />
+        <p className="-mt-3 flex items-center gap-1.5 text-sm text-ink/50">
+          <Sparkles className="size-4 text-brand" aria-hidden="true" />
           Si no eliges una, la clasificamos por ti al guardar.
         </p>
       )}
 
       {serverError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-negative">
           {serverError}
         </p>
       )}

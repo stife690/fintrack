@@ -54,7 +54,78 @@
   }
 }
 
+/*
+ * Colores de la zona privada (/app), con tema claro y oscuro.
+ * `inline` hace que cada utilidad (bg-canvas, text-ink…) lea la variable donde se usa,
+ * así el tema cambia con solo poner `data-theme` en un contenedor.
+ * Bordes y textos secundarios se derivan de `ink` con opacidad (border-ink/10, text-ink/60):
+ * funcionan igual sobre fondo claro y oscuro sin definir un color por cada caso.
+ */
+@theme inline {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-surface-muted: var(--app-surface-muted);
+  --color-ink: var(--app-ink);
+  --color-field: var(--app-field);
+  --color-field-line: var(--app-field-line);
+  --color-brand: var(--app-brand);
+  --color-brand-soft: var(--app-brand-soft);
+  --color-positive: var(--app-positive);
+  --color-negative: var(--app-negative);
+  --color-caution: var(--app-caution);
+}
+
 @layer base {
+  /*
+   * Fuera de /app (landing, login, registro) los valores reproducen el diseño oscuro original,
+   * así los componentes compartidos (Input, Button…) se ven igual que antes.
+   */
+  :root {
+    --app-canvas: #000000;
+    --app-surface: rgb(255 255 255 / 0.03);
+    --app-surface-muted: rgb(255 255 255 / 0.06);
+    --app-ink: #ffffff;
+    --app-field: #000000;
+    --app-field-line: #323232;
+    --app-brand: #8b66ff;
+    --app-brand-soft: rgb(97 66 255 / 0.15);
+    --app-positive: #2fd6a3;
+    --app-negative: #f04438;
+    --app-caution: #fcd34d;
+  }
+
+  /* Tema claro: lavanda muy suave de fondo y tarjetas blancas. Contrastes AA sobre blanco. */
+  [data-theme='light'] {
+    --app-canvas: #f5f4f9;
+    --app-surface: #ffffff;
+    --app-surface-muted: #efedf6;
+    --app-ink: #16141f;
+    --app-field: #ffffff;
+    --app-field-line: #d9d6e4;
+    --app-brand: #5b3df5;
+    --app-brand-soft: #ece8ff;
+    --app-positive: #087a59;
+    --app-negative: #c8321f;
+    --app-caution: #9a5b00;
+    color-scheme: light;
+  }
+
+  /* Tema oscuro: grafito con un toque violeta, no negro puro, para separar fondo y tarjetas. */
+  [data-theme='dark'] {
+    --app-canvas: #0c0b11;
+    --app-surface: #15141c;
+    --app-surface-muted: #1e1c27;
+    --app-ink: #f2f1f7;
+    --app-field: #0f0e15;
+    --app-field-line: #2d2b38;
+    --app-brand: #9b85ff;
+    --app-brand-soft: rgb(97 66 255 / 0.18);
+    --app-positive: #34d6a5;
+    --app-negative: #ff7a6b;
+    --app-caution: #fbbf24;
+    color-scheme: dark;
+  }
+
   html {
     scroll-behavior: smooth;
   }

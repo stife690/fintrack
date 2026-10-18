@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, WifiOff } from 'lucide-react';
-import Logo from '@/components/common/Logo';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import BudgetForm from '@/components/budgets/BudgetForm';
 import BudgetList from '@/components/budgets/BudgetList';
+import PageHeader from '@/components/layout/PageHeader';
+import Panel from '@/components/layout/Panel';
 import { currentMonth, formatMonth, shiftMonth } from '@/components/budgets/month';
 import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
@@ -14,7 +14,7 @@ import { getCategories } from '@/services/transactionService';
 /**
  * Página privada `/app/presupuestos`: crear, editar y eliminar presupuestos por categoría y
  * mes, con lo gastado y la alerta de cada uno (FT-0005, REQ-016 a REQ-019).
- * Necesita conexión: sin ella muestra un aviso y desactiva los cambios.
+ * Necesita conexión: sin ella desactiva los cambios (el aviso lo muestra el marco de la app).
  */
 export default function Budgets() {
   usePageTitle('Presupuestos');
@@ -88,36 +88,17 @@ export default function Budgets() {
   };
 
   return (
-    <div className="min-h-dvh bg-black text-white">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <Logo />
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/app">
-            <ArrowLeft aria-hidden="true" />
-            Volver
-          </Link>
-        </Button>
-      </header>
+    <>
+      <PageHeader
+        title="Presupuestos"
+        description="Un límite por categoría para cada mes. Te avisamos al 80 % y al pasarte."
+      />
 
-      {!online && (
-        <p
-          role="status"
-          className="mx-auto mb-6 flex max-w-6xl items-center gap-2 px-4 text-sm text-amber-300"
-        >
-          <WifiOff className="size-4 shrink-0" aria-hidden="true" />
-          Sin conexión. Los presupuestos se guardan en el servidor: podrás crearlos y cambiarlos
-          cuando vuelvas a tener internet.
-        </p>
-      )}
-
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 pb-16 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <section
-          aria-labelledby="form-title"
-          className="h-fit min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-        >
-          <h1 id="form-title" className="mb-5 text-xl font-semibold tracking-tight">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <Panel aria-labelledby="form-title" className="h-fit lg:sticky lg:top-8">
+          <h2 id="form-title" className="mb-5 text-lg font-semibold tracking-tight">
             {editing ? 'Cambiar límite' : 'Nuevo presupuesto'}
-          </h1>
+          </h2>
           <BudgetForm
             categories={categories}
             usedCategories={budgets.map((b) => b.category)}
@@ -127,17 +108,14 @@ export default function Budgets() {
             onSubmit={handleSubmit}
             onCancel={editing ? () => setEditing(null) : undefined}
           />
-        </section>
+        </Panel>
 
-        <section
-          aria-labelledby="list-title"
-          className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-        >
+        <Panel aria-labelledby="list-title">
           <div className="flex items-center justify-between gap-2">
             <Button size="icon" variant="ghost" onClick={() => changeMonth(-1)} aria-label="Mes anterior">
               <ChevronLeft aria-hidden="true" />
             </Button>
-            <h2 id="list-title" className="text-center text-xl font-semibold tracking-tight first-letter:uppercase">
+            <h2 id="list-title" className="text-center text-lg font-semibold tracking-tight first-letter:uppercase">
               {monthLabel}
             </h2>
             <Button size="icon" variant="ghost" onClick={() => changeMonth(1)} aria-label="Mes siguiente">
@@ -145,11 +123,11 @@ export default function Budgets() {
             </Button>
           </div>
 
-          <p role="status" className="mt-4 min-h-5 text-sm text-success">
+          <p role="status" className="mt-4 min-h-5 text-sm text-positive">
             {notice}
           </p>
           {error && (
-            <p role="alert" className="mt-2 text-sm text-destructive">
+            <p role="alert" className="mt-2 text-sm text-negative">
               {error}{' '}
               <button type="button" className="underline" onClick={reload}>
                 Reintentar
@@ -159,11 +137,11 @@ export default function Budgets() {
 
           <div className="mt-2" aria-busy={loading}>
             {loading && budgets.length === 0 ? (
-              <p className="flex items-center gap-2 py-10 text-white/60">
+              <p className="flex items-center gap-2 py-10 text-ink/60">
                 <Loader2 className="animate-spin" aria-hidden="true" /> Cargando…
               </p>
             ) : budgets.length === 0 ? (
-              <p className="py-10 text-center text-white/50">
+              <p className="py-10 text-center text-ink/50">
                 No tienes presupuestos en {monthLabel}. Crea uno para ver cuánto llevas gastado en
                 esa categoría.
               </p>
@@ -177,8 +155,8 @@ export default function Budgets() {
               />
             )}
           </div>
-        </section>
-      </main>
-    </div>
+        </Panel>
+      </div>
+    </>
   );
 }
