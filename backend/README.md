@@ -79,6 +79,7 @@ Reglas:
    ```
 
    - La primera vez crea las 8 tablas y el catálogo de categorías a partir de `db/init/`.
+   - Los cambios de esquema posteriores están en `db/patches/` y el backend los aplica solo al arrancar (`src/config/migrations.js`), tanto en local como en Render. Son idempotentes.
    - Queda en el puerto **5434** del host, para no chocar con un PostgreSQL instalado en el sistema.
    - Las siguientes veces basta con `docker start fintrack-db`. Más detalles en [docs/entorno-local.md](../docs/entorno-local.md).
 
