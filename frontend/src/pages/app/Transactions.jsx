@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -56,6 +57,10 @@ function savedMessage(saved, names) {
  */
 export default function Transactions() {
   usePageTitle('Movimientos');
+  // `?nuevo=gasto|ingreso` llega desde los accesos rápidos del inicio.
+  const [searchParams] = useSearchParams();
+  const quickType = searchParams.get('nuevo');
+  const defaultType = quickType === 'ingreso' ? 'ingreso' : 'gasto';
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
@@ -152,6 +157,8 @@ export default function Transactions() {
           <TransactionForm
             categories={categories}
             initial={editing}
+            defaultType={defaultType}
+            autoFocus={Boolean(quickType)}
             onSubmit={handleSubmit}
             onCancel={editing ? () => setEditing(null) : undefined}
           />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -17,11 +17,12 @@ const TYPES = [
 /**
  * Valores iniciales del formulario: los de la transacción que se edita, o los de una nueva.
  * @param {import('@/services/transactionService').Transaction|null} initial
+ * @param {'gasto'|'ingreso'} [defaultType] Tipo con el que empieza una transacción nueva.
  * @returns {{ type: string, amount: string, description: string, date: string, category: string }}
  */
-function toDefaults(initial) {
+function toDefaults(initial, defaultType = 'gasto') {
   return {
-    type: initial?.type ?? 'gasto',
+    type: initial?.type ?? defaultType,
     amount: initial ? String(initial.amount) : '',
     description: initial?.description ?? '',
     date: initial?.date ?? today(),
@@ -39,8 +40,17 @@ function toDefaults(initial) {
  * @param {(values: { type: string, amount: number, description: string, date: string, category: string|null }) => Promise<void>} props.onSubmit
  *   Debe lanzar un `Error` si falla; con `err.fields` se marcan los campos del servidor.
  * @param {() => void} [props.onCancel] Si se pasa, se muestra el botón "Cancelar".
+ * @param {'gasto'|'ingreso'} [props.defaultType] Tipo inicial de una transacción nueva.
+ * @param {boolean} [props.autoFocus] Pone el cursor en el monto al abrir (p. ej. desde un acceso rápido).
  */
-export default function TransactionForm({ categories, initial = null, onSubmit, onCancel }) {
+export default function TransactionForm({
+  categories,
+  initial = null,
+  onSubmit,
+  onCancel,
+  defaultType = 'gasto',
+  autoFocus = false,
+}) {
   const [serverError, setServerError] = useState('');
   const {
     register,
@@ -50,13 +60,21 @@ export default function TransactionForm({ categories, initial = null, onSubmit, 
     setError,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(transactionSchema), defaultValues: toDefaults(initial) });
+  } = useForm({ resolver: zodResolver(transactionSchema), defaultValues: toDefaults(initial, defaultType) });
 
   // Al cambiar de transacción a editar (o volver a "nueva") se recargan los valores.
   useEffect(() => {
-    reset(toDefaults(initial));
+    reset(toDefaults(initial, defaultType));
     setServerError('');
-  }, [initial, reset]);
+  }, [initial, defaultType, reset]);
+
+  // Referencia propia al monto (además de la de react-hook-form) para poner el cursor ahí
+  // cuando se llega desde un acceso rápido.
+  const amountRef = useRef(null);
+  const amountField = register('amount');
+  useEffect(() => {
+    if (autoFocus) amountRef.current?.focus();
+  }, [autoFocus, defaultType]);
 
   const type = watch('type');
   const options = type === 'gasto' ? categories.expense : categories.income;
@@ -70,7 +88,7 @@ export default function TransactionForm({ categories, initial = null, onSubmit, 
     setServerError('');
     try {
       await onSubmit({ ...values, category: values.category || null });
-      if (!initial) reset(toDefaults(null));
+      if (!initial) reset(toDefaults(null, defaultType));
     } catch (err) {
       for (const [field, problem] of Object.entries(err.fields ?? {})) {
         if (field in toDefaults(null)) setError(field, { message: problem });
@@ -102,7 +120,18 @@ export default function TransactionForm({ categories, initial = null, onSubmit, 
       <input type="hidden" {...register('type')} />
 
       <FormField id="tx-amount" label="Monto (COP)" error={errors.amount?.message}>
-        <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="0" {...register('amount')} />
+        <Input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          placeholder="0"
+          {...amountField}
+          ref={(el) => {
+            amountField.ref(el);
+            amountRef.current = el;
+          }}
+        />
       </FormField>
 
       <FormField id="tx-description" label="Descripción" error={errors.description?.message}>
