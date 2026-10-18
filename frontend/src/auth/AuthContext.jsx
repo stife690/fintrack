@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { saveSession, getSession, clearSession } from './tokenStorage';
 import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
 import { login } from '@/services/authService';
@@ -38,8 +38,21 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  /**
+   * Actualiza datos del usuario (p. ej. el nombre) en memoria y en la sesión guardada,
+   * sin tocar los tokens. Si no hay sesión no hace nada.
+   * @param {Partial<{ name: string|null }>} changes
+   */
+  const updateUser = useCallback((changes) => {
+    const session = getSession();
+    if (!session) return;
+    const next = { ...session.user, ...changes };
+    saveSession({ ...session, user: next });
+    setUser(next);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, signIn, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
