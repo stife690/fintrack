@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import BudgetAlert from '@/components/transactions/BudgetAlert';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
@@ -65,6 +66,7 @@ export default function Transactions() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
+  const [budgetAlert, setBudgetAlert] = useState({ alert: null, category: null }); // FT-0006
   const [version, setVersion] = useState(0); // se incrementa para forzar la recarga del listado
 
   const categoryNames = useMemo(
@@ -105,14 +107,16 @@ export default function Transactions() {
     if (editing) {
       const changes = diff(editing, values);
       if (Object.keys(changes).length > 0) {
-        await updateTransaction(editing.id, changes);
+        const { transaction, alert } = await updateTransaction(editing.id, changes);
+        setBudgetAlert({ alert, category: transaction.category });
         setNotice('Cambios guardados.');
         reload();
       }
       setEditing(null);
       return;
     }
-    const saved = await createTransaction(values);
+    const { transaction: saved, alert } = await createTransaction(values);
+    setBudgetAlert({ alert, category: saved.category });
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
@@ -151,6 +155,11 @@ export default function Transactions() {
             autoFocus={Boolean(quickType)}
             onSubmit={handleSubmit}
             onCancel={editing ? () => setEditing(null) : undefined}
+          />
+          <BudgetAlert
+            className="mt-4"
+            alert={budgetAlert.alert}
+            categoryName={categoryNames[budgetAlert.category]}
           />
         </Panel>
 
