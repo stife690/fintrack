@@ -152,6 +152,19 @@ function resolve(category, description, type) {
     : { category: null, source: 'sin_clasificar' };
 }
 
+/**
+ * Alerta de presupuesto simulada para probar la interfaz sin backend: un gasto desde
+ * $500.000 avisa al 80 % y desde $1.000.000 marca el presupuesto como superado.
+ * @param {{ type: string, amount: number }} transaction
+ * @returns {{ level: string, percentage: number }|null}
+ */
+function mockAlert({ type, amount }) {
+  if (type !== 'gasto') return null;
+  if (amount >= 1_000_000) return { level: 'exceeded_100', percentage: 112.5 };
+  if (amount >= 500_000) return { level: 'warning_80', percentage: 85 };
+  return { level: 'none', percentage: 20 };
+}
+
 export const handlers = [
   http.post(`${API_V1}/auth/register`, async ({ request }) => {
     const body = await readJson(request);
@@ -253,7 +266,7 @@ export const handlers = [
       deletedAt: null,
     };
     transactions.set(user.id, [transaction, ...(transactions.get(user.id) ?? [])]);
-    return HttpResponse.json({ transaction, alert: null }, { status: 201 });
+    return HttpResponse.json({ transaction, alert: mockAlert(transaction) }, { status: 201 });
   }),
 
   http.get(`${API_V1}/transactions/:id`, ({ request, params }) => {
@@ -287,7 +300,7 @@ export const handlers = [
     }
     next.updatedAt = new Date().toISOString();
     Object.assign(current, next);
-    return HttpResponse.json({ transaction: current, alert: null });
+    return HttpResponse.json({ transaction: current, alert: mockAlert(current) });
   }),
 
   http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
