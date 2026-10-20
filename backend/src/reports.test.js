@@ -162,15 +162,22 @@ test('responde 422 NO_DATA si no hay movimientos en el periodo (REQ-033)', optio
   });
 });
 
-test('responde 422 si el PDF aún no está disponible o los parámetros no son válidos', options, async () => {
+test('exporta el reporte en PDF', options, async () => {
   await withApi(async (api) => {
     const token = await newUser(api);
     await addTransaction(api, token, { type: 'gasto', amount: 1000, description: 'Algo', category: 'otros', date: '2026-10-05' });
 
     const pdf = await api('/reports/export?format=pdf&from=2026-10-01&to=2026-10-31', { token });
-    assert.equal(pdf.status, 422);
-    assert.deepEqual(pdf.body.error.details.map((d) => d.field), ['format']);
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+    assert.equal(pdf.headers.get('content-disposition'), 'attachment; filename="fintrack_2026-10.pdf"');
+    assert.equal(pdf.buffer.subarray(0, 5).toString(), '%PDF-');
+  });
+});
 
+test('responde 422 si los parámetros no son válidos', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUser(api);
     const bad = await api('/reports/export?format=csv&from=2026-10-31&to=2026-10-01', { token });
     assert.equal(bad.status, 422);
     assert.equal(bad.body.error.code, 'VALIDATION_ERROR');
