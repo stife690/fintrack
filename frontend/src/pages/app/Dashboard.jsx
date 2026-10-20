@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
+import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import PeriodSelector from '@/components/dashboard/PeriodSelector';
@@ -13,6 +14,7 @@ import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
+import { SYNC_EVENT, listPending } from '@/offline/sync';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
 import { getSummary } from '@/services/summaryService';
@@ -31,6 +33,7 @@ function monthName(month) {
  * (FT-0005) y últimos movimientos. Cada bloque carga por separado: si uno falla, los demás se ven.
  * Los presupuestos siempre son del mes actual: el selector de periodo solo cambia el balance
  * y los gráficos de ingresos/gastos y gastos por categoría.
+ * Sin ningún movimiento, el balance y los gráficos se reemplazan por un estado vacío (FT-0004).
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -59,39 +62,69 @@ export default function Dashboard() {
     return Object.fromEntries(all.map((c) => [c.key, c.name]));
   }, [categories.data]);
 
+  // Movimientos guardados sin conexión que aún no llegan al servidor (FT-0009).
+  const [pending, setPending] = useState(0);
+  const { reload: reloadRecent } = recent;
+  const { reload: reloadSummary } = summary;
+  useEffect(() => {
+    const onSync = ({ detail }) => {
+      setPending(detail.pending);
+      // Lo sincronizado ya está en el servidor: se recargan el balance y los últimos movimientos.
+      if (detail.synced?.length) {
+        reloadRecent();
+        reloadSummary();
+      }
+    };
+    listPending().then((ops) => setPending(ops.length));
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
+  }, [reloadRecent, reloadSummary]);
+
   const name = getDisplayName(user);
+  // `total` cuenta todos los movimientos del usuario, no solo los de la página pedida.
+  // Si hay pendientes offline el usuario ya registró algo: no se le dice que no tiene movimientos.
+  const empty = recent.data?.total === 0 && pending === 0;
 
   return (
     <>
-      <PageHeader title={name ? `Hola, ${name}` : 'Hola'} description={`Así va tu ${label}.`} />
+      <PageHeader
+        title={name ? `Hola, ${name}` : 'Hola'}
+        description={empty ? 'Te damos la bienvenida a FinTrack.' : `Así va tu ${label}.`}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
-          <BalanceCard
-            periodLabel={periodLabel(selected.period, selected.date)}
-            totals={totals}
-            hidden={hidden}
-            onToggleHidden={toggleHidden}
-          />
-          {summary.error && (
-            <p role="alert" className="-mt-2 text-sm text-negative">
-              No pudimos calcular el balance: {summary.error}{' '}
-              <button type="button" className="underline" onClick={summary.reload}>
-                Reintentar
-              </button>
-            </p>
+          {empty ? (
+            <DashboardEmpty />
+          ) : (
+            <>
+              <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
+              <BalanceCard
+                periodLabel={periodLabel(selected.period, selected.date)}
+                totals={totals}
+                hidden={hidden}
+                onToggleHidden={toggleHidden}
+              />
+              {summary.error && (
+                <p role="alert" className="-mt-2 text-sm text-negative">
+                  No pudimos calcular el balance: {summary.error}{' '}
+                  <button type="button" className="underline" onClick={summary.reload}>
+                    Reintentar
+                  </button>
+                </p>
+              )}
+              <QuickActions />
+              {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
+              <IncomeExpenseChart
+                period={selected.period}
+                date={selected.date}
+                timeSeries={current?.timeSeries}
+                hidden={hidden}
+              />
+              <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />
+              <RecentTransactions transactions={recent.data?.data} names={names} hidden={hidden} error={recent.error} />
+            </>
           )}
-          <QuickActions />
-          {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
-          <IncomeExpenseChart
-            period={selected.period}
-            date={selected.date}
-            timeSeries={current?.timeSeries}
-            hidden={hidden}
-          />
-          <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />
-          <RecentTransactions transactions={recent.data?.data} names={names} hidden={hidden} error={recent.error} />
         </div>
 
         <aside className="min-w-0" aria-label="Presupuestos del mes">

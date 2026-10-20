@@ -173,32 +173,31 @@ function Shell() {
           </Link>
         </header>
 
-        {!online ? (
-          <p
-            role="status"
-            className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-caution/10 px-4 py-2.5 text-sm text-caution md:mx-8 md:mt-6"
-          >
-            <WifiOff className="size-4 shrink-0" aria-hidden="true" />
-            Sin conexión. Los movimientos nuevos se guardan en este dispositivo y se envían al volver internet
-            {pending > 0 && ` (${pending} ${pending === 1 ? 'pendiente' : 'pendientes'})`}.
-          </p>
-        ) : (
-          pending > 0 && (
-            <p
-              role="status"
-              className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-2.5 text-sm text-brand md:mx-8 md:mt-6"
-            >
-              {syncing ? (
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
-              ) : (
-                <CloudUpload className="size-4 shrink-0" aria-hidden="true" />
-              )}
-              {syncing
-                ? `Sincronizando ${pending} ${pending === 1 ? 'movimiento' : 'movimientos'}…`
-                : `${pending} ${pending === 1 ? 'movimiento pendiente' : 'movimientos pendientes'} de sincronizar. Se reintentará automáticamente.`}
+        {/* Una sola región de estado, siempre montada: así el lector de pantalla anuncia cada cambio. */}
+        <div role="status" aria-atomic="true">
+          {!online ? (
+            <p className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-caution/10 px-4 py-2.5 text-sm text-ink md:mx-8 md:mt-6">
+              <WifiOff className="size-4 shrink-0 text-caution" aria-hidden="true" />
+              Sin conexión. Los movimientos nuevos se guardan en este dispositivo y se envían al volver internet
+              {pending > 0 && ` (${pending} ${pending === 1 ? 'pendiente' : 'pendientes'})`}.
             </p>
-          )
-        )}
+          ) : (
+            pending > 0 && (
+              <p
+                className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-2.5 text-sm text-brand md:mx-8 md:mt-6"
+              >
+                {syncing ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CloudUpload className="size-4 shrink-0" aria-hidden="true" />
+                )}
+                {syncing
+                  ? `Sincronizando ${pending} ${pending === 1 ? 'movimiento' : 'movimientos'}…`
+                  : `${pending} ${pending === 1 ? 'movimiento pendiente' : 'movimientos pendientes'} de sincronizar. Se reintentará automáticamente.`}
+              </p>
+            )
+          )}
+        </div>
 
         <main
           id="contenido"

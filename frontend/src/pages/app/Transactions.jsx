@@ -65,11 +65,12 @@ function PendingList({ operations }) {
       <ul className="mt-2 divide-y divide-ink/10">
         {operations.map(({ localId, transaction: t }) => (
           <li key={localId} className="flex items-center justify-between gap-4 py-2 text-sm">
-            <span className="min-w-0 truncate">
-              {t.description} <span className="text-ink/50">· {formatDate(t.date)}</span>
+            <span className="min-w-0 break-words">
+              {t.description} <span className="text-ink/60">· {formatDate(t.date)}</span>
             </span>
-            <span className="tabular-nums">
-              {t.type === 'ingreso' ? '+' : '−'}
+            <span className="shrink-0 tabular-nums">
+              <span className="sr-only">{t.type === 'ingreso' ? 'Ingreso de ' : 'Gasto de '}</span>
+              <span aria-hidden="true">{t.type === 'ingreso' ? '+' : '−'}</span>
               {formatMoney(t.amount)}
             </span>
           </li>
