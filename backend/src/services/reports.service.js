@@ -1,5 +1,9 @@
 import { AppError } from '../errors/app-error.js';
 import { listForExport } from '../repositories/transactions.repository.js';
+import { buildReport, isWholeMonth } from './report-data.service.js';
+import { buildWorkbook } from './report-excel.service.js';
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /** Separador de columnas: con `;` Excel en español (coma decimal) abre cada dato en su columna. */
 const SEPARATOR = ';';
@@ -69,18 +73,22 @@ export function toCsv(rows) {
  * @returns {string}
  */
 export function exportFilename(from, to, extension) {
-  const [year, month] = from.split('-').map(Number);
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate(); // día 0 del mes siguiente
-  const wholeMonth = from.endsWith('-01') && to === `${from.slice(0, 8)}${String(lastDay).padStart(2, '0')}`;
-  const period = wholeMonth ? from.slice(0, 7) : `${from}_${to}`;
+  const period = isWholeMonth(from, to) ? from.slice(0, 7) : `${from}_${to}`;
   return `fintrack_${period}.${extension}`;
+}
+
+/** @returns {AppError} 422 `NO_DATA`: no hay movimientos en el periodo (REQ-033). */
+function noData() {
+  return new AppError(422, 'NO_DATA', 'No hay movimientos en el periodo seleccionado');
 }
 
 /**
  * Genera el archivo de exportación del periodo (FT-0012, REQ-031 a REQ-033).
+ * - `xlsx`: reporte con resumen, categorías, top 5, presupuestos y movimientos.
+ * - `csv`: los movimientos en texto plano, para importarlos en otras herramientas.
  * @param {string} userId
- * @param {{ format: 'csv'|'pdf', from: string, to: string }} query Datos ya validados.
- * @returns {Promise<{ filename: string, contentType: string, body: string }>}
+ * @param {{ format: 'xlsx'|'csv'|'pdf', from: string, to: string }} query Datos ya validados.
+ * @returns {Promise<{ filename: string, contentType: string, body: string|Buffer }>}
  * @throws {AppError} 422 `NO_DATA` si no hay movimientos en el periodo; 422 si se pide PDF.
  */
 export async function exportTransactions(userId, { format, from, to }) {
@@ -90,10 +98,18 @@ export async function exportTransactions(userId, { format, from, to }) {
     ]);
   }
 
-  const rows = await listForExport({ userId, from, to });
-  if (rows.length === 0) {
-    throw new AppError(422, 'NO_DATA', 'No hay movimientos en el periodo seleccionado');
+  if (format === 'xlsx') {
+    const report = await buildReport(userId, { from, to });
+    if (!report) throw noData();
+    return {
+      filename: exportFilename(from, to, 'xlsx'),
+      contentType: XLSX_TYPE,
+      body: await buildWorkbook(report),
+    };
   }
+
+  const rows = await listForExport({ userId, from, to });
+  if (rows.length === 0) throw noData();
 
   return {
     filename: exportFilename(from, to, 'csv'),
