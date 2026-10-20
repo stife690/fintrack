@@ -50,7 +50,7 @@ export default function DashboardEmpty() {
           <li key={title} className="flex gap-3 sm:flex-col sm:gap-2">
             <Icon className="size-5 shrink-0 text-brand" aria-hidden="true" />
             <div>
-              <p className="font-medium">{title}</p>
+              <h3 className="font-medium">{title}</h3>
               <p className="text-sm text-ink/60">{text}</p>
             </div>
           </li>
