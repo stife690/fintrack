@@ -144,10 +144,10 @@ export default function Transactions() {
         title="Movimientos"
         description="Tus gastos e ingresos, con la categoría de cada uno."
         actions={
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="soft">
             <Link to="/app/transacciones/exportar">
               <Download aria-hidden="true" />
-              Exportar
+              Exportar reporte
             </Link>
           </Button>
         }

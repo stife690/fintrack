@@ -14,6 +14,8 @@ const buttonVariants = cva(
         outline: 'border border-ink/15 bg-transparent text-ink hover:bg-ink/5',
         'outline-light': 'border border-border bg-white text-foreground hover:bg-card',
         ghost: 'text-ink/60 hover:text-ink',
+        // Acción secundaria con el color de la marca: se nota sin competir con el botón principal.
+        soft: 'bg-brand-soft text-brand ring-1 ring-inset ring-brand/20 hover:bg-brand/15 hover:ring-brand/35 motion-safe:active:scale-[0.98] motion-safe:transition-[color,background-color,box-shadow,transform]',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
