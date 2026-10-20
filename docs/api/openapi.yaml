@@ -475,7 +475,10 @@ paths:
       summary: Insights del mes actual (se generan y cachean si no existen)
       description: |
         Al LLM solo llegan datos agregados por categoría y periodo, nunca descripciones
-        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y mes.
+        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y mes
+        y se regeneran si el resultado guardado tiene más de 24 horas; si la IA falla y hay uno
+        guardado, se devuelve ese. Hace falta al menos un mes de historial (la transacción más
+        antigua con un mes o más de antigüedad) y gastos en el mes actual o el anterior.
       responses:
         "200":
           description: Insights del mes
@@ -952,9 +955,12 @@ components:
       type: object
       required: [type, title, detail]
       properties:
-        type: { type: string, example: saving_opportunity }
-        title: { type: string }
-        detail: { type: string }
+        type:
+          type: string
+          enum: [saving_opportunity, overspending_alert, positive_trend, general_tip]
+          example: saving_opportunity
+        title: { type: string, maxLength: 80 }
+        detail: { type: string, maxLength: 300 }
 
     # ---------- Sync
     SyncOperation:
