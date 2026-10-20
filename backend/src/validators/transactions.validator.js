@@ -19,7 +19,7 @@ function isValidPeriod(value) {
  * @param {string} value
  * @returns {boolean} `true` si es una fecha de calendario real con formato AAAA-MM-DD.
  */
-function isValidDate(value) {
+export function isValidDate(value) {
   if (typeof value !== 'string' || !DATE_RE.test(value)) return false;
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));

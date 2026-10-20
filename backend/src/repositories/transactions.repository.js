@@ -179,3 +179,21 @@ export async function summarizeTransactions({ userId, from, to, groupBy }) {
   ]);
   return { byCategory: byCategory.rows, series: series.rows };
 }
+
+/**
+ * Movimientos de un usuario entre dos fechas (incluidas) para exportarlos, del más antiguo al
+ * más reciente. Trae el nombre legible de la categoría en vez de su clave.
+ * @param {{ userId: string, from: string, to: string }} filters Fechas AAAA-MM-DD ya validadas.
+ * @returns {Promise<Array<{ date: string, type: 'ingreso'|'gasto', categoryName: string|null, description: string, amount: number, source: 'manual'|'ia'|'sin_clasificar' }>>}
+ */
+export async function listForExport({ userId, from, to }) {
+  const { rows } = await pool.query(
+    `SELECT to_char(t.fecha, 'YYYY-MM-DD') AS date, t.tipo AS type, c.nombre AS "categoryName",
+            t.descripcion AS description, t.monto::float8 AS amount, t.origen AS source
+       FROM transacciones t ${JOIN}
+      WHERE t.usuario_id = $1 AND t.deleted_at IS NULL AND t.fecha BETWEEN $2 AND $3
+      ORDER BY t.fecha ASC, t.created_at ASC`,
+    [userId, from, to],
+  );
+  return rows;
+}
