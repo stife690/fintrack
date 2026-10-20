@@ -24,6 +24,7 @@ test('runMigrations deja las columnas de los parches y se puede correr dos veces
   assert.deepEqual(await runMigrations(), MIGRATIONS.map((m) => m.id), 'es idempotente');
   assert.ok(await columnExists('transacciones', 'local_id'));
   assert.ok(await columnExists('usuarios', 'nombre'));
+  assert.ok(await columnExists('usuarios', 'reminder_times'));
 });
 
 test('runMigrations no hace nada si la base no tiene el esquema', async () => {

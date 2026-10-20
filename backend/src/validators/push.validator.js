@@ -74,25 +74,45 @@ export function isValidTimezone(timezone) {
   }
 }
 
+/** Máximo de recordatorios por día. */
+export const MAX_REMINDERS_PER_DAY = 5;
+
 /**
  * Valida el cuerpo de `PUT /users/me/reminder-settings`.
- * Tipos incorrectos → 400; hora o zona horaria inválidas → 422 con `details`.
+ * Acepta `times` (arreglo de horas HH:mm, hasta 5; vacío lo desactiva) o, por compatibilidad con
+ * clientes anteriores, `time` (una hora o `null`). Las horas repetidas se unifican y se ordenan.
+ * Tipos incorrectos → 400; horas, cantidad o zona horaria inválidas → 422 con `details`.
  * @param {unknown} body
- * @returns {{ time: string|null, timezone: string }}
+ * @returns {{ times: string[], timezone: string }}
  */
 export function parseReminderSettings(body) {
-  if (
-    !isObject(body) ||
-    !(body.time === null || typeof body.time === 'string') ||
-    typeof body.timezone !== 'string'
-  ) {
+  if (!isObject(body) || typeof body.timezone !== 'string') throw invalidBody();
+
+  let raw;
+  let field = 'times';
+  if (Array.isArray(body.times)) {
+    if (!body.times.every((value) => typeof value === 'string')) throw invalidBody();
+    raw = body.times;
+  } else if (body.times === undefined && (body.time === null || typeof body.time === 'string')) {
+    field = 'time';
+    raw = body.time === null ? [] : [body.time];
+  } else {
     throw invalidBody();
   }
+
   const details = [];
-  if (body.time !== null && !TIME_RE.test(body.time)) {
+  const invalid = raw.filter((value) => !TIME_RE.test(value));
+  if (invalid.length > 0) {
     details.push({
-      field: 'time',
-      problem: 'Debe tener el formato HH:mm (00:00 a 23:59) o ser null',
+      field,
+      problem: `Cada hora debe tener el formato HH:mm (00:00 a 23:59); no válidas: ${invalid.join(', ')}`,
+    });
+  }
+  const times = [...new Set(raw)].sort();
+  if (times.length > MAX_REMINDERS_PER_DAY) {
+    details.push({
+      field,
+      problem: `Máximo ${MAX_REMINDERS_PER_DAY} recordatorios al día`,
     });
   }
   if (!isValidTimezone(body.timezone)) {
@@ -104,5 +124,5 @@ export function parseReminderSettings(body) {
   if (details.length > 0) {
     throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', details);
   }
-  return { time: body.time, timezone: body.timezone };
+  return { times, timezone: body.timezone };
 }

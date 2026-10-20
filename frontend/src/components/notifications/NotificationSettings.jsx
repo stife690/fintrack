@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, BellRing, Loader2 } from 'lucide-react';
-import ChipGroup from '@/components/common/ChipGroup';
+import { Bell, BellOff, BellRing, Loader2, Plus, X } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,19 +8,17 @@ import usePushNotifications from '@/hooks/usePushNotifications';
 import { getDeviceTimezone } from '@/lib/push';
 import { getReminderSettings, saveReminderSettings } from '@/services/pushService';
 
-/** Hora que se propone la primera vez que el usuario programa el recordatorio. */
-const SUGGESTED_TIME = '20:00';
+/** Máximo de recordatorios al día (lo mismo que valida la API). */
+const MAX_REMINDERS = 5;
 
-/** Horas sugeridas (al final del día, cuando se repasan los gastos) y la opción de elegir otra. */
-const CUSTOM = 'custom';
-const TIME_OPTIONS = [
-  { value: '19:00', label: '7 p. m.' },
-  { value: '20:00', label: '8 p. m.' },
-  { value: '21:00', label: '9 p. m.' },
-  { value: '22:00', label: '10 p. m.' },
-  { value: CUSTOM, label: 'Otra hora' },
-];
-const isPreset = (time) => TIME_OPTIONS.some((o) => o.value === time);
+/** Hora que se propone la primera vez; al agregar más se usa la primera de estas que no esté en uso. */
+const SUGGESTED_TIMES = ['20:00', '08:00', '13:00', '18:00', '22:00'];
+
+/** Primera hora sugerida que todavía no está en la lista (o la última sugerida si todas están). */
+const nextSuggestion = (times) => SUGGESTED_TIMES.find((t) => !times.includes(t)) ?? SUGGESTED_TIMES[0];
+
+/** Horas únicas, ordenadas y sin vacíos: lo que se envía a la API. */
+const normalize = (times) => [...new Set(times.filter(Boolean))].sort();
 
 /** `20:00` → `8:00 p. m.` (formato es-CO). */
 function formatTime(time) {
@@ -48,8 +45,7 @@ export default function NotificationSettings() {
   const timezone = getDeviceTimezone();
 
   const [saved, setSaved] = useState(null);
-  const [time, setTime] = useState(SUGGESTED_TIME);
-  const [customOpen, setCustomOpen] = useState(false);
+  const [times, setTimes] = useState([SUGGESTED_TIMES[0]]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -61,8 +57,7 @@ export default function NotificationSettings() {
       .then((settings) => {
         if (cancelled) return;
         setSaved(settings);
-        setTime(settings.time ?? SUGGESTED_TIME);
-        setCustomOpen(Boolean(settings.time) && !isPreset(settings.time));
+        setTimes(settings.times.length > 0 ? settings.times : [SUGGESTED_TIMES[0]]);
       })
       .catch((err) => !cancelled && setError(err.message))
       .finally(() => !cancelled && setLoading(false));
@@ -71,18 +66,23 @@ export default function NotificationSettings() {
     };
   }, []);
 
-  /** Guarda la hora del recordatorio; `null` lo desactiva. */
-  const saveReminder = async (nextTime) => {
+  /** Guarda las horas del recordatorio; una lista vacía lo desactiva. */
+  const saveReminder = async (nextTimes) => {
     setError('');
     setNotice('');
     setSaving(true);
     try {
-      const settings = await saveReminderSettings({ time: nextTime, timezone });
+      const settings = await saveReminderSettings({ times: nextTimes, timezone });
       setSaved(settings);
-      setTime(settings.time ?? SUGGESTED_TIME);
-      if (!settings.time) setCustomOpen(false);
+      setTimes(settings.times.length > 0 ? settings.times : [SUGGESTED_TIMES[0]]);
+      // `formatTime` ya termina en punto ("p. m."), así que el mensaje no agrega otro.
+      const list = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' }).format(
+        settings.times.map(formatTime),
+      );
       setNotice(
-        settings.time ? `Listo: te recordaremos todos los días a las ${formatTime(settings.time)}.` : 'Recordatorio desactivado.',
+        settings.times.length === 0
+          ? 'Recordatorio desactivado.'
+          : `Listo: te recordaremos todos los días a las ${list}${list.endsWith('.') ? '' : '.'}`,
       );
     } catch (err) {
       setError(err.message);
@@ -90,6 +90,10 @@ export default function NotificationSettings() {
       setSaving(false);
     }
   };
+
+  const updateTime = (index, value) => setTimes((current) => current.map((t, i) => (i === index ? value : t)));
+  const removeTime = (index) => setTimes((current) => current.filter((_, i) => i !== index));
+  const addTime = () => setTimes((current) => [...current, nextSuggestion(current)]);
 
   const handleEnable = async () => {
     setNotice('');
@@ -103,8 +107,11 @@ export default function NotificationSettings() {
     if (ok) setNotice('Notificaciones desactivadas en este dispositivo.');
   };
 
-  const reminderOn = Boolean(saved?.time);
-  const unchanged = saved?.time === time && saved?.timezone === timezone;
+  const reminderOn = (saved?.times.length ?? 0) > 0;
+  const cleaned = normalize(times);
+  const hasEmpty = times.some((t) => !t);
+  const hasDuplicates = cleaned.length < times.filter(Boolean).length;
+  const unchanged = JSON.stringify(saved?.times) === JSON.stringify(cleaned) && saved?.timezone === timezone;
 
   return (
     <div className="flex flex-col gap-5">
@@ -150,45 +157,63 @@ export default function NotificationSettings() {
         )}
       </Card>
 
-      <Card title="Recordatorio diario">
-        <p className="text-ink/60">Un aviso cada día para que registres tus gastos.</p>
+      <Card title="Recordatorios diarios">
+        <p className="text-ink/60">Hasta {MAX_REMINDERS} avisos al día para que registres tus gastos.</p>
         {loading ? (
           <p className="text-ink/60">Cargando…</p>
         ) : (
           <>
             <div className="flex flex-col gap-3">
-              <ChipGroup
-                legend="Hora del recordatorio"
-                options={TIME_OPTIONS}
-                value={customOpen ? CUSTOM : time}
-                onChange={(value) => {
-                  setCustomOpen(value === CUSTOM);
-                  if (value !== CUSTOM) setTime(value);
-                }}
-                disabled={saving}
-              />
-              {customOpen && (
-                <div className="flex max-w-xs flex-col gap-2">
-                  <Label htmlFor="reminder-time">Elige la hora</Label>
-                  <Input
-                    id="reminder-time"
-                    type="time"
-                    value={time}
-                    onChange={(event) => setTime(event.target.value)}
-                    disabled={saving}
-                  />
-                </div>
+              <ul className="flex flex-col gap-2" aria-label="Horas del recordatorio">
+                {times.map((value, index) => (
+                  <li key={index} className="flex max-w-xs items-center gap-2">
+                    <Label htmlFor={`reminder-time-${index}`} className="sr-only">
+                      Hora del recordatorio {index + 1}
+                    </Label>
+                    <Input
+                      id={`reminder-time-${index}`}
+                      type="time"
+                      value={value}
+                      onChange={(event) => updateTime(index, event.target.value)}
+                      disabled={saving}
+                    />
+                    {times.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Quitar el recordatorio ${index + 1}`}
+                        onClick={() => removeTime(index)}
+                        disabled={saving}
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {times.length < MAX_REMINDERS && (
+                <Button type="button" variant="outline" onClick={addTime} disabled={saving} className="self-start">
+                  <Plus aria-hidden="true" />
+                  Agregar otro recordatorio
+                </Button>
+              )}
+              {hasDuplicates && (
+                <p className="text-sm text-ink/60">Hay horas repetidas; se guardará una sola vez.</p>
               )}
               <p className="text-sm text-ink/50">Zona horaria: {timezone}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => saveReminder(time || SUGGESTED_TIME)} disabled={saving || (unchanged && reminderOn)}>
+              <Button
+                onClick={() => saveReminder(cleaned)}
+                disabled={saving || hasEmpty || (unchanged && reminderOn)}
+              >
                 {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {reminderOn ? 'Guardar cambios' : 'Activar recordatorio'}
+                {reminderOn ? 'Guardar cambios' : 'Activar recordatorios'}
               </Button>
               {reminderOn && (
-                <Button variant="outline" onClick={() => saveReminder(null)} disabled={saving}>
-                  Desactivar recordatorio
+                <Button variant="outline" onClick={() => saveReminder([])} disabled={saving}>
+                  Desactivar recordatorios
                 </Button>
               )}
             </div>

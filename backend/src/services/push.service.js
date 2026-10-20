@@ -13,6 +13,13 @@ import {
 import { createPushSender } from './push-sender.service.js';
 
 /**
+ * @typedef {object} ReminderSettingsResponse
+ * @property {string[]} times Horas locales del recordatorio (HH:mm), ordenadas; vacío si está desactivado.
+ * @property {string|null} time Primera hora de `times` (o `null`). Compatibilidad con clientes anteriores.
+ * @property {string} timezone Zona horaria IANA.
+ */
+
+/**
  * Crea el servicio de notificaciones push. Las dependencias se inyectan para probarlo sin BD ni red.
  *
  * @param {object} [deps]
@@ -25,8 +32,8 @@ import { createPushSender } from './push-sender.service.js';
  *   subscribe: (userId: string, subscription: { endpoint: string, keys: object }) => Promise<void>,
  *   unsubscribe: (userId: string, endpoint: string) => Promise<void>,
  *   sendToUser: (userId: string, payload: object) => Promise<{ sent: number, removed: number }>,
- *   getReminderSettings: (userId: string) => Promise<{ time: string|null, timezone: string }>,
- *   updateReminderSettings: (userId: string, settings: { time: string|null, timezone: string }) => Promise<{ time: string|null, timezone: string }>
+ *   getReminderSettings: (userId: string) => Promise<ReminderSettingsResponse>,
+ *   updateReminderSettings: (userId: string, settings: { times: string[], timezone: string }) => Promise<ReminderSettingsResponse>
  * }}
  */
 export function createPushService(deps = {}) {
@@ -41,15 +48,15 @@ export function createPushService(deps = {}) {
   const reminders = deps.reminders ?? { findReminderSettings, saveReminderSettings };
 
   /**
-   * @param {{ time: string|null, timezone: string }|null} settings
-   * @returns {{ time: string|null, timezone: string }}
+   * @param {{ times: string[], timezone: string }|null} settings
+   * @returns {ReminderSettingsResponse}
    */
   function requireSettings(settings) {
     if (!settings) {
       // El token es válido pero la cuenta ya no existe.
       throw new AppError(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     }
-    return { time: settings.time, timezone: settings.timezone };
+    return { times: settings.times, time: settings.times[0] ?? null, timezone: settings.timezone };
   }
 
   return {

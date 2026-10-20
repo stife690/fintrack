@@ -401,22 +401,30 @@ export const handlers = [
   http.get(`${API_V1}/users/me/reminder-settings`, ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
-    return HttpResponse.json(reminders.get(user.id) ?? { time: null, timezone: user.timezone });
+    return HttpResponse.json(reminders.get(user.id) ?? { times: [], time: null, timezone: user.timezone });
   }),
 
   http.put(`${API_V1}/users/me/reminder-settings`, async ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const body = await readJson(request);
-    if (!body || !(body.time === null || typeof body.time === 'string') || typeof body.timezone !== 'string') {
+    const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const raw = Array.isArray(body?.times) ? body.times : body?.time === null ? [] : [body?.time];
+    if (!body || typeof body.timezone !== 'string' || !raw.every((t) => typeof t === 'string')) {
       return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
     }
-    if (body.time !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)) {
+    if (!raw.every((t) => timeRe.test(t))) {
       return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [
-        { field: 'time', problem: 'Debe tener el formato HH:mm (00:00 a 23:59) o ser null' },
+        { field: 'times', problem: 'Cada hora debe tener el formato HH:mm (00:00 a 23:59)' },
       ]);
     }
-    const settings = { time: body.time, timezone: body.timezone };
+    const times = [...new Set(raw)].sort();
+    if (times.length > 5) {
+      return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+        { field: 'times', problem: 'Máximo 5 recordatorios al día' },
+      ]);
+    }
+    const settings = { times, time: times[0] ?? null, timezone: body.timezone };
     reminders.set(user.id, settings);
     return HttpResponse.json(settings);
   }),

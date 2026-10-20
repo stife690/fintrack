@@ -19,6 +19,15 @@ export const MIGRATIONS = [
     id: '002_usuarios_nombre',
     statements: ['ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre VARCHAR(60) NULL'],
   },
+  {
+    id: '003_usuarios_reminder_times',
+    statements: [
+      "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reminder_times TIME[] NOT NULL DEFAULT '{}'",
+      `UPDATE usuarios
+          SET reminder_times = ARRAY[reminder_time], reminder_time = NULL
+        WHERE reminder_time IS NOT NULL`,
+    ],
+  },
 ];
 
 /**

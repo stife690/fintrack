@@ -226,7 +226,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
     put:
       tags: [Users, Push]
-      summary: Configura hora y zona horaria del recordatorio diario (REQ-030)
+      summary: Configura las horas (hasta 5 al día) y la zona horaria del recordatorio (REQ-030)
       description: El servidor corre en UTC; la zona horaria evita enviar el recordatorio a la hora equivocada.
       requestBody:
         required: true
@@ -835,14 +835,28 @@ components:
         name: { type: string, nullable: true, maxLength: 60, example: Felipe }
     ReminderSettings:
       type: object
-      required: [time, timezone]
+      required: [times, timezone]
       properties:
+        times:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: ["08:00", "20:00"]
+          description: |
+            Horas del recordatorio (HH:mm) en la zona horaria del usuario, hasta 5 al día. En el PUT se
+            ordenan y se quitan las repetidas; un arreglo vacío desactiva el recordatorio.
         time:
           type: string
           nullable: true
+          deprecated: true
           pattern: '^([01]\d|2[0-3]):[0-5]\d$'
-          example: "20:00"
-          description: HH:mm en la zona horaria del usuario; null desactiva el recordatorio.
+          example: "08:00"
+          description: |
+            Compatibilidad con clientes anteriores. En la respuesta es la primera hora de `times` (o null).
+            En el PUT se acepta en lugar de `times` (una sola hora; null desactiva).
         timezone: { type: string, example: America/Bogota }
 
     # ---------- Transacciones

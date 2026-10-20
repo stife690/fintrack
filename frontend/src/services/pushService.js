@@ -10,7 +10,7 @@ import { getCurrentSubscription, isPushSupported } from '@/lib/push';
 
 /**
  * @typedef {object} ReminderSettings
- * @property {string|null} time Hora local del recordatorio en formato HH:mm; `null` si está desactivado.
+ * @property {string[]} times Horas locales del recordatorio (HH:mm), ordenadas; vacío si está desactivado. Hasta 5.
  * @property {string} timezone Zona horaria IANA.
  */
 
@@ -90,7 +90,7 @@ export async function unsubscribeThisDevice() {
 }
 
 /**
- * Hora y zona horaria del recordatorio diario (`GET /users/me/reminder-settings`).
+ * Horas y zona horaria de los recordatorios diarios (`GET /users/me/reminder-settings`).
  * @returns {Promise<ReminderSettings>}
  */
 export function getReminderSettings() {
@@ -98,7 +98,7 @@ export function getReminderSettings() {
 }
 
 /**
- * Guarda el recordatorio diario (`PUT /users/me/reminder-settings`); `time: null` lo desactiva.
+ * Guarda los recordatorios diarios (`PUT /users/me/reminder-settings`); `times: []` los desactiva.
  * @param {ReminderSettings} settings
  * @returns {Promise<ReminderSettings>}
  */

@@ -2,19 +2,21 @@ import { pool } from '../config/db.js';
 
 /**
  * @typedef {object} ReminderSettings
- * @property {string|null} time Hora local del recordatorio en formato HH:mm; `null` si está desactivado.
+ * @property {string[]} times Horas locales del recordatorio (HH:mm), ordenadas; vacío si está desactivado.
  * @property {string} timezone Zona horaria IANA del usuario.
  */
 
 /**
  * @typedef {object} ReminderCandidate
  * @property {string} id Identificador del usuario.
- * @property {string} time Hora local del recordatorio (HH:mm).
+ * @property {string[]} times Horas locales del recordatorio (HH:mm).
  * @property {string} timezone Zona horaria IANA del usuario.
  * @property {boolean} hasSubscription Si el usuario tiene al menos un dispositivo suscrito.
  */
 
-const SETTINGS_COLUMNS = `to_char(reminder_time, 'HH24:MI') AS time, timezone`;
+const SETTINGS_COLUMNS = `ARRAY(
+  SELECT to_char(t, 'HH24:MI') FROM unnest(reminder_times) AS t ORDER BY t
+) AS times, timezone`;
 
 /**
  * Lee la configuración del recordatorio de un usuario.
@@ -29,17 +31,17 @@ export async function findReminderSettings(userId) {
 }
 
 /**
- * Guarda la hora y la zona horaria del recordatorio.
+ * Guarda las horas y la zona horaria del recordatorio.
  * @param {string} userId
  * @param {ReminderSettings} settings
  * @returns {Promise<ReminderSettings|null>} La configuración guardada, o `null` si el usuario no existe.
  */
-export async function saveReminderSettings(userId, { time, timezone }) {
+export async function saveReminderSettings(userId, { times, timezone }) {
   const { rows } = await pool.query(
-    `UPDATE usuarios SET reminder_time = $2::time, timezone = $3
+    `UPDATE usuarios SET reminder_times = $2::time[], timezone = $3
      WHERE id = $1
      RETURNING ${SETTINGS_COLUMNS}`,
-    [userId, time, timezone],
+    [userId, times, timezone],
   );
   return rows[0] ?? null;
 }
@@ -51,11 +53,11 @@ export async function saveReminderSettings(userId, { time, timezone }) {
 export async function listReminderCandidates() {
   const { rows } = await pool.query(
     `SELECT u.id,
-            to_char(u.reminder_time, 'HH24:MI') AS time,
+            ARRAY(SELECT to_char(t, 'HH24:MI') FROM unnest(u.reminder_times) AS t ORDER BY t) AS times,
             u.timezone,
             EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.usuario_id = u.id) AS "hasSubscription"
      FROM usuarios u
-     WHERE u.reminder_time IS NOT NULL`,
+     WHERE cardinality(u.reminder_times) > 0`,
   );
   return rows;
 }
