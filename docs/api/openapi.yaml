@@ -597,6 +597,13 @@ paths:
     get:
       tags: [Reports]
       summary: Exporta transacciones (CSV) o reporte con gráficos (PDF) del periodo
+      description: >
+        CSV: una fila por movimiento no eliminado entre `from` y `to` (incluidos), del más antiguo al
+        más reciente, con las columnas Fecha;Tipo;Categoría;Descripción;Monto;Origen. Separador `;`,
+        UTF-8 con BOM y monto con coma decimal, para que Excel en español lo abra bien. Los textos que
+        empiezan por = + - @ llevan un apóstrofo delante (evita fórmulas). El nombre del archivo es
+        `fintrack_AAAA-MM.csv` si el rango es un mes completo y `fintrack_<from>_<to>.csv` si no.
+        El PDF todavía no está disponible: responde 422 VALIDATION_ERROR en `format`.
       parameters:
         - { name: format, in: query, required: true, schema: { type: string, enum: [csv, pdf] } }
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
