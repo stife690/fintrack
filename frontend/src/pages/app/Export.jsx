@@ -18,8 +18,15 @@ import { monthRange } from '@/services/summaryService';
 const FORMAT_OPTIONS = [
   { value: 'xlsx', label: 'Excel', icon: FileSpreadsheet },
   { value: 'csv', label: 'CSV (solo datos)', icon: Sheet },
-  { value: 'pdf', label: 'PDF', icon: FileText, disabled: true, badge: 'Próximamente' },
+  { value: 'pdf', label: 'PDF', icon: FileText },
 ];
+
+/** Qué trae cada formato, para elegir sin tener que probar. */
+const FORMAT_HINTS = {
+  xlsx: 'Resumen con totales, categorías, top 5 de gastos y presupuestos, más todos los movimientos con filtros.',
+  pdf: 'El mismo reporte con gráficos, listo para ver, imprimir o compartir.',
+  csv: 'Solo los movimientos en texto plano, para importarlos en otra herramienta.',
+};
 
 const PERIOD_OPTIONS = [
   { value: 'this-month', label: 'Este mes' },
@@ -111,7 +118,7 @@ export default function Export() {
       </Link>
       <PageHeader
         title="Exportar movimientos"
-        description="Descarga un reporte de tus gastos e ingresos para abrirlo en Excel o Google Sheets."
+        description="Descarga un reporte de tus gastos e ingresos en Excel, PDF o CSV."
       />
 
       <Panel className="flex flex-col gap-6">
@@ -121,6 +128,7 @@ export default function Export() {
           value={format}
           onChange={(value) => (setFormat(value), reset())}
         />
+        <p className="-mt-3 text-sm text-ink/60">{FORMAT_HINTS[format]}</p>
 
         <div className="flex flex-col gap-3">
           <ChipGroup
