@@ -6,6 +6,7 @@ import FormField from '@/components/auth/FormField';
 import CategoryPicker, { AUTO_CATEGORY } from '@/components/categories/CategoryPicker';
 import DateQuickPick from '@/components/transactions/DateQuickPick';
 import { Button } from '@/components/ui/button';
+import MoneyInput from '@/components/common/MoneyInput';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { today, transactionSchema } from '@/lib/validation/transaction';
@@ -77,7 +78,6 @@ export default function TransactionForm({
   // Referencia propia al monto (además de la de react-hook-form) para poner el cursor ahí
   // cuando se llega desde un acceso rápido.
   const amountRef = useRef(null);
-  const amountField = register('amount');
   useEffect(() => {
     if (autoFocus) amountRef.current?.focus();
   }, [autoFocus, defaultType]);
@@ -126,21 +126,26 @@ export default function TransactionForm({
       </div>
       <input type="hidden" {...register('type')} />
 
-      <FormField id="tx-amount" label="Monto (COP)" error={errors.amount?.message}>
-        <Input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          placeholder="0"
-          className="h-14 text-2xl font-semibold tabular-nums"
-          {...amountField}
-          ref={(el) => {
-            amountField.ref(el);
-            amountRef.current = el;
-          }}
-        />
-      </FormField>
+      <Controller
+        control={control}
+        name="amount"
+        render={({ field }) => (
+          <FormField id="tx-amount" label="Monto (COP)" error={errors.amount?.message}>
+            <MoneyInput
+              name={field.name}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              placeholder="0"
+              className="h-14 text-2xl font-semibold tabular-nums"
+              ref={(el) => {
+                field.ref(el);
+                amountRef.current = el;
+              }}
+            />
+          </FormField>
+        )}
+      />
 
       <FormField id="tx-description" label="Descripción" error={errors.description?.message}>
         <Input maxLength={200} placeholder="Almuerzo en el restaurante" {...register('description')} />
