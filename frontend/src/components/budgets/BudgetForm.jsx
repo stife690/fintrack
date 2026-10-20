@@ -6,7 +6,7 @@ import FormField from '@/components/auth/FormField';
 import CategoryIcon from '@/components/categories/CategoryIcon';
 import CategoryPicker from '@/components/categories/CategoryPicker';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import MoneyInput from '@/components/common/MoneyInput';
 import { budgetSchema } from '@/lib/validation/budget';
 
 /**
@@ -113,17 +113,23 @@ export default function BudgetForm({
         />
       )}
 
-      <FormField id="budget-amount" label="Límite del mes (COP)" error={errors.amount?.message}>
-        <Input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          placeholder="0"
-          disabled={disabled}
-          {...register('amount')}
-        />
-      </FormField>
+      <Controller
+        control={control}
+        name="amount"
+        render={({ field }) => (
+          <FormField id="budget-amount" label="Límite del mes (COP)" error={errors.amount?.message}>
+            <MoneyInput
+              name={field.name}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+              placeholder="0"
+              disabled={disabled}
+            />
+          </FormField>
+        )}
+      />
 
       <p className="-mt-2 text-sm text-ink/50">
         {initial ? 'Aplica a ' : 'Se crea para '}
