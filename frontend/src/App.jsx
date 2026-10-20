@@ -12,6 +12,8 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
+const Insights = lazy(() => import('@/pages/app/Insights'));
+const Export = lazy(() => import('@/pages/app/Export'));
 const Account = lazy(() => import('@/pages/app/Account'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
@@ -47,7 +49,8 @@ function RouteFallback() {
  * Rutas del frontend:
  * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `*` 404.
  * Zona privada, dentro del marco con menú (`AppShell`): `/app` inicio · `/app/transacciones` registro y listado ·
- * `/app/presupuestos` presupuestos por categoría y mes · `/app/cuenta` tema, notificaciones y sesión.
+ * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
+ * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión.
  * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
  */
 export default function App() {
@@ -68,6 +71,8 @@ export default function App() {
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/transacciones" element={<Transactions />} />
                 <Route path="/app/presupuestos" element={<Budgets />} />
+                <Route path="/app/insights" element={<Insights />} />
+                <Route path="/app/transacciones/exportar" element={<Export />} />
                 <Route path="/app/cuenta" element={<Account />} />
                 <Route path="/app/notificaciones" element={<Navigate to="/app/cuenta" replace />} />
               </Route>

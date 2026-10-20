@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
  * @property {string} value
  * @property {string} label
  * @property {import('lucide-react').LucideIcon} [icon]
+ * @property {boolean} [disabled] Se ve pero no se puede elegir (p. ej. una función que aún no existe).
+ * @property {string} [badge] Texto pequeño al lado de la etiqueta, p. ej. "Próximamente".
  */
 
 /**
@@ -35,13 +37,15 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
             : 'flex-wrap',
         )}
       >
-        {options.map(({ value: optionValue, label, icon: Icon }) => {
+        {options.map(({ value: optionValue, label, icon: Icon, disabled: optionDisabled, badge }) => {
           const checked = value === optionValue;
           return (
             <label
               key={optionValue}
               className={cn(
-                'inline-flex h-9 shrink-0 cursor-pointer snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
+                // `relative`: el radio oculto (sr-only) es `absolute`; sin esto su caja de referencia es la página
+                // y, en la fila deslizable, se salía a la derecha y ensanchaba el documento (zoom-out en celular).
+                'relative inline-flex h-9 shrink-0 cursor-pointer snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-violet',
                 'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50',
                 checked
@@ -54,11 +58,13 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
                 name={name}
                 value={optionValue}
                 checked={checked}
+                disabled={optionDisabled}
                 onChange={() => onChange(optionValue)}
                 className="sr-only"
               />
               {Icon && <Icon className="size-4" aria-hidden="true" />}
               {label}
+              {badge && <span className="text-xs font-normal text-ink/50">· {badge}</span>}
             </label>
           );
         })}

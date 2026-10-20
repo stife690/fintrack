@@ -9,6 +9,8 @@ import transactionsRoutes from './routes/transactions.routes.js';
 import budgetsRoutes from './routes/budgets.routes.js';
 import syncRoutes from './routes/sync.routes.js';
 import pushRoutes from './routes/push.routes.js';
+import insightsRoutes from './routes/insights.routes.js';
+import reportsRoutes from './routes/reports.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -29,7 +31,13 @@ export function createApp() {
   app.set('trust proxy', env.trustProxy);
 
   // Sin CORS_ORIGIN (desarrollo local) se permite cualquier origen.
-  app.use(cors({ origin: env.corsOrigins.length ? env.corsOrigins : true }));
+  app.use(
+    cors({
+      origin: env.corsOrigins.length ? env.corsOrigins : true,
+      // El frontend lee el nombre del archivo de las descargas (GET /reports/export).
+      exposedHeaders: ['Content-Disposition'],
+    }),
+  );
   app.use(express.json());
   app.use(healthRoutes);
   app.use(['/api/v1/auth/login', '/api/v1/auth/register'], createAuthRateLimit());
@@ -38,6 +46,7 @@ export function createApp() {
   app.post('/api/v1/transactions', aiRateLimit);
   app.put('/api/v1/transactions/:id', aiRateLimit);
   app.post('/api/v1/sync/batch', aiRateLimit);
+  app.get('/api/v1/insights', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
@@ -45,6 +54,8 @@ export function createApp() {
   app.use('/api/v1/transactions', transactionsRoutes);
   app.use('/api/v1/budgets', budgetsRoutes);
   app.use('/api/v1/push', pushRoutes);
+  app.use('/api/v1/insights', insightsRoutes);
+  app.use('/api/v1/reports', reportsRoutes);
   app.use(notFound);
   app.use(errorHandler);
 

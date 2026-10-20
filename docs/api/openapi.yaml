@@ -475,7 +475,10 @@ paths:
       summary: Insights del mes actual (se generan y cachean si no existen)
       description: |
         Al LLM solo llegan datos agregados por categoría y periodo, nunca descripciones
-        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y mes.
+        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y mes
+        y se regeneran si el resultado guardado tiene más de 24 horas; si la IA falla y hay uno
+        guardado, se devuelve ese. Hace falta al menos un mes de historial (la transacción más
+        antigua con un mes o más de antigüedad) y gastos en el mes actual o el anterior.
       responses:
         "200":
           description: Insights del mes
@@ -593,9 +596,23 @@ paths:
   /reports/export:
     get:
       tags: [Reports]
-      summary: Exporta transacciones (CSV) o reporte con gráficos (PDF) del periodo
+      summary: Exporta el reporte del periodo en Excel, los movimientos en CSV o el reporte en PDF
+      description: >
+        XLSX: libro de Excel con la hoja Resumen (ingresos, gastos, balance, tasa de ahorro, gasto
+        promedio diario, gastos e ingresos por categoría, top 5 de gastos y, si el periodo es un mes
+        completo, los presupuestos de ese mes), la hoja Movimientos (con filtros y totales que respetan
+        el filtro) y la hoja Por mes si el periodo abarca varios meses. Las cifras del resumen son
+        fórmulas sobre la hoja Movimientos.
+        CSV: una fila por movimiento no eliminado entre `from` y `to` (incluidos), del más antiguo al
+        más reciente, con las columnas Fecha;Tipo;Categoría;Descripción;Monto;Origen. Separador `;`,
+        UTF-8 con BOM y monto con coma decimal, para que Excel en español lo abra bien. Los textos que
+        empiezan por = + - @ llevan un apóstrofo delante (evita fórmulas). El nombre del archivo es
+        `fintrack_AAAA-MM.<ext>` si el rango es un mes completo y `fintrack_<from>_<to>.<ext>` si no.
+        PDF: tamaño Carta. Página 1 con indicadores, gastos por categoría, gasto por día (o ingresos y
+        gastos por mes si abarca varios meses), top 5 de gastos y presupuestos del mes; desde la página 2,
+        la tabla de movimientos con totales. Usa las mismas cifras que el XLSX.
       parameters:
-        - { name: format, in: query, required: true, schema: { type: string, enum: [csv, pdf] } }
+        - { name: format, in: query, required: true, schema: { type: string, enum: [xlsx, csv, pdf] } }
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
       responses:
@@ -606,6 +623,8 @@ paths:
               description: 'attachment; filename="fintrack_2026-09.csv"'
               schema: { type: string }
           content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
             text/csv:
               schema: { type: string, format: binary }
             application/pdf:
@@ -952,9 +971,12 @@ components:
       type: object
       required: [type, title, detail]
       properties:
-        type: { type: string, example: saving_opportunity }
-        title: { type: string }
-        detail: { type: string }
+        type:
+          type: string
+          enum: [saving_opportunity, overspending_alert, positive_trend, general_tip]
+          example: saving_opportunity
+        title: { type: string, maxLength: 80 }
+        detail: { type: string, maxLength: 300 }
 
     # ---------- Sync
     SyncOperation:

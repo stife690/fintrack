@@ -8,6 +8,25 @@
 import { authFetch } from '@/lib/authFetch';
 
 const SESSION_EXPIRED = 'Tu sesión venció. Inicia sesión de nuevo.';
+export const CONNECTION_ERROR = 'No pudimos conectar con el servidor. Revisa tu conexión.';
+
+/**
+ * Convierte una respuesta de error de la API en un `Error` listo para mostrar.
+ * @param {Response} res Respuesta con `res.ok === false`.
+ * @returns {Promise<Error & { code?: string, fields?: Record<string, string> }>}
+ */
+export async function toApiError(res) {
+  const data = await res.json().catch(() => ({}));
+  const { code, message, details } = data.error ?? {};
+  const err = new Error(
+    code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED'
+      ? SESSION_EXPIRED
+      : details?.[0]?.problem || message || 'Algo salió mal. Inténtalo de nuevo.',
+  );
+  err.code = code;
+  if (details) err.fields = Object.fromEntries(details.map((d) => [d.field, d.problem]));
+  return err;
+}
 
 /**
  * @param {string} path Ruta bajo `/api/v1`.
@@ -20,21 +39,9 @@ export async function apiRequest(path, { method = 'GET', body } = {}) {
   try {
     res = await authFetch(path, { method, body });
   } catch {
-    throw new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
+    throw new Error(CONNECTION_ERROR);
   }
   if (res.status === 204) return null;
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const { code, message, details } = data.error ?? {};
-    const err = new Error(
-      code === 'UNAUTHORIZED' || code === 'TOKEN_EXPIRED'
-        ? SESSION_EXPIRED
-        : details?.[0]?.problem || message || 'Algo salió mal. Inténtalo de nuevo.',
-    );
-    err.code = code;
-    if (details) err.fields = Object.fromEntries(details.map((d) => [d.field, d.problem]));
-    throw err;
-  }
-  return data;
+  if (!res.ok) throw await toApiError(res);
+  return res.json().catch(() => ({}));
 }

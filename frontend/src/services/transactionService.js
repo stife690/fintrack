@@ -20,6 +20,18 @@ import { db } from '@/offline/db';
  */
 
 /**
+ * @typedef {object} TransactionAlert
+ * @property {'none'|'warning_80'|'exceeded_100'} level
+ * @property {number} percentage Porcentaje consumido del presupuesto de la categoría.
+ */
+
+/**
+ * @typedef {object} TransactionWithAlert
+ * @property {Transaction} transaction
+ * @property {TransactionAlert|null} alert `null` si no es un gasto o la categoría no tiene presupuesto.
+ */
+
+/**
  * @typedef {object} Category
  * @property {string} key
  * @property {string} name
@@ -96,12 +108,10 @@ export function listTransactions(filters = {}) {
  * Registra una transacción. Sin `category` la API la sugiere con IA (REQ-010); si la IA
  * no está disponible queda `sin_clasificar` y se guarda igual (REQ-011).
  * @param {{ amount: number, description: string, type: string, date: string, category?: string|null }} data
- * @returns {Promise<Transaction>}
+ * @returns {Promise<TransactionWithAlert>} La transacción y la alerta de presupuesto (`null` si no aplica).
  */
-export async function createTransaction(data) {
-  // El contrato responde { transaction, alert }; la alerta de presupuesto llega con F5/F6.
-  const { transaction } = await request('/transactions', { method: 'POST', body: data });
-  return transaction;
+export function createTransaction(data) {
+  return request('/transactions', { method: 'POST', body: data });
 }
 
 /**
@@ -117,11 +127,10 @@ export function getTransaction(id) {
  * Modifica una transacción; solo se envían los campos que cambian.
  * @param {string} id
  * @param {Partial<{ amount: number, description: string, type: string, date: string, category: string|null }>} changes
- * @returns {Promise<Transaction>}
+ * @returns {Promise<TransactionWithAlert>}
  */
-export async function updateTransaction(id, changes) {
-  const { transaction } = await request(`/transactions/${id}`, { method: 'PUT', body: changes });
-  return transaction;
+export function updateTransaction(id, changes) {
+  return request(`/transactions/${id}`, { method: 'PUT', body: changes });
 }
 
 /**

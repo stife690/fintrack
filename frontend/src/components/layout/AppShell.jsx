@@ -1,6 +1,6 @@
 import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { ArrowLeftRight, CircleUserRound, CloudUpload, House, Loader2, Target, WifiOff } from 'lucide-react';
+import { ArrowLeftRight, CircleUserRound, CloudUpload, House, Loader2, Sparkles, Target, WifiOff } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import { useAuth } from '@/auth/AuthContext';
 import useOfflineSync from '@/hooks/useOfflineSync';
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/app', label: 'Inicio', icon: House, end: true },
   { to: '/app/transacciones', label: 'Movimientos', icon: ArrowLeftRight },
   { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
+  { to: '/app/insights', label: 'Insights', icon: Sparkles },
   { to: '/app/cuenta', label: 'Cuenta', icon: CircleUserRound },
 ];
 
@@ -90,7 +91,7 @@ function BottomNav() {
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-4">
+      <ul className="mx-auto grid max-w-md grid-cols-5">
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <li key={to}>
             <NavLink
@@ -98,7 +99,7 @@ function BottomNav() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                  'flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
                   isActive ? 'text-brand' : 'text-ink/55 hover:text-ink',
                 )
               }

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { CloudUpload, Loader2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CloudUpload, Download, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import BudgetAlert from '@/components/transactions/BudgetAlert';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
 import { formatDate, formatMoney } from '@/components/transactions/format';
+import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
 import { SYNC_EVENT, listPending, queueCreate } from '@/offline/sync';
 import {
@@ -96,6 +98,7 @@ export default function Transactions() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
+  const [budgetAlert, setBudgetAlert] = useState({ alert: null, category: null }); // FT-0006
   const [version, setVersion] = useState(0); // se incrementa para forzar la recarga del listado
   const [pending, setPending] = useState([]);
 
@@ -156,23 +159,28 @@ export default function Transactions() {
     if (editing) {
       const changes = diff(editing, values);
       if (Object.keys(changes).length > 0) {
-        await updateTransaction(editing.id, changes);
+        const { transaction, alert } = await updateTransaction(editing.id, changes);
+        setBudgetAlert({ alert, category: transaction.category });
         setNotice('Cambios guardados.');
         reload();
       }
       setEditing(null);
       return;
     }
-    let saved;
+    let created;
     try {
       if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
-      saved = await createTransaction(values);
+      created = await createTransaction(values);
     } catch (err) {
       if (err.code !== 'NETWORK_ERROR') throw err;
       await queueCreate(values);
+      // Sin conexión no hay alerta de presupuesto: se calcula en el servidor.
+      setBudgetAlert({ alert: null, category: null });
       setNotice('Guardado sin conexión. Se sincronizará cuando vuelva internet.');
       return;
     }
+    const { transaction: saved, alert } = created;
+    setBudgetAlert({ alert, category: saved.category });
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
@@ -195,7 +203,18 @@ export default function Transactions() {
 
   return (
     <>
-      <PageHeader title="Movimientos" description="Tus gastos e ingresos, con la categoría de cada uno." />
+      <PageHeader
+        title="Movimientos"
+        description="Tus gastos e ingresos, con la categoría de cada uno."
+        actions={
+          <Button asChild variant="soft">
+            <Link to="/app/transacciones/exportar">
+              <Download aria-hidden="true" />
+              Exportar reporte
+            </Link>
+          </Button>
+        }
+      />
 
       {/* grid-cols-1 fija una columna que no crece con el contenido (los campos de fecha nativos
           de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
@@ -211,6 +230,11 @@ export default function Transactions() {
             autoFocus={Boolean(quickType)}
             onSubmit={handleSubmit}
             onCancel={editing ? () => setEditing(null) : undefined}
+          />
+          <BudgetAlert
+            className="mt-4"
+            alert={budgetAlert.alert}
+            categoryName={categoryNames[budgetAlert.category]}
           />
         </Panel>
 
