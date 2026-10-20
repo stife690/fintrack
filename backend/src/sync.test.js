@@ -132,6 +132,13 @@ test(
         res.body.synced.map((s) => s.localId),
         ['loc-1', 'loc-2'],
       );
+      // El create trae la transacción guardada: no vuelve en serverChanges y el dispositivo
+      // necesita la categoría que le quedó (la IA pudo asignarla).
+      const second = res.body.synced[1];
+      assert.equal(second.transaction.id, second.serverId);
+      assert.equal(second.transaction.category, 'transporte');
+      assert.equal(second.transaction.source, 'manual');
+      assert.ok(second.transaction.updatedAt);
       assert.deepEqual(res.body.conflicts, []);
       assert.deepEqual(res.body.serverChanges, [], 'lo de este lote no se repite');
       assert.ok(!Number.isNaN(Date.parse(res.body.syncedAt)));

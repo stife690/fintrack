@@ -269,6 +269,44 @@ export const handlers = [
     return HttpResponse.json({ transaction, alert: mockAlert(transaction) }, { status: 201 });
   }),
 
+  // Versión simplificada de /sync/batch: solo `create`, sin conflictos ni `serverChanges`.
+  http.post(`${API_V1}/sync/batch`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    if (!body || !Array.isArray(body.operations)) {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    await delay(500);
+    const own = transactions.get(user.id) ?? [];
+    const synced = [];
+    for (const { op, localId, transaction: input } of body.operations) {
+      if (op !== 'create') continue;
+      // Reenviar el mismo localId no duplica, como en el servidor real.
+      let saved = own.find((t) => t.localId === localId);
+      if (!saved) {
+        const now = new Date().toISOString();
+        saved = {
+          id: crypto.randomUUID(),
+          localId,
+          userId: user.id,
+          amount: input.amount,
+          description: input.description.trim(),
+          type: input.type,
+          date: input.date,
+          ...resolve(input.category, input.description, input.type),
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        };
+        own.unshift(saved);
+      }
+      synced.push({ localId, serverId: saved.id, transaction: saved });
+    }
+    transactions.set(user.id, own);
+    return HttpResponse.json({ synced, conflicts: [], serverChanges: [], syncedAt: new Date().toISOString() });
+  }),
+
   http.get(`${API_V1}/transactions/:id`, ({ request, params }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');

@@ -121,7 +121,23 @@ En Chrome, abre `http://localhost:4173` y DevTools → **Application**:
 
 Después corre `npm run dev` y confirma que el login con mocks sigue funcionando.
 
-> El service worker solo guarda los archivos de la app, no las respuestas de la API. El registro de transacciones sin conexión se implementa en FT-0008 y FT-0009.
+> El service worker solo guarda los archivos de la app, no las respuestas de la API.
+
+## Registro sin conexión y sincronización (FT-0009)
+
+| Archivo | Función |
+|---|---|
+| `src/offline/db.js` | Base IndexedDB (Dexie): cola `pending` y datos sueltos en `meta` (`lastSyncedAt`, copia de categorías). |
+| `src/offline/sync.js` | `queueCreate` guarda el movimiento; `syncNow` envía la cola a `POST /sync/batch` y borra lo confirmado. |
+| `src/hooks/useOfflineSync.js` | En `AppShell`: sincroniza al abrir la app, al volver la conexión y con el aviso de Background Sync. |
+| `public/push-sw.js` | Evento `sync` (Background Sync): avisa a las pestañas abiertas para que sincronicen. |
+
+- Si no hay red (o el servidor no responde), el movimiento nuevo queda en el dispositivo y aparece en *Pendientes de sincronizar*.
+- Reenviar un lote no duplica: cada operación lleva un `localId` que el servidor reconoce.
+- La sesión vive en `localStorage`, que el service worker no puede leer; por eso el envío lo hace la app abierta. Con la app cerrada, se sincroniza la próxima vez que se abra.
+- Por ahora solo se registran movimientos **nuevos** sin conexión; editar o eliminar sigue necesitando internet.
+
+**Cómo verificarlo:** `npm run build && npm run preview`, inicia sesión, en DevTools → **Network** marca *Offline* y registra un gasto: aparece como pendiente (DevTools → **Application → IndexedDB → fintrack**). Quita *Offline*: se envía solo y aparece en el historial.
 
 ## Despliegue (Vercel)
 

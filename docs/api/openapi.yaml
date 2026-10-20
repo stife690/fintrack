@@ -1031,6 +1031,11 @@ components:
             properties:
               localId: { type: string }
               serverId: { type: string, format: uuid }
+              transaction:
+                allOf: [{ $ref: "#/components/schemas/Transaction" }]
+                description: |
+                  Solo en operaciones `create`: la transacción guardada. No vuelve en
+                  `serverChanges` y el cliente necesita la categoría que le quedó (la IA pudo asignarla).
         conflicts:
           type: array
           items:
