@@ -596,16 +596,21 @@ paths:
   /reports/export:
     get:
       tags: [Reports]
-      summary: Exporta transacciones (CSV) o reporte con gráficos (PDF) del periodo
+      summary: Exporta el reporte del periodo en Excel, los movimientos en CSV o el reporte en PDF
       description: >
+        XLSX: libro de Excel con la hoja Resumen (ingresos, gastos, balance, tasa de ahorro, gasto
+        promedio diario, gastos e ingresos por categoría, top 5 de gastos y, si el periodo es un mes
+        completo, los presupuestos de ese mes), la hoja Movimientos (con filtros y totales que respetan
+        el filtro) y la hoja Por mes si el periodo abarca varios meses. Las cifras del resumen son
+        fórmulas sobre la hoja Movimientos.
         CSV: una fila por movimiento no eliminado entre `from` y `to` (incluidos), del más antiguo al
         más reciente, con las columnas Fecha;Tipo;Categoría;Descripción;Monto;Origen. Separador `;`,
         UTF-8 con BOM y monto con coma decimal, para que Excel en español lo abra bien. Los textos que
         empiezan por = + - @ llevan un apóstrofo delante (evita fórmulas). El nombre del archivo es
-        `fintrack_AAAA-MM.csv` si el rango es un mes completo y `fintrack_<from>_<to>.csv` si no.
+        `fintrack_AAAA-MM.<ext>` si el rango es un mes completo y `fintrack_<from>_<to>.<ext>` si no.
         El PDF todavía no está disponible: responde 422 VALIDATION_ERROR en `format`.
       parameters:
-        - { name: format, in: query, required: true, schema: { type: string, enum: [csv, pdf] } }
+        - { name: format, in: query, required: true, schema: { type: string, enum: [xlsx, csv, pdf] } }
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
       responses:
@@ -616,6 +621,8 @@ paths:
               description: 'attachment; filename="fintrack_2026-09.csv"'
               schema: { type: string }
           content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
             text/csv:
               schema: { type: string, format: binary }
             application/pdf:
