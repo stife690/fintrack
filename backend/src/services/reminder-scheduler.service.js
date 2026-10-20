@@ -60,7 +60,8 @@ export function checkReminderDue({ time, timezone, now, windowMinutes = 5 }) {
 
 /**
  * Crea el programador del recordatorio diario. Cada `intervalMs` revisa qué usuarios tienen
- * su recordatorio a la hora actual y les envía la notificación, una sola vez por día.
+ * un recordatorio a la hora actual (pueden tener varios al día) y les envía la notificación,
+ * una sola vez por cada hora y día.
  * Los usuarios sin dispositivo suscrito se omiten y se deja constancia en el log (REQ-029).
  *
  * @param {object} [deps]
@@ -100,26 +101,31 @@ export function createReminderScheduler(deps = {}) {
     }
 
     for (const user of await listCandidates()) {
-      try {
-        const { due, key } = checkReminderDue({
-          time: user.time,
-          timezone: user.timezone,
-          now: moment,
-          windowMinutes,
-        });
-        const id = `${user.id}|${key}`;
-        if (!due || handled.has(id)) continue;
-        handled.set(id, moment.getTime());
+      // Cada hora del usuario es un recordatorio independiente: una falla no frena a las demás.
+      for (const time of user.times) {
+        try {
+          const { due, key } = checkReminderDue({
+            time,
+            timezone: user.timezone,
+            now: moment,
+            windowMinutes,
+          });
+          const id = `${user.id}|${key}`;
+          if (!due || handled.has(id)) continue;
+          handled.set(id, moment.getTime());
 
-        if (!user.hasSubscription) {
-          skipped += 1;
-          log.info(`Recordatorio omitido: el usuario ${user.id} no tiene notificaciones activadas`);
-          continue;
+          if (!user.hasSubscription) {
+            skipped += 1;
+            log.info(
+              `Recordatorio omitido: el usuario ${user.id} no tiene notificaciones activadas`,
+            );
+            continue;
+          }
+          await sendToUser(user.id, REMINDER_PAYLOAD);
+          sent += 1;
+        } catch (err) {
+          log.error(`Error enviando el recordatorio al usuario ${user.id}: ${err.message}`);
         }
-        await sendToUser(user.id, REMINDER_PAYLOAD);
-        sent += 1;
-      } catch (err) {
-        log.error(`Error enviando el recordatorio al usuario ${user.id}: ${err.message}`);
       }
     }
     return { sent, skipped };

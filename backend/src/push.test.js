@@ -65,25 +65,48 @@ test('parseUnsubscribeBody exige un endpoint de texto', () => {
   assertAppError(() => parseUnsubscribeBody({ endpoint: 5 }), 400);
 });
 
-test('parseReminderSettings acepta hora válida, y null para desactivar', () => {
-  assert.deepEqual(parseReminderSettings({ time: '20:00', timezone: 'America/Bogota' }), {
-    time: '20:00',
-    timezone: 'America/Bogota',
-  });
-  assert.deepEqual(parseReminderSettings({ time: null, timezone: 'UTC' }), {
-    time: null,
+test('parseReminderSettings acepta varias horas (ordenadas y sin repetir) y [] para desactivar', () => {
+  assert.deepEqual(
+    parseReminderSettings({ times: ['20:00', '08:30', '20:00'], timezone: 'America/Bogota' }),
+    { times: ['08:30', '20:00'], timezone: 'America/Bogota' },
+  );
+  assert.deepEqual(parseReminderSettings({ times: [], timezone: 'UTC' }), {
+    times: [],
     timezone: 'UTC',
   });
 });
 
-test('parseReminderSettings: tipos incorrectos → 400; hora o zona inválidas → 422 con details', () => {
+test('parseReminderSettings sigue aceptando `time` de los clientes anteriores', () => {
+  assert.deepEqual(parseReminderSettings({ time: '20:00', timezone: 'UTC' }), {
+    times: ['20:00'],
+    timezone: 'UTC',
+  });
+  assert.deepEqual(parseReminderSettings({ time: null, timezone: 'UTC' }), {
+    times: [],
+    timezone: 'UTC',
+  });
+});
+
+test('parseReminderSettings: tipos incorrectos → 400; horas, cantidad o zona inválidas → 422 con details', () => {
   assertAppError(() => parseReminderSettings({ time: 20, timezone: 'UTC' }), 400);
-  assertAppError(() => parseReminderSettings({ time: '20:00' }), 400);
+  assertAppError(() => parseReminderSettings({ times: '20:00', timezone: 'UTC' }), 400);
+  assertAppError(() => parseReminderSettings({ times: [20], timezone: 'UTC' }), 400);
+  assertAppError(() => parseReminderSettings({ times: ['20:00'] }), 400);
+  assertAppError(() => parseReminderSettings({ timezone: 'UTC' }), 400);
   assertAppError(() => parseReminderSettings(null), 400);
   assertAppError(() => parseReminderSettings({ time: '24:00', timezone: 'UTC' }), 422, 'time');
-  assertAppError(() => parseReminderSettings({ time: '8:00', timezone: 'UTC' }), 422, 'time');
+  assertAppError(() => parseReminderSettings({ times: ['8:00'], timezone: 'UTC' }), 422, 'times');
   assertAppError(
-    () => parseReminderSettings({ time: '20:00', timezone: 'Marte/Olimpo' }),
+    () =>
+      parseReminderSettings({
+        times: ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
+        timezone: 'UTC',
+      }),
+    422,
+    'times',
+  );
+  assertAppError(
+    () => parseReminderSettings({ times: ['20:00'], timezone: 'Marte/Olimpo' }),
     422,
     'timezone',
   );
@@ -167,7 +190,9 @@ function buildService(overrides = {}) {
     },
     reminders: {
       findReminderSettings: async () =>
-        'settings' in overrides ? overrides.settings : { time: '20:00', timezone: 'UTC' },
+        'settings' in overrides
+          ? overrides.settings
+          : { times: ['08:00', '20:00'], timezone: 'UTC' },
       saveReminderSettings: async (_id, settings) =>
         overrides.settings === null ? null : settings,
     },
@@ -219,8 +244,13 @@ test('sendToUser no hace nada si el push no está configurado', async () => {
 
 test('reminder-settings: lee y actualiza; con cuenta inexistente responde 401', async () => {
   const { service } = buildService();
-  assert.deepEqual(await service.getReminderSettings('u1'), { time: '20:00', timezone: 'UTC' });
-  assert.deepEqual(await service.updateReminderSettings('u1', { time: null, timezone: 'UTC' }), {
+  assert.deepEqual(await service.getReminderSettings('u1'), {
+    times: ['08:00', '20:00'],
+    time: '08:00',
+    timezone: 'UTC',
+  });
+  assert.deepEqual(await service.updateReminderSettings('u1', { times: [], timezone: 'UTC' }), {
+    times: [],
     time: null,
     timezone: 'UTC',
   });
@@ -272,9 +302,9 @@ test('el programador envía una vez al día y omite a quien no tiene notificacio
   let clock = new Date('2026-10-14T01:00:00Z');
   const scheduler = createReminderScheduler({
     listCandidates: async () => [
-      { id: 'con-push', time: '20:00', timezone: 'America/Bogota', hasSubscription: true },
-      { id: 'sin-push', time: '20:00', timezone: 'America/Bogota', hasSubscription: false },
-      { id: 'otra-hora', time: '07:00', timezone: 'America/Bogota', hasSubscription: true },
+      { id: 'con-push', times: ['20:00'], timezone: 'America/Bogota', hasSubscription: true },
+      { id: 'sin-push', times: ['20:00'], timezone: 'America/Bogota', hasSubscription: false },
+      { id: 'otra-hora', times: ['07:00'], timezone: 'America/Bogota', hasSubscription: true },
     ],
     sendToUser: async (id, payload) => sent.push([id, payload]),
     now: () => clock,
@@ -299,8 +329,8 @@ test('un fallo con un usuario no impide avisar a los demás', async () => {
   const errors = [];
   const scheduler = createReminderScheduler({
     listCandidates: async () => [
-      { id: 'falla', time: '20:00', timezone: 'UTC', hasSubscription: true },
-      { id: 'bien', time: '20:00', timezone: 'UTC', hasSubscription: true },
+      { id: 'falla', times: ['20:00'], timezone: 'UTC', hasSubscription: true },
+      { id: 'bien', times: ['20:00'], timezone: 'UTC', hasSubscription: true },
     ],
     sendToUser: async (id) => {
       if (id === 'falla') throw new Error('boom');
@@ -312,4 +342,24 @@ test('un fallo con un usuario no impide avisar a los demás', async () => {
   assert.deepEqual(await scheduler.tick(), { sent: 1, skipped: 0 });
   assert.deepEqual(sent, ['bien']);
   assert.match(errors[0], /falla/);
+});
+
+test('el programador envía cada hora del usuario por separado, una vez al día cada una', async () => {
+  const sent = [];
+  let clock = new Date('2026-10-14T13:00:00Z'); // 08:00 en Bogotá
+  const scheduler = createReminderScheduler({
+    listCandidates: async () => [
+      { id: 'u1', times: ['08:00', '20:00'], timezone: 'America/Bogota', hasSubscription: true },
+    ],
+    sendToUser: async (id) => sent.push(id),
+    now: () => clock,
+    log: { info: () => {}, error: (m) => assert.fail(m) },
+  });
+
+  assert.deepEqual(await scheduler.tick(), { sent: 1, skipped: 0 }); // la de las 8
+  assert.deepEqual(await scheduler.tick(), { sent: 0, skipped: 0 }); // no se repite
+
+  clock = new Date('2026-10-15T01:00:00Z'); // 20:00 en Bogotá
+  assert.deepEqual(await scheduler.tick(), { sent: 1, skipped: 0 }); // la de las 20
+  assert.deepEqual(sent, ['u1', 'u1']);
 });

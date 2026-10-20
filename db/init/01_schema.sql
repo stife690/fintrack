@@ -10,7 +10,8 @@ CREATE TABLE usuarios (
   nombre VARCHAR(60) NULL, -- nombre visible; opcional (las cuentas viejas no lo tienen)
   password_hash VARCHAR(255) NOT NULL,
   timezone VARCHAR(50) NOT NULL DEFAULT 'America/Bogota',
-  reminder_time TIME NULL,
+  reminder_time TIME NULL, -- en desuso: lo reemplaza reminder_times (parche 003)
+  reminder_times TIME[] NOT NULL DEFAULT '{}', -- horas locales del recordatorio diario (hasta 5)
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
