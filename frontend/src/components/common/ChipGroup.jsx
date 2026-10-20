@@ -43,7 +43,9 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
             <label
               key={optionValue}
               className={cn(
-                'inline-flex h-9 shrink-0 cursor-pointer snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
+                // `relative`: el radio oculto (sr-only) es `absolute`; sin esto su caja de referencia es la página
+                // y, en la fila deslizable, se salía a la derecha y ensanchaba el documento (zoom-out en celular).
+                'relative inline-flex h-9 shrink-0 cursor-pointer snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-violet',
                 'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50',
                 checked
