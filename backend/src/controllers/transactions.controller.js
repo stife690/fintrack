@@ -1,6 +1,7 @@
 import {
   parseCreateTransaction,
   parseListQuery,
+  parseSummaryQuery,
   parseUpdateTransaction,
 } from '../validators/transactions.validator.js';
 import { getTransactionAlert } from '../services/budgets.service.js';
@@ -41,6 +42,16 @@ export async function getTransactions(req, res) {
  */
 export async function getTransaction(req, res) {
   res.json(await transactions.get(req.userId, req.params.id));
+}
+
+/**
+ * `GET /api/v1/transactions/summary`: resumen por categoría y periodo para el dashboard.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getSummary(req, res) {
+  res.json(await transactions.summary(req.userId, parseSummaryQuery(req.query)));
 }
 
 /**

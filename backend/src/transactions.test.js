@@ -274,3 +274,77 @@ test(
     });
   },
 );
+
+test(
+  'GET /summary agrega solo las transacciones propias y no borradas del periodo',
+  options,
+  async () => {
+    await withApi(async ({ api, alice, bob }) => {
+      const create = (token, body) => api('/transactions', { method: 'POST', token, body });
+      // Semana del lunes 2026-10-19 al domingo 2026-10-25.
+      await create(alice, {
+        ...GASTO,
+        amount: 30000,
+        category: 'alimentacion',
+        date: '2026-10-19',
+      });
+      await create(alice, { ...GASTO, amount: 10000, category: 'transporte', date: '2026-10-21' });
+      await create(alice, {
+        amount: 100000,
+        description: 'Pago',
+        type: 'ingreso',
+        category: 'salario',
+        date: '2026-10-21',
+      });
+      // Fuera de la semana, borrada o de otro usuario: no deben contar.
+      await create(alice, { ...GASTO, amount: 999, category: 'alimentacion', date: '2026-10-18' });
+      const deleted = await create(alice, { ...GASTO, amount: 777, date: '2026-10-20' });
+      await api(`/transactions/${deleted.body.transaction.id}`, { method: 'DELETE', token: alice });
+      await create(bob, { ...GASTO, amount: 555, date: '2026-10-20' });
+
+      const res = await api('/transactions/summary?period=week&date=2026-10-22', { token: alice });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.from, '2026-10-19');
+      assert.equal(res.body.to, '2026-10-25');
+      assert.deepEqual(res.body.income, {
+        total: 100000,
+        byCategory: [{ category: 'salario', total: 100000, percentage: 100 }],
+      });
+      assert.deepEqual(res.body.expense, {
+        total: 40000,
+        byCategory: [
+          { category: 'alimentacion', total: 30000, percentage: 75 },
+          { category: 'transporte', total: 10000, percentage: 25 },
+        ],
+      });
+      assert.deepEqual(res.body.timeSeries, [
+        { date: '2026-10-19', income: 0, expense: 30000 },
+        { date: '2026-10-21', income: 100000, expense: 10000 },
+      ]);
+
+      const year = await api('/transactions/summary?period=year&date=2026-01-01', { token: alice });
+      assert.deepEqual(year.body.timeSeries, [
+        { date: '2026-10-01', income: 100000, expense: 40999 },
+      ]);
+    });
+  },
+);
+
+test('GET /summary sin transacciones responde ceros y listas vacías', options, async () => {
+  await withApi(async ({ api, bob }) => {
+    const res = await api('/transactions/summary?period=month&date=2026-10-20', { token: bob });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.income, { total: 0, byCategory: [] });
+    assert.deepEqual(res.body.expense, { total: 0, byCategory: [] });
+    assert.deepEqual(res.body.timeSeries, []);
+  });
+});
+
+test('GET /summary exige token (401) y valida period/date (422)', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    assert.equal((await api('/transactions/summary?period=week')).status, 401);
+    const bad = await api('/transactions/summary?period=day&date=2026-13-01', { token: alice });
+    assert.equal(bad.status, 422);
+    assert.deepEqual(bad.body.error.details.map((d) => d.field).sort(), ['date', 'period']);
+  });
+});

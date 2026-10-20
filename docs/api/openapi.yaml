@@ -302,7 +302,7 @@ paths:
       description: Sin transacciones responde totales en 0 y listas vacías, nunca error (REQ-015).
       parameters:
         - { name: period, in: query, required: true, schema: { type: string, enum: [week, month, year] } }
-        - { name: date, in: query, required: true, description: Cualquier día dentro del periodo, schema: { type: string, format: date } }
+        - { name: date, in: query, required: false, description: "Cualquier día dentro del periodo (por defecto hoy, America/Bogota). La semana va de lunes a domingo.", schema: { type: string, format: date } }
       responses:
         "200":
           description: Resumen del periodo
@@ -885,7 +885,7 @@ components:
       type: object
       required: [category, total, percentage]
       properties:
-        category: { $ref: "#/components/schemas/CategoryKey" }
+        category: { $ref: "#/components/schemas/NullableCategoryKey" }
         total: { type: number }
         percentage: { type: number }
     Summary:
@@ -913,6 +913,7 @@ components:
               items: { $ref: "#/components/schemas/CategoryTotal" }
         timeSeries:
           type: array
+          description: Un punto por día (week, month) o por mes (year, con el día 1 como fecha); solo días o meses con movimientos.
           items:
             type: object
             required: [date, income, expense]
