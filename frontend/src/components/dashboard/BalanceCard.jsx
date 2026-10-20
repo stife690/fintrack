@@ -16,7 +16,7 @@ function Amount({ value, hidden, className }) {
 }
 
 /**
- * Total del mes (ingresos o gastos) en una tarjeta blanca que se monta sobre la franja violeta.
+ * Total del periodo (ingresos o gastos) en una tarjeta blanca que se monta sobre la franja violeta.
  * @param {{ label: string, value?: number, hidden: boolean, positive?: boolean }} props
  */
 function Total({ label, value, hidden, positive = false }) {
@@ -43,16 +43,16 @@ function Total({ label, value, hidden, positive = false }) {
 }
 
 /**
- * Tarjeta principal del inicio: balance del mes en la franja violeta, y debajo los ingresos
+ * Tarjeta principal del inicio: balance del periodo elegido en la franja violeta, y debajo los ingresos
  * y gastos. El ojo oculta los montos (se recuerda en el dispositivo).
  *
  * @param {object} props
- * @param {string} props.monthLabel Mes legible, p. ej. `octubre`.
+ * @param {string} props.periodLabel Periodo legible, p. ej. `octubre`, `esta semana` o `2026`.
  * @param {{ income: number, expense: number, balance: number }|undefined} props.totals `undefined` mientras carga.
  * @param {boolean} props.hidden
  * @param {() => void} props.onToggleHidden
  */
-export default function BalanceCard({ monthLabel, totals, hidden, onToggleHidden }) {
+export default function BalanceCard({ periodLabel, totals, hidden, onToggleHidden }) {
   const negative = totals && totals.balance < 0;
   return (
     <section aria-labelledby="balance-title" className="relative">
@@ -63,7 +63,7 @@ export default function BalanceCard({ monthLabel, totals, hidden, onToggleHidden
 
         <div className="relative flex items-start justify-between gap-4">
           <h2 id="balance-title" className="text-sm font-medium text-white/80">
-            Balance de {monthLabel}
+            Balance de {periodLabel}
           </h2>
           <button
             type="button"
@@ -84,7 +84,7 @@ export default function BalanceCard({ monthLabel, totals, hidden, onToggleHidden
           {totals === undefined
             ? 'Calculando…'
             : negative
-              ? 'Este mes has gastado más de lo que te ha entrado.'
+              ? 'En este periodo has gastado más de lo que te ha entrado.'
               : 'Lo que te ha entrado menos lo que has gastado.'}
         </p>
       </div>

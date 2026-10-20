@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
+import PeriodSelector from '@/components/dashboard/PeriodSelector';
 import QuickActions from '@/components/dashboard/QuickActions';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import { currentMonth } from '@/components/budgets/month';
@@ -10,8 +11,9 @@ import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
+import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
-import { getMonthTotals } from '@/services/summaryService';
+import { getSummary } from '@/services/summaryService';
 import { getCategories, listTransactions } from '@/services/transactionService';
 
 const RECENT_COUNT = 5;
@@ -23,10 +25,10 @@ function monthName(month) {
 }
 
 /**
- * Página privada `/app`: balance del mes, accesos rápidos, alertas y resumen de presupuestos
+ * Página privada `/app`: selector de periodo y balance de ese periodo (FT-0004), accesos rápidos, alertas y resumen de presupuestos
  * (FT-0005) y últimos movimientos. Cada bloque carga por separado: si uno falla, los demás se ven.
- *
- * Los gráficos y el selector de periodo del dashboard son de FT-0004 y van en una fase aparte.
+ * Los presupuestos siempre son del mes actual: el selector de periodo solo cambia el balance
+ * (y luego los gráficos de FT-0004).
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -35,7 +37,15 @@ export default function Dashboard() {
   const month = currentMonth();
   const label = monthName(month);
 
-  const totals = useAsync(() => getMonthTotals(month), [month]);
+  // Periodo elegido en el selector. Arranca en el mes actual.
+  const [selected, setSelected] = useState({ period: 'month', date: todayIso() });
+  const summary = useAsync(() => getSummary(selected.period, selected.date), [selected.period, selected.date]);
+  // Mientras carga otro periodo se muestra el "cargando", no los números del periodo anterior.
+  const totals =
+    summary.data && !summary.loading
+      ? { income: summary.data.income.total, expense: summary.data.expense.total, balance: summary.data.balance }
+      : undefined;
+
   const budgets = useAsync(() => listBudgets(month), [month]);
   const recent = useAsync(() => listTransactions({ page: 1, pageSize: RECENT_COUNT }), []);
   const categories = useAsync(getCategories, []);
@@ -53,11 +63,17 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <BalanceCard monthLabel={label} totals={totals.data} hidden={hidden} onToggleHidden={toggleHidden} />
-          {totals.error && (
+          <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
+          <BalanceCard
+            periodLabel={periodLabel(selected.period, selected.date)}
+            totals={totals}
+            hidden={hidden}
+            onToggleHidden={toggleHidden}
+          />
+          {summary.error && (
             <p role="alert" className="-mt-2 text-sm text-negative">
-              No pudimos calcular el balance: {totals.error}{' '}
-              <button type="button" className="underline" onClick={totals.reload}>
+              No pudimos calcular el balance: {summary.error}{' '}
+              <button type="button" className="underline" onClick={summary.reload}>
                 Reintentar
               </button>
             </p>
