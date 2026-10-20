@@ -1,6 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import ExcelJS from 'exceljs';
 import { createApp } from './app.js';
 import { pool } from './config/db.js';
 
@@ -25,12 +26,13 @@ after(async () => {
 
 /**
  * @typedef {(path: string, init?: { method?: string, body?: unknown, token?: string }) =>
- *   Promise<{ status: number, headers: Headers, text: string, body: object|null }>} ApiClient
+ *   Promise<{ status: number, headers: Headers, text: string, buffer: Buffer, body: object|null }>} ApiClient
  */
 
 /**
  * Levanta la app en un puerto libre y ejecuta `fn` con un cliente de la API.
- * A diferencia de otras pruebas, devuelve también los encabezados y el texto crudo (es un archivo).
+ * A diferencia de otras pruebas, devuelve también los encabezados y el contenido crudo (es un archivo):
+ * `buffer` con los bytes (Excel) y `text` decodificado en UTF-8 (CSV).
  * @param {(api: ApiClient) => Promise<void>} fn
  * @returns {Promise<void>}
  */
@@ -46,9 +48,10 @@ async function withApi(fn) {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const text = await res.text();
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const text = buffer.toString('utf8');
     const isJson = res.headers.get('content-type')?.includes('application/json');
-    return { status: res.status, headers: res.headers, text, body: isJson && text ? JSON.parse(text) : null };
+    return { status: res.status, headers: res.headers, text, buffer, body: isJson && text ? JSON.parse(text) : null };
   };
   try {
     await fn(api);
@@ -101,6 +104,36 @@ test('exporta los movimientos del periodo como CSV descargable, en orden cronol�
       '2026-10-17;Gasto;Alimentación;"Almuerzo; con postre";18000;Manual',
       '',
     ]);
+  });
+});
+
+test('exporta el reporte en Excel con resumen y movimientos', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUser(api);
+    await addTransaction(api, token, { type: 'ingreso', amount: 350000, description: 'Pago', category: 'salario', date: '2026-10-02' });
+    await addTransaction(api, token, { type: 'gasto', amount: 18000, description: 'Almuerzo', category: 'alimentacion', date: '2026-10-17' });
+
+    const res = await api('/reports/export?format=xlsx&from=2026-10-01&to=2026-10-31', { token });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    assert.equal(res.headers.get('content-disposition'), 'attachment; filename="fintrack_2026-10.xlsx"');
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(res.buffer);
+    assert.deepEqual(workbook.worksheets.map((w) => w.name), ['Resumen', 'Movimientos']);
+    const summary = workbook.getWorksheet('Resumen');
+    assert.equal(summary.getCell('B5').value.result, 350000);
+    assert.equal(summary.getCell('B6').value.result, 18000);
+    assert.equal(workbook.getWorksheet('Movimientos').rowCount, 4, 'encabezado, 2 movimientos y total');
+  });
+});
+
+test('el Excel también responde 422 NO_DATA sin movimientos', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUser(api);
+    const res = await api('/reports/export?format=xlsx&from=2026-10-01&to=2026-10-31', { token });
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'NO_DATA');
   });
 });
 
