@@ -24,9 +24,14 @@ after(async () => {
 });
 
 /**
+ * @typedef {(path: string, init?: { method?: string, body?: unknown, token?: string }) =>
+ *   Promise<{ status: number, headers: Headers, text: string, body: object|null }>} ApiClient
+ */
+
+/**
  * Levanta la app en un puerto libre y ejecuta `fn` con un cliente de la API.
  * A diferencia de otras pruebas, devuelve también los encabezados y el texto crudo (es un archivo).
- * @param {(api: Function) => Promise<void>} fn
+ * @param {(api: ApiClient) => Promise<void>} fn
  * @returns {Promise<void>}
  */
 async function withApi(fn) {
@@ -54,7 +59,7 @@ async function withApi(fn) {
 
 /**
  * Crea un usuario nuevo y devuelve su access token.
- * @param {Function} api
+ * @param {ApiClient} api
  * @returns {Promise<string>}
  */
 async function newUser(api) {
@@ -67,6 +72,9 @@ async function newUser(api) {
 
 /**
  * Registra un movimiento con categoría elegida (sin pasar por la IA).
+ * @param {ApiClient} api
+ * @param {string} token
+ * @param {object} data Cuerpo de POST /transactions.
  * @returns {Promise<string>} Id del movimiento.
  */
 async function addTransaction(api, token, data) {
@@ -87,7 +95,7 @@ test('exporta los movimientos del periodo como CSV descargable, en orden cronol�
     assert.equal(res.headers.get('content-type'), 'text/csv; charset=utf-8');
     assert.equal(res.headers.get('content-disposition'), 'attachment; filename="fintrack_2026-10.csv"');
     assert.equal(res.headers.get('cache-control'), 'no-store');
-    assert.deepEqual(res.text.replace(/^﻿/, '').split('\r\n'), [
+    assert.deepEqual(res.text.replace(/^\uFEFF/, '').split('\r\n'), [
       'Fecha;Tipo;Categoría;Descripción;Monto;Origen',
       '2026-10-02;Ingreso;Salario;Pago monitoría;350000,50;Manual',
       '2026-10-17;Gasto;Alimentación;"Almuerzo; con postre";18000;Manual',
