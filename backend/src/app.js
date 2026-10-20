@@ -6,7 +6,10 @@ import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import transactionsRoutes from './routes/transactions.routes.js';
-import { createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
+import budgetsRoutes from './routes/budgets.routes.js';
+import syncRoutes from './routes/sync.routes.js';
+import pushRoutes from './routes/push.routes.js';
+import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 
@@ -30,10 +33,18 @@ export function createApp() {
   app.use(express.json());
   app.use(healthRoutes);
   app.use(['/api/v1/auth/login', '/api/v1/auth/register'], createAuthRateLimit());
+  // Crear y editar pueden pedir la categoría a la IA: llevan límite de peticiones (contrato §1).
+  const aiRateLimit = createAiRateLimit();
+  app.post('/api/v1/transactions', aiRateLimit);
+  app.put('/api/v1/transactions/:id', aiRateLimit);
+  app.post('/api/v1/sync/batch', aiRateLimit);
+  app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/categories', categoriesRoutes);
   app.use('/api/v1/transactions', transactionsRoutes);
+  app.use('/api/v1/budgets', budgetsRoutes);
+  app.use('/api/v1/push', pushRoutes);
   app.use(notFound);
   app.use(errorHandler);
 

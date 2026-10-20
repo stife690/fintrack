@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import Logo from '@/components/common/Logo';
+import { useSearchParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import PageHeader from '@/components/layout/PageHeader';
+import Panel from '@/components/layout/Panel';
+import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import usePageTitle from '@/hooks/usePageTitle';
 import {
   createTransaction,
@@ -18,7 +16,6 @@ import {
 } from '@/services/transactionService';
 
 const PAGE_SIZE = 10;
-const NO_FILTERS = { type: '', category: '', from: '', to: '' };
 
 /**
  * Calcula qué campos cambiaron al editar. Si el usuario deja la categoría en
@@ -44,10 +41,10 @@ function diff(initial, values) {
  */
 function savedMessage(saved, names) {
   if (saved.source === 'sin_clasificar') {
-    return 'Guardada sin clasificar: no pudimos sugerir una categoría. Puedes elegirla editando la transacción.';
+    return 'Guardado sin clasificar: no pudimos sugerir una categoría. Puedes elegirla editando el movimiento.';
   }
   const name = names[saved.category] ?? saved.category;
-  return saved.source === 'ia' ? `Guardada en ${name} (sugerida por IA).` : `Guardada en ${name}.`;
+  return saved.source === 'ia' ? `Guardado en ${name} (sugerida por IA).` : `Guardado en ${name}.`;
 }
 
 /**
@@ -55,7 +52,11 @@ function savedMessage(saved, names) {
  * (tipo, categoría, rango de fechas) y paginación. FT-0002.
  */
 export default function Transactions() {
-  usePageTitle('Transacciones');
+  usePageTitle('Movimientos');
+  // `?nuevo=gasto|ingreso` llega desde los accesos rápidos del inicio.
+  const [searchParams] = useSearchParams();
+  const quickType = searchParams.get('nuevo');
+  const defaultType = quickType === 'ingreso' ? 'ingreso' : 'gasto';
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
@@ -95,8 +96,8 @@ export default function Transactions() {
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
-  const changeFilter = (name, value) => {
-    setFilters((f) => ({ ...f, [name]: value, ...(name === 'type' && { category: '' }) }));
+  const changeFilters = (changes) => {
+    setFilters((f) => ({ ...f, ...changes }));
     setPage(1);
   };
 
@@ -121,7 +122,7 @@ export default function Transactions() {
     try {
       await deleteTransaction(transaction.id);
       if (editing?.id === transaction.id) setEditing(null);
-      setNotice('Transacción eliminada.');
+      setNotice('Movimiento eliminado.');
       // Si era la última de la página, retrocede una para no quedar en una página vacía.
       if (result.data.length === 1 && page > 1) setPage(page - 1);
       else reload();
@@ -130,84 +131,43 @@ export default function Transactions() {
     }
   };
 
-  const filterCategories =
-    filters.type === 'gasto'
-      ? categories.expense
-      : filters.type === 'ingreso'
-        ? categories.income
-        : [...categories.expense, ...categories.income];
   const hasFilters = Object.values(filters).some(Boolean);
 
   return (
-    <div className="min-h-dvh bg-black text-white">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <Logo />
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/app">
-            <ArrowLeft aria-hidden="true" />
-            Volver
-          </Link>
-        </Button>
-      </header>
+    <>
+      <PageHeader title="Movimientos" description="Tus gastos e ingresos, con la categoría de cada uno." />
 
-      <main className="mx-auto grid max-w-6xl gap-8 px-4 pb-16 lg:grid-cols-[380px_1fr]">
-        <section aria-labelledby="form-title" className="h-fit rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h1 id="form-title" className="mb-5 text-xl font-semibold tracking-tight">
-            {editing ? 'Editar transacción' : 'Registrar transacción'}
-          </h1>
+      {/* grid-cols-1 fija una columna que no crece con el contenido (los campos de fecha nativos
+          de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <Panel aria-labelledby="form-title" className="h-fit lg:sticky lg:top-8">
+          <h2 id="form-title" className="mb-5 text-lg font-semibold tracking-tight">
+            {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
+          </h2>
           <TransactionForm
             categories={categories}
             initial={editing}
+            defaultType={defaultType}
+            autoFocus={Boolean(quickType)}
             onSubmit={handleSubmit}
             onCancel={editing ? () => setEditing(null) : undefined}
           />
-        </section>
+        </Panel>
 
-        <section aria-labelledby="list-title" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h2 id="list-title" className="text-xl font-semibold tracking-tight">
-            Mis transacciones
+        <Panel aria-labelledby="list-title">
+          <h2 id="list-title" className="text-lg font-semibold tracking-tight">
+            Historial
           </h2>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="f-type">Tipo</Label>
-              <Select id="f-type" value={filters.type} onChange={(e) => changeFilter('type', e.target.value)}>
-                <option value="">Todos</option>
-                <option value="gasto">Gastos</option>
-                <option value="ingreso">Ingresos</option>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="f-category">Categoría</Label>
-              <Select id="f-category" value={filters.category} onChange={(e) => changeFilter('category', e.target.value)}>
-                <option value="">Todas</option>
-                {filterCategories.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="f-from">Desde</Label>
-              <Input id="f-from" type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => changeFilter('from', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="f-to">Hasta</Label>
-              <Input id="f-to" type="date" value={filters.to} min={filters.from || undefined} onChange={(e) => changeFilter('to', e.target.value)} />
-            </div>
+          <div className="mt-4">
+            <TransactionFilters filters={filters} categories={categories} onChange={changeFilters} />
           </div>
-          {hasFilters && (
-            <Button variant="link" size="sm" className="mt-2 px-0" onClick={() => (setFilters(NO_FILTERS), setPage(1))}>
-              Quitar filtros
-            </Button>
-          )}
 
-          <p role="status" className="mt-4 min-h-5 text-sm text-success">
+          <p role="status" className="mt-4 min-h-5 text-sm text-positive">
             {notice}
           </p>
           {error && (
-            <p role="alert" className="mt-2 text-sm text-destructive">
+            <p role="alert" className="mt-2 text-sm text-negative">
               {error}{' '}
               <button type="button" className="underline" onClick={reload}>
                 Reintentar
@@ -217,12 +177,12 @@ export default function Transactions() {
 
           <div className="mt-2" aria-busy={loading}>
             {loading && result.data.length === 0 ? (
-              <p className="flex items-center gap-2 py-10 text-white/60">
+              <p className="flex items-center gap-2 py-10 text-ink/60">
                 <Loader2 className="animate-spin" aria-hidden="true" /> Cargando…
               </p>
             ) : result.data.length === 0 ? (
-              <p className="py-10 text-center text-white/50">
-                {hasFilters ? 'Ninguna transacción coincide con los filtros.' : 'Aún no tienes transacciones. Registra la primera.'}
+              <p className="py-10 text-center text-ink/50">
+                {hasFilters ? 'Ningún movimiento coincide con los filtros.' : 'Aún no tienes movimientos. Registra el primero con el formulario.'}
               </p>
             ) : (
               <TransactionList
@@ -237,8 +197,8 @@ export default function Transactions() {
               />
             )}
           </div>
-        </section>
-      </main>
-    </div>
+        </Panel>
+      </div>
+    </>
   );
 }

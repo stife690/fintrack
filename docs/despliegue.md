@@ -34,12 +34,35 @@ FRONTEND_URL=https://fintrack.vercel.app API_URL=https://fintrack-api.onrender.c
 | Backend (Render) | https://fintrack-api-2z1p.onrender.com |
 | Health check | https://fintrack-api-2z1p.onrender.com/health |
 
-Variables configuradas:
+Variables de entorno en producción:
 
 | Plataforma | Variable | Valor |
 |---|---|---|
-| Vercel | `VITE_API_URL` | URL del backend en Render |
-| Render | `CORS_ORIGIN` | URL del frontend en Vercel |
+| Vercel | `VITE_API_URL` | URL del backend en Render, sin barra final |
 | Render | `NODE_VERSION` | `20` |
+| Render | `CORS_ORIGIN` | URL del frontend en Vercel, sin barra final |
+| Render | `JWT_SECRET` | Secreto aleatorio (el blueprint lo genera). Obligatorio: sin él el servidor no arranca |
+| Render | `DATABASE_URL` | Cadena del **Session pooler** de Supabase, terminada en `?sslmode=no-verify` |
+| Render | `AI_PROVIDER` | `gemini` |
+| Render | `AI_API_KEY` | Clave de Google AI Studio (nunca en el repo ni en el chat) |
+| Render | `VAPID_PUBLIC_KEY` | Llave pública del par generado con `npx web-push generate-vapid-keys` (se genera una sola vez) |
+| Render | `VAPID_PRIVATE_KEY` | Llave privada del mismo par (secreto: solo en el panel de Render) |
+| Render | `VAPID_SUBJECT` | `mailto:` del equipo, p. ej. `mailto:equipo@ejemplo.com` |
+
+## Base de datos (Supabase)
+
+- Usar la cadena del **Session pooler** (host `...pooler.supabase.com`, usuario `postgres.<ref>`). La conexión directa es solo IPv6 y Render falla con `ENETUNREACH`.
+- Añadir `?sslmode=no-verify` al final: `pg` trata `sslmode=require` como `verify-full` y rechaza el certificado.
+- El esquema está en `db/init/01_schema.sql` y las categorías en `db/init/02_seed_categorias.sql`; se ejecutan una vez en el *SQL Editor* de Supabase.
+- Activar RLS en las tablas del esquema `public`.
+- Los proyectos gratuitos de Supabase se pausan tras ~1 semana sin actividad; hay que reanudarlos desde el dashboard.
 
 Verificado el 28/09/2026 (FT-0010): frontend 200 HTML, `GET /health` ok, CORS desde el origen de Vercel y 404 con formato de error.
+
+## Notificaciones push y plan gratuito de Render
+
+El recordatorio diario lo envía un programador que corre **dentro** del servidor de Render y revisa cada minuto
+qué usuarios tienen su recordatorio a esa hora. En el plan gratuito Render apaga el servicio tras ~15 minutos sin
+tráfico, y mientras está apagado no se envían recordatorios (al despertar se envían los de los últimos 5 minutos).
+Para que lleguen a tiempo hace falta mantener el servicio activo (por ejemplo, con un ping periódico a `/health`
+desde un servicio externo) o pasar a un plan que no se duerma.

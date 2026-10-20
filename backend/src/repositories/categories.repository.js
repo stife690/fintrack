@@ -18,3 +18,16 @@ export async function listCategories() {
   );
   return rows;
 }
+
+/**
+ * Busca una categoría por su clave estable.
+ * @param {string} key
+ * @returns {Promise<Category|null>}
+ */
+export async function findCategoryByKey(key) {
+  const { rows } = await pool.query(
+    'SELECT id, key, nombre AS name, tipo AS type FROM categorias WHERE key = $1',
+    [key],
+  );
+  return rows[0] ?? null;
+}

@@ -77,7 +77,7 @@ El alias `@` apunta a `src/`.
 
 ## Mocks de la API (MSW)
 
-En desarrollo, MSW intercepta en el navegador los endpoints de autenticación, categorías y transacciones y responde según `fintrack-openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
+En desarrollo, MSW intercepta en el navegador los endpoints de autenticación, categorías y transacciones y responde según `docs/api/openapi.yaml`. Los handlers están en `src/mocks/handlers.js`.
 
 - Solo arrancan en `npm run dev`; nunca entran en el build de producción.
 - Para probar contra el backend real, pon `VITE_API_MOCKS=false` en `.env` y reinicia el servidor de desarrollo.
@@ -126,3 +126,9 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 ## Despliegue (Vercel)
 
 Importar el repo con **Root Directory = `frontend`**. `vercel.json` ya define el build (`npm run build` → `dist`) y la reescritura a `index.html`. Guía completa en [`docs/despliegue.md`](../docs/despliegue.md).
+## Notificaciones push (FT-0011)
+
+- Pantalla: `/app/notificaciones` (activar notificaciones del dispositivo y hora del recordatorio diario).
+- `public/push-sw.js` contiene los manejadores `push` y `notificationclick`; `vite.config.js` lo importa en el service worker generado (`workbox.importScripts`).
+- Con mocks (`VITE_USE_MOCKS`) se puede probar la pantalla, pero el aviso real exige el backend con llaves VAPID configuradas.
+- Probar en un dispositivo real: HTTPS (Vercel) y PWA instalada; en iPhone solo funciona con la PWA añadida a la pantalla de inicio.

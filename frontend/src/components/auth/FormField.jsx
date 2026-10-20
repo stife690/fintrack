@@ -22,7 +22,7 @@ export default function FormField({ id, label, error, children }) {
         'aria-describedby': error ? errorId : undefined,
       })}
       {error && (
-        <p id={errorId} className="text-sm text-destructive">
+        <p id={errorId} className="text-sm text-negative">
           {error}
         </p>
       )}

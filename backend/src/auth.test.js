@@ -66,7 +66,8 @@ test('register crea la cuenta y devuelve usuario y tokens (201)', options, async
     });
     assert.equal(res.status, 201);
     assert.equal(res.body.user.email, email, 'el correo se guarda sin espacios y en minúsculas');
-    assert.deepEqual(Object.keys(res.body.user).sort(), ['email', 'id']);
+    assert.deepEqual(Object.keys(res.body.user).sort(), ['email', 'id', 'name']);
+    assert.equal(res.body.user.name, null, 'una cuenta nueva aún no tiene nombre');
     assert.equal(typeof res.body.accessToken, 'string');
     assert.equal(typeof res.body.refreshToken, 'string');
 
@@ -155,7 +156,7 @@ test('users/me exige un access token válido y vigente', options, async () => {
 
     const me = await api('/users/me', { token: session.accessToken });
     assert.equal(me.status, 200);
-    assert.deepEqual(me.body, { id: session.user.id, email, timezone: 'America/Bogota' });
+    assert.deepEqual(me.body, { id: session.user.id, email, name: null, timezone: 'America/Bogota' });
 
     const noToken = await api('/users/me');
     assert.equal(noToken.status, 401);

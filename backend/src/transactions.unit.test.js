@@ -77,6 +77,8 @@ test('parseListQuery aplica valores por defecto y valida filtros', () => {
     }),
     { type: 'gasto', from: '2026-10-01', to: '2026-10-31', page: 2, pageSize: 50 },
   );
+  assert.deepEqual(parseListQuery({ q: '  café ' }), { q: 'café', page: 1, pageSize: 20 });
+  assertInvalid(() => parseListQuery({ q: '   ' }), 'q');
   assertInvalid(() => parseListQuery({ type: 'x' }), 'type');
   assertInvalid(() => parseListQuery({ pageSize: '500' }), 'pageSize');
   assertInvalid(() => parseListQuery({ page: '0' }), 'page');
@@ -161,6 +163,17 @@ test('update responde 404 si el id no es UUID o la transacción no es del usuari
     statusCode: 404,
   });
   await assert.rejects(buildService().service.update('u1', ID, { amount: 5 }), { statusCode: 404 });
+});
+
+test('get responde 404 si el id no es UUID o la transacción no es del usuario', async () => {
+  await assert.rejects(buildService().service.get('u1', 'abc'), { statusCode: 404 });
+  await assert.rejects(buildService().service.get('u1', ID), { statusCode: 404 });
+});
+
+test('get devuelve la transacción del usuario sin exponer el borrado', async () => {
+  const current = { id: ID, type: 'gasto', description: 'Almuerzo', category: 'alimentacion' };
+  const result = await buildService({ current }).service.get('u1', ID);
+  assert.deepEqual(result, { ...current, deletedAt: null });
 });
 
 test('update sin tocar categoría ni tipo no vuelve a consultar la IA', async () => {

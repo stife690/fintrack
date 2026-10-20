@@ -35,6 +35,7 @@ function present(record) {
  * @returns {{
  *   create: (userId: string, input: object) => Promise<object>,
  *   list: (userId: string, filters: object) => Promise<{ data: object[], page: number, pageSize: number, total: number }>,
+ *   get: (userId: string, id: string) => Promise<object>,
  *   update: (userId: string, id: string, changes: object) => Promise<object>,
  *   remove: (userId: string, id: string) => Promise<void>
  * }}
@@ -91,7 +92,7 @@ export function createTransactionService(deps = {}) {
   /**
    * Lista paginada de las transacciones del usuario, con filtros opcionales.
    * @param {string} userId
-   * @param {{ type?: string, category?: string, from?: string, to?: string, page: number, pageSize: number }} filters
+   * @param {{ type?: string, category?: string, q?: string, from?: string, to?: string, page: number, pageSize: number }} filters
    * @returns {Promise<{ data: object[], page: number, pageSize: number, total: number }>}
    */
   async function list(userId, { page, pageSize, ...filters }) {
@@ -102,6 +103,20 @@ export function createTransactionService(deps = {}) {
       offset: (page - 1) * pageSize,
     });
     return { data: rows.map(present), page, pageSize, total };
+  }
+
+  /**
+   * Obtiene una transacción puntual del usuario.
+   * @param {string} userId
+   * @param {string} id
+   * @returns {Promise<object>}
+   * @throws {AppError} 404 si no existe, está eliminada o es de otro usuario.
+   */
+  async function get(userId, id) {
+    if (!UUID_RE.test(id)) throw notFound();
+    const record = await repo.findTransaction(id, userId);
+    if (!record) throw notFound();
+    return present(record);
   }
 
   /**
@@ -149,10 +164,10 @@ export function createTransactionService(deps = {}) {
     }
   }
 
-  return { create, list, update, remove };
+  return { create, list, get, update, remove };
 }
 
 const service = createTransactionService();
 
 /** Servicio con las dependencias reales (BD e IA). */
-export const { create, list, update, remove } = service;
+export const { create, list, get, update, remove } = service;

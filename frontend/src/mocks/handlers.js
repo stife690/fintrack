@@ -3,7 +3,7 @@ import { API_V1 } from '@/lib/api';
 
 /**
  * Handlers de MSW que simulan auth, categorías y transacciones mientras se desarrolla sin backend.
- * Siguen `fintrack-openapi.yaml` (v2.0.1): rutas bajo `/api/v1`, errores con la forma
+ * Siguen `docs/api/openapi.yaml` (v2.0.1): rutas bajo `/api/v1`, errores con la forma
  * `{ error: { code, message, details? } }` y `AuthResponse` con tokens.
  * Los usuarios y sesiones viven en memoria: se reinician al recargar la página.
  */
@@ -16,6 +16,14 @@ const accessTokens = new Map();
 const refreshTokens = new Map();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Llave pública VAPID de ejemplo (válida, solo para desarrollo): permite suscribirse sin backend. */
+const MOCK_VAPID_PUBLIC_KEY =
+  'BKQMg0AmJJ34cFCv2R9ZhYsC5nfn4yDHX59UkDTz9Oxt7hVPlf6syvjSKfGKnk3TbL73wdayjvf5NNN5fsevPJU';
+/** endpoint de suscripción push → id del usuario */
+const pushEndpoints = new Map();
+/** id del usuario → configuración del recordatorio diario */
+const reminders = new Map();
 
 addUser('demo@fintrack.com', 'demo1234');
 
@@ -199,14 +207,6 @@ export const handlers = [
     return HttpResponse.json({ expense: pick('gasto'), income: pick('ingreso') });
   }),
 
-  http.post(`${API_V1}/categories/suggest`, async ({ request }) => {
-    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
-    const body = await readJson(request);
-    await delay(400);
-    const category = mockSuggest(body?.description ?? '', body?.type);
-    return HttpResponse.json({ category, source: category ? 'ia' : 'sin_clasificar' });
-  }),
-
   http.get(`${API_V1}/transactions`, ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
@@ -216,6 +216,7 @@ export const handlers = [
     const rows = (transactions.get(user.id) ?? [])
       .filter((t) => (!q.get('type') || t.type === q.get('type')))
       .filter((t) => (!q.get('category') || t.category === q.get('category')))
+      .filter((t) => (!q.get('q') || t.description.toLowerCase().includes(q.get('q').toLowerCase())))
       .filter((t) => (!q.get('from') || t.date >= q.get('from')))
       .filter((t) => (!q.get('to') || t.date <= q.get('to')))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
@@ -252,7 +253,15 @@ export const handlers = [
       deletedAt: null,
     };
     transactions.set(user.id, [transaction, ...(transactions.get(user.id) ?? [])]);
-    return HttpResponse.json(transaction, { status: 201 });
+    return HttpResponse.json({ transaction, alert: null }, { status: 201 });
+  }),
+
+  http.get(`${API_V1}/transactions/:id`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const found = (transactions.get(user.id) ?? []).find((t) => t.id === params.id);
+    if (!found) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
+    return HttpResponse.json(found);
   }),
 
   http.put(`${API_V1}/transactions/:id`, async ({ request, params }) => {
@@ -278,7 +287,59 @@ export const handlers = [
     }
     next.updatedAt = new Date().toISOString();
     Object.assign(current, next);
-    return HttpResponse.json(current);
+    return HttpResponse.json({ transaction: current, alert: null });
+  }),
+
+  http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ key: MOCK_VAPID_PUBLIC_KEY });
+  }),
+
+  http.post(`${API_V1}/push/subscribe`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    const { endpoint, keys } = body?.subscription ?? {};
+    if (typeof endpoint !== 'string' || typeof keys?.p256dh !== 'string' || typeof keys?.auth !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    pushEndpoints.set(endpoint, user.id);
+    return new HttpResponse(null, { status: 201 });
+  }),
+
+  http.delete(`${API_V1}/push/subscribe`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    if (typeof body?.endpoint !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    if (pushEndpoints.get(body.endpoint) !== user.id) return error(404, 'NOT_FOUND', 'Suscripción no encontrada');
+    pushEndpoints.delete(body.endpoint);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/users/me/reminder-settings`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json(reminders.get(user.id) ?? { time: null, timezone: user.timezone });
+  }),
+
+  http.put(`${API_V1}/users/me/reminder-settings`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    if (!body || !(body.time === null || typeof body.time === 'string') || typeof body.timezone !== 'string') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    if (body.time !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)) {
+      return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+        { field: 'time', problem: 'Debe tener el formato HH:mm (00:00 a 23:59) o ser null' },
+      ]);
+    }
+    const settings = { time: body.time, timezone: body.timezone };
+    reminders.set(user.id, settings);
+    return HttpResponse.json(settings);
   }),
 
   http.delete(`${API_V1}/transactions/:id`, ({ request, params }) => {

@@ -15,13 +15,13 @@ import { pool } from '../config/db.js';
  * @property {Date|null} deletedAt Fecha de borrado lógico (siempre `null` en lo que devuelve la API).
  */
 
-const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amount,
+export const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amount,
   t.descripcion AS description, t.tipo AS type, c.key AS category, t.origen AS source,
   to_char(t.fecha, 'YYYY-MM-DD') AS date, t.created_at AS "createdAt",
   t.updated_at AS "updatedAt", t.deleted_at AS "deletedAt"`;
 
 /** Une la transacción con su categoría para obtener la clave. */
-const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
+export const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
 
 /**
  * Inserta una transacción.
@@ -58,10 +58,10 @@ export async function findTransaction(id, userId) {
 
 /**
  * Lista las transacciones de un usuario, de la más reciente a la más antigua.
- * @param {{ userId: string, type?: string, category?: string, from?: string, to?: string, limit: number, offset: number }} filters
+ * @param {{ userId: string, type?: string, category?: string, q?: string, from?: string, to?: string, limit: number, offset: number }} filters
  * @returns {Promise<{ rows: TransactionRecord[], total: number }>}
  */
-export async function listTransactions({ userId, type, category, from, to, limit, offset }) {
+export async function listTransactions({ userId, type, category, q, from, to, limit, offset }) {
   const params = [userId];
   const where = ['t.usuario_id = $1', 't.deleted_at IS NULL'];
   const add = (condition, value) => {
@@ -70,6 +70,8 @@ export async function listTransactions({ userId, type, category, from, to, limit
   };
   if (type) add('t.tipo = ?', type);
   if (category) add('c.key = ?', category);
+  // Búsqueda por texto en la descripción; se escapan % y _ para tomarlos literalmente.
+  if (q) add("t.descripcion ILIKE ? ESCAPE '\\'", `%${q.replace(/[\\%_]/g, '\\$&')}%`);
   if (from) add('t.fecha >= ?', from);
   if (to) add('t.fecha <= ?', to);
   const clause = where.join(' AND ');

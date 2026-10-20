@@ -79,6 +79,7 @@ Reglas:
    ```
 
    - La primera vez crea las 8 tablas y el catálogo de categorías a partir de `db/init/`.
+   - Los cambios de esquema posteriores están en `db/patches/` y el backend los aplica solo al arrancar (`src/config/migrations.js`), tanto en local como en Render. Son idempotentes.
    - Queda en el puerto **5434** del host, para no chocar con un PostgreSQL instalado en el sistema.
    - Las siguientes veces basta con `docker start fintrack-db`. Más detalles en [docs/entorno-local.md](../docs/entorno-local.md).
 
@@ -118,6 +119,12 @@ Reglas:
 | `ACCESS_TOKEN_TTL` | No | `15m` | Duración del access token. |
 | `REFRESH_TOKEN_TTL_DAYS` | No | `30` | Días de vida del refresh token. |
 | `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login/registro permitidos por IP cada 15 minutos. |
+| `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
+| `VAPID_PUBLIC_KEY` | Para push | *(par generado con `npx web-push generate-vapid-keys`)* | Llave pública VAPID; el navegador la usa para suscribirse a las notificaciones. Sin las dos llaves el push y el recordatorio diario quedan desactivados. |
+| `VAPID_PRIVATE_KEY` | Para push | *(secreto)* | Llave privada VAPID con la que el servidor firma cada notificación. Nunca se sube al repo. |
+| `VAPID_SUBJECT` | No | `mailto:equipo@ejemplo.com` | Contacto del servidor ante el servicio push del navegador (`mailto:` o URL https). |
+| `REMINDERS_ENABLED` | No | `true` | Con `false` no corre el programador del recordatorio diario. |
+| `REMINDER_CHECK_INTERVAL_MS` | No | `60000` | Cada cuánto revisa qué recordatorios tocan, en milisegundos. |
 | `TRUST_PROXY` | No | `1` | Cantidad de proxies delante del servidor (0 en local). Necesario detrás de un proxy para que el límite de intentos use la IP real del cliente. |
 | `PORT` | No | `3000` | Puerto HTTP. Render lo define automáticamente. |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Origen(es) permitidos del frontend, separados por coma y sin barra final. Vacío = cualquier origen (solo desarrollo). |
@@ -140,11 +147,21 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/health` | Estado del servicio y de la base de datos. **200** `{ status: "ok", database: "up", ... }` o **503** `{ status: "error", database: "down", ... }` si PostgreSQL no responde. Lo usan Render (health check) y el smoke test. |
-| `POST` | `/api/v1/auth/register` | Crea una cuenta. Body `{ email, password }` (contraseña de 8+ caracteres). **201** `{ user: { id, email }, accessToken, refreshToken }` · **409** `EMAIL_TAKEN` · **422** `VALIDATION_ERROR` con `details` · **429** `RATE_LIMITED`. |
+| `POST` | `/api/v1/auth/register` | Crea una cuenta. Body `{ email, password }` (contraseña de 8+ caracteres). **201** `{ user: { id, email, name }, accessToken, refreshToken }` (`name` empieza en `null`) · **409** `EMAIL_TAKEN` · **422** `VALIDATION_ERROR` con `details` · **429** `RATE_LIMITED`. |
 | `POST` | `/api/v1/auth/login` | Inicia sesión. **200** con la misma forma que el registro · **401** `UNAUTHORIZED` (sin indicar qué campo falló) · **429** `RATE_LIMITED`. |
 | `POST` | `/api/v1/auth/refresh` | Body `{ refreshToken }`. **200** `{ accessToken, refreshToken }`; el token usado queda revocado (rotación) · **401** `UNAUTHORIZED`. |
 | `POST` | `/api/v1/auth/logout` | Requiere access token. Body `{ refreshToken }`. Revoca esa sesión. **204**. |
-| `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, timezone }`. |
+| `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, name, timezone }` (`name` es `null` si no lo ha puesto). |
+| `PATCH` | `/api/v1/users/me` | Requiere access token. Body `{ name }` (máx. 60; `null` o `""` lo borran). **200** con el perfil · **400** cuerpo inválido · **422** `VALIDATION_ERROR`. |
+| `GET` | `/api/v1/users/me/reminder-settings` | Requiere access token. **200** `{ time, timezone }` (`time` en `HH:mm`, o `null` si el recordatorio está desactivado). |
+| `PUT` | `/api/v1/users/me/reminder-settings` | Requiere access token. Body `{ time, timezone }` (`time: null` desactiva). **200** con la configuración guardada · **400** tipos incorrectos · **422** `VALIDATION_ERROR` con `details` (hora o zona inválidas). |
+| `GET` | `/api/v1/push/vapid-public-key` | Requiere access token. **200** `{ key }` con la llave pública VAPID · **500** `INTERNAL_ERROR` si el servidor no tiene llaves. |
+| `POST` | `/api/v1/push/subscribe` | Requiere access token. Body `{ subscription: { endpoint, keys: { p256dh, auth } } }`. **201** sin cuerpo · **400** `VALIDATION_ERROR`. Si el `endpoint` ya existía, pasa a ser del usuario actual. |
+| `DELETE` | `/api/v1/push/subscribe` | Requiere access token. Body `{ endpoint }`. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
+| `GET` | `/api/v1/budgets?month=AAAA-MM` | Requiere access token. Presupuestos del mes (sin `month`, el actual en la zona horaria del usuario). **200** `[{ id, category, month, amount, consumed, percentage, alert: { level, percentage } }]` · **422** mes inválido. `consumed` suma los gastos no borrados de esa categoría y mes; `alert.level` es `none`, `warning_80` (desde 80 %) o `exceeded_100` (desde 100 %). |
+| `POST` | `/api/v1/budgets` | Requiere access token. Body `{ category, month, amount }`. **201** `{ id, category, month, amount }` · **409** `BUDGET_EXISTS` (ya hay uno para esa categoría y mes, RN-03) · **422** `VALIDATION_ERROR` (incluye categorías que no son de gasto). |
+| `PUT` | `/api/v1/budgets/:id` | Requiere access token. Body `{ amount }`. **200** con el presupuesto y el porcentaje recalculado · **404** `NOT_FOUND` · **422**. |
+| `DELETE` | `/api/v1/budgets/:id` | Requiere access token. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
 
 ## Autenticación
 
@@ -212,5 +229,7 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] CORS para el frontend (variable `CORS_ORIGIN`)
 - [x] `docker-compose` para levantar PostgreSQL y backend con un comando
 - [x] Autenticación con JWT: registro, login, refresh, logout y `GET /users/me`
+- [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
+- [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [ ] Documentación Swagger del contrato

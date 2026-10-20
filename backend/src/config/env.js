@@ -15,7 +15,10 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean);
 
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
-const DEFAULT_MODELS = { gemini: 'gemini-flash-lite-latest', anthropic: 'claude-haiku-4-5-20251001' };
+const DEFAULT_MODELS = {
+  gemini: 'gemini-flash-lite-latest',
+  anthropic: 'claude-haiku-4-5-20251001',
+};
 
 const aiProvider = process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : 'gemini';
 
@@ -29,7 +32,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
 
 /**
  * Configuración del backend.
- * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, trustProxy: number }}
+ * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number }}
  * @property {'gemini'|'anthropic'} aiProvider Proveedor de IA (`AI_PROVIDER`, por defecto "gemini").
  * @property {string|undefined} aiApiKey Clave del proveedor de IA (`AI_API_KEY`). Sin ella la IA queda desactivada y todo cae en "Sin clasificar".
  * @property {string|undefined} aiApiUrl Endpoint personalizado (`AI_API_URL`); si falta se usa el oficial del proveedor.
@@ -44,7 +47,14 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string} accessTokenTtl Duración del access token (`ACCESS_TOKEN_TTL`, por defecto "15m").
  * @property {number} refreshTokenTtlDays Días de vida del refresh token (`REFRESH_TOKEN_TTL_DAYS`, por defecto 30).
  * @property {number} authRateLimitMax Intentos de login/registro por IP cada 15 min (`AUTH_RATE_LIMIT_MAX`, por defecto 20).
+ * @property {number} aiRateLimitMax Peticiones por IP y minuto a los endpoints que consumen la IA (`AI_RATE_LIMIT_MAX`, por defecto 30).
  * @property {number} trustProxy Cantidad de proxies delante del servidor (`TRUST_PROXY`, por defecto 0).
+ * @property {string|undefined} vapidPublicKey Llave pública VAPID de las notificaciones push (`VAPID_PUBLIC_KEY`).
+ * @property {string|undefined} vapidPrivateKey Llave privada VAPID (`VAPID_PRIVATE_KEY`). Sin las dos llaves el push queda desactivado.
+ * @property {string} vapidSubject Contacto del servidor push (`VAPID_SUBJECT`, un `mailto:` o URL https).
+ * @property {boolean} remindersEnabled Si corre el programador del recordatorio diario (`REMINDERS_ENABLED`, por defecto sí; "false" lo apaga).
+ * @property {number} reminderCheckIntervalMs Cada cuánto revisa los recordatorios, en ms (`REMINDER_CHECK_INTERVAL_MS`, por defecto 60000).
+ * @property {number} syncAiMax Máximo de transacciones de un lote de /sync/batch que se categorizan con IA (`SYNC_AI_MAX`, por defecto 20; 0 la desactiva).
  */
 export const env = {
   aiProvider,
@@ -61,5 +71,12 @@ export const env = {
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL || '15m',
   refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 30,
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+  aiRateLimitMax: Number(process.env.AI_RATE_LIMIT_MAX) || 30,
   trustProxy: Number(process.env.TRUST_PROXY) || 0,
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || undefined,
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || undefined,
+  vapidSubject: process.env.VAPID_SUBJECT || 'mailto:fintrack@example.com',
+  remindersEnabled: process.env.REMINDERS_ENABLED !== 'false',
+  reminderCheckIntervalMs: Number(process.env.REMINDER_CHECK_INTERVAL_MS) || 60_000,
+  syncAiMax: Number(process.env.SYNC_AI_MAX ?? 20),
 };

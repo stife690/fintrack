@@ -1,20 +1,25 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 /**
  * Isotipo de FinTrack: tres barras ascendentes sobre un cuadro violeta.
+ * El id del degradado es único por instancia: si dos logos compartieran id y el primero
+ * estuviera oculto (display: none), el segundo se quedaría sin el cuadro violeta.
  * @param {{ className?: string }} props
  */
 export function LogoMark({ className }) {
+  // useId da ids como ':r1:'; sin los dos puntos son seguros dentro de url(#…).
+  const gradientId = `fintrack-mark${useId().replace(/:/g, '')}`;
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" className={cn('size-8', className)}>
       <defs>
-        <linearGradient id="fintrack-mark" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#6142ff" />
           <stop offset="1" stopColor="#8b66ff" />
         </linearGradient>
       </defs>
-      <rect width="32" height="32" rx="9" fill="url(#fintrack-mark)" />
+      <rect width="32" height="32" rx="9" fill={`url(#${gradientId})`} />
       <rect x="8" y="17" width="4" height="7" rx="1.5" fill="#fff" opacity=".55" />
       <rect x="14" y="12" width="4" height="12" rx="1.5" fill="#fff" opacity=".8" />
       <rect x="20" y="7" width="4" height="17" rx="1.5" fill="#fff" />

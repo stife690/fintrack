@@ -145,7 +145,7 @@ export function parseUpdateTransaction(body) {
 /**
  * Valida los filtros de `GET /transactions` (todos opcionales).
  * @param {Record<string, unknown>} query Parámetros de la URL.
- * @returns {{ type?: 'ingreso'|'gasto', category?: string, from?: string, to?: string, page: number, pageSize: number }}
+ * @returns {{ type?: 'ingreso'|'gasto', category?: string, q?: string, from?: string, to?: string, page: number, pageSize: number }}
  * @throws {AppError} 422 `VALIDATION_ERROR`.
  */
 export function parseListQuery(query) {
@@ -159,6 +159,10 @@ export function parseListQuery(query) {
   if (query.category !== undefined) {
     if (typeof query.category === 'string' && query.category !== '') out.category = query.category;
     else details.push({ field: 'category', problem: 'Debe ser la clave de una categoría' });
+  }
+  if (query.q !== undefined) {
+    if (typeof query.q === 'string' && query.q.trim() !== '' && query.q.length <= 100) out.q = query.q.trim();
+    else details.push({ field: 'q', problem: 'Debe ser un texto de 1 a 100 caracteres' });
   }
   for (const field of ['from', 'to']) {
     if (query[field] === undefined) continue;
