@@ -1,0 +1,74 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/authFetch', () => ({ authFetch: vi.fn() }));
+
+const { authFetch } = await import('@/lib/authFetch');
+const { createTransaction, updateTransaction } = await import('@/services/transactionService');
+
+/** Respuesta HTTP mínima que entiende `request()` del servicio. */
+const respond = (status, body) => ({ ok: status < 400, status, json: async () => body });
+const TX = { id: 't1', amount: 90000, type: 'gasto', category: 'alimentacion', date: '2026-10-20' };
+
+describe('transactionService: alerta de presupuesto (FT-0006)', () => {
+  beforeEach(() => {
+    authFetch.mockReset();
+  });
+
+  it('createTransaction devuelve la transacción y la alerta del 80 %', async () => {
+    authFetch.mockResolvedValue(
+      respond(201, { transaction: TX, alert: { level: 'warning_80', percentage: 90 } }),
+    );
+    const result = await createTransaction({ amount: 90000, type: 'gasto' });
+    expect(result.transaction).toEqual(TX);
+    expect(result.alert).toEqual({ level: 'warning_80', percentage: 90 });
+    expect(authFetch).toHaveBeenCalledWith('/transactions', {
+      method: 'POST',
+      body: { amount: 90000, type: 'gasto' },
+    });
+  });
+
+  it('createTransaction devuelve la alerta del 100 %', async () => {
+    authFetch.mockResolvedValue(
+      respond(201, { transaction: TX, alert: { level: 'exceeded_100', percentage: 120 } }),
+    );
+    const { alert } = await createTransaction({});
+    expect(alert.level).toBe('exceeded_100');
+  });
+
+  it('conserva alert: null cuando la categoría no tiene presupuesto', async () => {
+    authFetch.mockResolvedValue(respond(201, { transaction: TX, alert: null }));
+    expect((await createTransaction({})).alert).toBeNull();
+  });
+
+  it('updateTransaction también devuelve la alerta', async () => {
+    authFetch.mockResolvedValue(
+      respond(200, { transaction: TX, alert: { level: 'exceeded_100', percentage: 101 } }),
+    );
+    const result = await updateTransaction('t1', { amount: 95000 });
+    expect(result.alert.percentage).toBe(101);
+    expect(authFetch).toHaveBeenCalledWith('/transactions/t1', {
+      method: 'PUT',
+      body: { amount: 95000 },
+    });
+  });
+
+  it('un error de validación llega como Error con el mensaje de la API', async () => {
+    authFetch.mockResolvedValue(
+      respond(422, {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Datos inválidos',
+          details: [{ field: 'amount', problem: 'El monto debe ser mayor a cero' }],
+        },
+      }),
+    );
+    await expect(createTransaction({ amount: -1 })).rejects.toThrow('El monto debe ser mayor a cero');
+  });
+
+  it('sin red avisa con un mensaje claro', async () => {
+    authFetch.mockImplementation(() => Promise.reject(new TypeError('fetch failed')));
+    const error = await createTransaction({}).catch((err) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('No pudimos conectar');
+  });
+});
