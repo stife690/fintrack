@@ -70,7 +70,7 @@ function PendingList({ operations }) {
             </span>
             <span className="shrink-0 tabular-nums">
               <span className="sr-only">{t.type === 'ingreso' ? 'Ingreso de ' : 'Gasto de '}</span>
-              {t.type === 'ingreso' ? '+' : '−'}
+              <span aria-hidden="true">{t.type === 'ingreso' ? '+' : '−'}</span>
               {formatMoney(t.amount)}
             </span>
           </li>

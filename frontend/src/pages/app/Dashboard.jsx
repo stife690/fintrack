@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
@@ -14,6 +14,7 @@ import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
+import { SYNC_EVENT, listPending } from '@/offline/sync';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
 import { getSummary } from '@/services/summaryService';
@@ -61,9 +62,28 @@ export default function Dashboard() {
     return Object.fromEntries(all.map((c) => [c.key, c.name]));
   }, [categories.data]);
 
+  // Movimientos guardados sin conexión que aún no llegan al servidor (FT-0009).
+  const [pending, setPending] = useState(0);
+  const { reload: reloadRecent } = recent;
+  const { reload: reloadSummary } = summary;
+  useEffect(() => {
+    const onSync = ({ detail }) => {
+      setPending(detail.pending);
+      // Lo sincronizado ya está en el servidor: se recargan el balance y los últimos movimientos.
+      if (detail.synced?.length) {
+        reloadRecent();
+        reloadSummary();
+      }
+    };
+    listPending().then((ops) => setPending(ops.length));
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
+  }, [reloadRecent, reloadSummary]);
+
   const name = getDisplayName(user);
   // `total` cuenta todos los movimientos del usuario, no solo los de la página pedida.
-  const empty = recent.data?.total === 0;
+  // Si hay pendientes offline el usuario ya registró algo: no se le dice que no tiene movimientos.
+  const empty = recent.data?.total === 0 && pending === 0;
 
   return (
     <>
