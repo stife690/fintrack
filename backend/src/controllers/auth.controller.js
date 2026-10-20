@@ -1,6 +1,7 @@
-import { login, logout, refresh, register } from '../services/auth.service.js';
+import { login, loginWithGoogle, logout, refresh, register } from '../services/auth.service.js';
 import {
   parseCredentials,
+  parseGoogleCredential,
   parseNewCredentials,
   parseRefreshToken,
 } from '../validators/auth.validator.js';
@@ -24,6 +25,17 @@ export async function postRegister(req, res) {
  */
 export async function postLogin(req, res) {
   const session = await login(parseCredentials(req.body));
+  res.json(session);
+}
+
+/**
+ * `POST /api/v1/auth/google`: inicia sesión (o crea la cuenta) con el `credential` de Google.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postGoogle(req, res) {
+  const session = await loginWithGoogle(parseGoogleCredential(req.body));
   res.json(session);
 }
 

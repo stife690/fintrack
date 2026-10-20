@@ -176,6 +176,17 @@ export const handlers = [
     return HttpResponse.json(issueSession(addUser(email, body.password)), { status: 201 });
   }),
 
+  // Google: en desarrollo cualquier credential entra como una cuenta de Google de prueba.
+  http.post(`${API_V1}/auth/google`, async ({ request }) => {
+    const body = await readJson(request);
+    await delay();
+    if (!body || typeof body.credential !== 'string' || body.credential === '') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    const email = 'cuenta.google@example.com';
+    return HttpResponse.json(issueSession(users.get(email) ?? addUser(email, crypto.randomUUID())));
+  }),
+
   http.post(`${API_V1}/auth/login`, async ({ request }) => {
     const body = await readJson(request);
     await delay();

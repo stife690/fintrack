@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { saveSession, getSession, clearSession } from './tokenStorage';
 import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
-import { login } from '@/services/authService';
+import { login, loginWithGoogle } from '@/services/authService';
 import { unsubscribeThisDevice } from '@/services/pushService';
 
 const AuthContext = createContext(null);
@@ -18,6 +18,13 @@ export function AuthProvider({ children }) {
 
   async function signIn(credentials) {
     const session = await login(credentials);
+    saveSession(session);
+    setUser(session.user);
+  }
+
+  /** Inicia sesión con el `credential` (id_token) que entrega Google Identity Services. */
+  async function signInWithGoogle(credential) {
+    const session = await loginWithGoogle(credential);
     saveSession(session);
     setUser(session.user);
   }
@@ -52,7 +59,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, signIn, signInWithGoogle, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

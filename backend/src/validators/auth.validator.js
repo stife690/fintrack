@@ -51,3 +51,15 @@ export function parseRefreshToken(body) {
   }
   return body.refreshToken;
 }
+
+/**
+ * Comprueba que el cuerpo de `POST /auth/google` traiga el `credential` (id_token) como texto.
+ * @param {unknown} body
+ * @returns {string}
+ */
+export function parseGoogleCredential(body) {
+  if (!body || typeof body.credential !== 'string' || body.credential === '') {
+    throw invalidBody();
+  }
+  return body.credential;
+}

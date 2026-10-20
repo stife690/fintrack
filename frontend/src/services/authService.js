@@ -1,7 +1,7 @@
 /**
  * Capa de autenticación del frontend, según `docs/api/openapi.yaml`.
  *
- * Llama a `POST /api/v1/auth/login` y `POST /api/v1/auth/register`. Mientras la API
+ * Llama a `POST /api/v1/auth/login`, `/auth/register` y `/auth/google`. Mientras la API
  * no los exponga, en desarrollo MSW los intercepta (ver `src/mocks/handlers.js`).
  * Las páginas muestran `error.message`, así que aquí se traducen los errores de la API
  * (`{ error: { code, message, details? } }`) a mensajes para el usuario.
@@ -76,5 +76,21 @@ export function register({ email, password }) {
   return postJson('/auth/register', { email, password }, {
     fallback: 'No pudimos crear tu cuenta. Inténtalo de nuevo.',
     messages: { EMAIL_TAKEN: 'Ya existe una cuenta con ese correo.', RATE_LIMITED: TOO_MANY },
+  });
+}
+
+/**
+ * Inicia sesión con Google (crea la cuenta si el correo es nuevo). Contrato:
+ * `POST /auth/google { credential }`, donde `credential` es el id_token de Google Identity Services.
+ * @param {string} credential
+ * @returns {Promise<AuthResponse>}
+ */
+export function loginWithGoogle(credential) {
+  return postJson('/auth/google', { credential }, {
+    fallback: 'No pudimos iniciar sesión con Google. Inténtalo de nuevo.',
+    messages: {
+      GOOGLE_NOT_CONFIGURED: 'El inicio de sesión con Google no está disponible por ahora.',
+      RATE_LIMITED: TOO_MANY,
+    },
   });
 }
