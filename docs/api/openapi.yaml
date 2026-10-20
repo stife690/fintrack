@@ -608,7 +608,9 @@ paths:
         UTF-8 con BOM y monto con coma decimal, para que Excel en español lo abra bien. Los textos que
         empiezan por = + - @ llevan un apóstrofo delante (evita fórmulas). El nombre del archivo es
         `fintrack_AAAA-MM.<ext>` si el rango es un mes completo y `fintrack_<from>_<to>.<ext>` si no.
-        El PDF todavía no está disponible: responde 422 VALIDATION_ERROR en `format`.
+        PDF: tamaño Carta. Página 1 con indicadores, gastos por categoría, gasto por día (o ingresos y
+        gastos por mes si abarca varios meses), top 5 de gastos y presupuestos del mes; desde la página 2,
+        la tabla de movimientos con totales. Usa las mismas cifras que el XLSX.
       parameters:
         - { name: format, in: query, required: true, schema: { type: string, enum: [xlsx, csv, pdf] } }
         - { name: from, in: query, required: true, schema: { type: string, format: date } }

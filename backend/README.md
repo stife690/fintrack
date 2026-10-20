@@ -163,7 +163,8 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | `PUT` | `/api/v1/budgets/:id` | Requiere access token. Body `{ amount }`. **200** con el presupuesto y el porcentaje recalculado · **404** `NOT_FOUND` · **422**. |
 | `DELETE` | `/api/v1/budgets/:id` | Requiere access token. **204** · **404** `NOT_FOUND` (no existe o es de otro usuario). |
 | `GET` | `/api/v1/reports/export?format=xlsx&from=AAAA-MM-DD&to=AAAA-MM-DD` | Requiere access token. **200** reporte de Excel (`fintrack_2026-10.xlsx`): hoja **Resumen** (ingresos, gastos, balance, tasa de ahorro, promedio diario, gastos e ingresos por categoría, top 5 de gastos y presupuestos si es un mes completo), hoja **Movimientos** (filtros y totales con `SUBTOTAL`) y hoja **Por mes** si abarca varios meses. Las cifras del resumen son fórmulas · **422** `NO_DATA` · **422** `VALIDATION_ERROR`. |
-| `GET` | `/api/v1/reports/export?format=csv&from=AAAA-MM-DD&to=AAAA-MM-DD` | Requiere access token. **200** archivo CSV adjunto (`fintrack_2026-10.csv` si el rango es un mes completo; si no, `fintrack_<from>_<to>.csv`): separador `;`, UTF-8 con BOM, monto con coma decimal, del más antiguo al más reciente · **422** `NO_DATA` (sin movimientos en el periodo) · **422** `VALIDATION_ERROR` (fechas inválidas, `from` > `to` o `format=pdf`, que aún no está disponible). |
+| `GET` | `/api/v1/reports/export?format=pdf&from=AAAA-MM-DD&to=AAAA-MM-DD` | Requiere access token. **200** reporte PDF tamaño Carta (`fintrack_2026-10.pdf`): indicadores, gráficos de gastos por categoría y evolución, top 5 de gastos, presupuestos del mes y, desde la página 2, todos los movimientos. Mismas cifras que el Excel · **422** `NO_DATA` · **422** `VALIDATION_ERROR`. |
+| `GET` | `/api/v1/reports/export?format=csv&from=AAAA-MM-DD&to=AAAA-MM-DD` | Requiere access token. **200** archivo CSV adjunto (`fintrack_2026-10.csv` si el rango es un mes completo; si no, `fintrack_<from>_<to>.csv`): separador `;`, UTF-8 con BOM, monto con coma decimal, del más antiguo al más reciente · **422** `NO_DATA` (sin movimientos en el periodo) · **422** `VALIDATION_ERROR` (fechas inválidas, `from` > `to`). |
 
 ## Autenticación
 
@@ -234,5 +235,5 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
 - [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
-- [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) y CSV (FT-0012); el PDF queda pendiente
+- [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) , PDF con gráficos y CSV (FT-0012)
 - [ ] Documentación Swagger del contrato
