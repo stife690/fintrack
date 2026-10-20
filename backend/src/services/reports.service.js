@@ -2,6 +2,7 @@ import { AppError } from '../errors/app-error.js';
 import { listForExport } from '../repositories/transactions.repository.js';
 import { buildReport, isWholeMonth } from './report-data.service.js';
 import { buildWorkbook } from './report-excel.service.js';
+import { buildPdf } from './report-pdf.service.js';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -85,26 +86,23 @@ function noData() {
 /**
  * Genera el archivo de exportación del periodo (FT-0012, REQ-031 a REQ-033).
  * - `xlsx`: reporte con resumen, categorías, top 5, presupuestos y movimientos.
+ * - `pdf`: el mismo reporte con gráficos, listo para ver o imprimir.
  * - `csv`: los movimientos en texto plano, para importarlos en otras herramientas.
+ * Excel y PDF salen de `buildReport`, así sus cifras siempre coinciden.
  * @param {string} userId
  * @param {{ format: 'xlsx'|'csv'|'pdf', from: string, to: string }} query Datos ya validados.
  * @returns {Promise<{ filename: string, contentType: string, body: string|Buffer }>}
- * @throws {AppError} 422 `NO_DATA` si no hay movimientos en el periodo; 422 si se pide PDF.
+ * @throws {AppError} 422 `NO_DATA` si no hay movimientos en el periodo (REQ-033).
  */
 export async function exportTransactions(userId, { format, from, to }) {
-  if (format === 'pdf') {
-    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
-      { field: 'format', problem: 'La exportación en PDF todavía no está disponible' },
-    ]);
-  }
-
-  if (format === 'xlsx') {
+  if (format === 'xlsx' || format === 'pdf') {
     const report = await buildReport(userId, { from, to });
     if (!report) throw noData();
+    const pdf = format === 'pdf';
     return {
-      filename: exportFilename(from, to, 'xlsx'),
-      contentType: XLSX_TYPE,
-      body: await buildWorkbook(report),
+      filename: exportFilename(from, to, format),
+      contentType: pdf ? 'application/pdf' : XLSX_TYPE,
+      body: pdf ? await buildPdf(report) : await buildWorkbook(report),
     };
   }
 
