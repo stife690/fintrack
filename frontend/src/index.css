@@ -73,6 +73,8 @@
   --color-positive: var(--app-positive);
   --color-negative: var(--app-negative);
   --color-caution: var(--app-caution);
+  --color-chart-income: var(--app-chart-income);
+  --color-chart-expense: var(--app-chart-expense);
 }
 
 @layer base {
@@ -107,6 +109,9 @@
     --app-positive: #087a59;
     --app-negative: #c8321f;
     --app-caution: #9a5b00;
+    /* Barras de ingresos y gastos de los gráficos (validadas para daltonismo sobre blanco). */
+    --app-chart-income: #087a59;
+    --app-chart-expense: #c8321f;
     color-scheme: light;
   }
 
@@ -123,6 +128,9 @@
     --app-positive: #34d6a5;
     --app-negative: #ff7a6b;
     --app-caution: #fbbf24;
+    /* En barras, los tonos de texto (positive/negative) son muy claros: se usan unos más profundos. */
+    --app-chart-income: #1fa77e;
+    --app-chart-expense: #e5594a;
     color-scheme: dark;
   }
 

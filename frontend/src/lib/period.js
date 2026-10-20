@@ -118,3 +118,39 @@ export function periodLabel(period, date) {
       : start.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
   return `semana del ${startText} al ${endText}`;
 }
+
+/**
+ * Las "cajitas" del eje X de un periodo, aunque no tengan movimientos (para que el gráfico
+ * no salte días): 7 días en la semana, todos los días del mes o los 12 meses del año.
+ * @param {Period} period
+ * @param {string} date AAAA-MM-DD
+ * @returns {Array<{ date: string, label: string, fullLabel: string }>} `date` es la clave
+ *   (AAAA-MM-DD; en el año, el día 1 de cada mes), `label` va en el eje y `fullLabel` en el tooltip.
+ */
+export function periodBuckets(period, date) {
+  const { from, to } = periodRange(period, date);
+  const buckets = [];
+  if (period === 'year') {
+    const year = Number(from.slice(0, 4));
+    for (let m = 0; m < 12; m += 1) {
+      const d = new Date(year, m, 1);
+      buckets.push({
+        date: toIso(d),
+        label: d.toLocaleDateString('es-CO', { month: 'short' }).replace('.', ''),
+        fullLabel: d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }),
+      });
+    }
+    return buckets;
+  }
+  for (let d = fromIso(from); toIso(d) <= to; d.setDate(d.getDate() + 1)) {
+    buckets.push({
+      date: toIso(d),
+      label:
+        period === 'week'
+          ? d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '')
+          : String(d.getDate()),
+      fullLabel: d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }),
+    });
+  }
+  return buckets;
+}
