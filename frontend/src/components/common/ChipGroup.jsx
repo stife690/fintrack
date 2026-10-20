@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
  * @property {string} value
  * @property {string} label
  * @property {import('lucide-react').LucideIcon} [icon]
+ * @property {boolean} [disabled] Se ve pero no se puede elegir (p. ej. una función que aún no existe).
+ * @property {string} [badge] Texto pequeño al lado de la etiqueta, p. ej. "Próximamente".
  */
 
 /**
@@ -35,7 +37,7 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
             : 'flex-wrap',
         )}
       >
-        {options.map(({ value: optionValue, label, icon: Icon }) => {
+        {options.map(({ value: optionValue, label, icon: Icon, disabled: optionDisabled, badge }) => {
           const checked = value === optionValue;
           return (
             <label
@@ -54,11 +56,13 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
                 name={name}
                 value={optionValue}
                 checked={checked}
+                disabled={optionDisabled}
                 onChange={() => onChange(optionValue)}
                 className="sr-only"
               />
               {Icon && <Icon className="size-4" aria-hidden="true" />}
               {label}
+              {badge && <span className="text-xs font-normal text-ink/50">· {badge}</span>}
             </label>
           );
         })}

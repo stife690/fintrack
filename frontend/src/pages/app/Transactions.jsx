@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Download, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
+import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
 import {
   createTransaction,
@@ -139,7 +140,18 @@ export default function Transactions() {
 
   return (
     <>
-      <PageHeader title="Movimientos" description="Tus gastos e ingresos, con la categoría de cada uno." />
+      <PageHeader
+        title="Movimientos"
+        description="Tus gastos e ingresos, con la categoría de cada uno."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link to="/app/transacciones/exportar">
+              <Download aria-hidden="true" />
+              Exportar
+            </Link>
+          </Button>
+        }
+      />
 
       {/* grid-cols-1 fija una columna que no crece con el contenido (los campos de fecha nativos
           de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
