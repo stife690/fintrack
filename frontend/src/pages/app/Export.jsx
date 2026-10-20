@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CircleCheck, Download, FileSpreadsheet, FileText, Loader2, WifiOff } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Download, FileSpreadsheet, FileText, Loader2, Sheet, WifiOff } from 'lucide-react';
 import { currentMonth, shiftMonth } from '@/components/budgets/month';
 import ChipGroup from '@/components/common/ChipGroup';
 import PageHeader from '@/components/layout/PageHeader';
@@ -16,7 +16,8 @@ import { exportTransactions } from '@/services/reportService';
 import { monthRange } from '@/services/summaryService';
 
 const FORMAT_OPTIONS = [
-  { value: 'csv', label: 'CSV (Excel)', icon: FileSpreadsheet },
+  { value: 'xlsx', label: 'Excel', icon: FileSpreadsheet },
+  { value: 'csv', label: 'CSV (solo datos)', icon: Sheet },
   { value: 'pdf', label: 'PDF', icon: FileText, disabled: true, badge: 'Próximamente' },
 ];
 
@@ -56,7 +57,7 @@ function longDate(iso) {
 export default function Export() {
   usePageTitle('Exportar movimientos');
   const online = useOnlineStatus();
-  const [format, setFormat] = useState('csv');
+  const [format, setFormat] = useState('xlsx');
   const [period, setPeriod] = useState('this-month');
   const [custom, setCustom] = useState(() => ({ from: `${currentMonth()}-01`, to: today() }));
   const [busy, setBusy] = useState(false);
@@ -110,7 +111,7 @@ export default function Export() {
       </Link>
       <PageHeader
         title="Exportar movimientos"
-        description="Descarga tus gastos e ingresos en un archivo para abrirlo en Excel o Google Sheets."
+        description="Descarga un reporte de tus gastos e ingresos para abrirlo en Excel o Google Sheets."
       />
 
       <Panel className="flex flex-col gap-6">
@@ -174,7 +175,7 @@ export default function Export() {
             disabled={busy || !online || Boolean(rangeError)}
           >
             {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
-            {busy ? 'Preparando archivo…' : `Descargar ${format.toUpperCase()}`}
+            {busy ? 'Preparando archivo…' : `Descargar ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`}
           </Button>
 
           {!online && (
