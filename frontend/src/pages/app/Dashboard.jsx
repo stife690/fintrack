@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
+import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
+import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import PeriodSelector from '@/components/dashboard/PeriodSelector';
 import QuickActions from '@/components/dashboard/QuickActions';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
@@ -28,7 +30,7 @@ function monthName(month) {
  * Página privada `/app`: selector de periodo y balance de ese periodo (FT-0004), accesos rápidos, alertas y resumen de presupuestos
  * (FT-0005) y últimos movimientos. Cada bloque carga por separado: si uno falla, los demás se ven.
  * Los presupuestos siempre son del mes actual: el selector de periodo solo cambia el balance
- * (y luego los gráficos de FT-0004).
+ * y los gráficos de ingresos/gastos y gastos por categoría.
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -41,10 +43,12 @@ export default function Dashboard() {
   const [selected, setSelected] = useState({ period: 'month', date: todayIso() });
   const summary = useAsync(() => getSummary(selected.period, selected.date), [selected.period, selected.date]);
   // Mientras carga otro periodo se muestra el "cargando", no los números del periodo anterior.
-  const totals =
-    summary.data && !summary.loading
-      ? { income: summary.data.income.total, expense: summary.data.expense.total, balance: summary.data.balance }
-      : undefined;
+  const current = summary.loading ? undefined : summary.data;
+  const totals = current && {
+    income: current.income.total,
+    expense: current.expense.total,
+    balance: current.balance,
+  };
 
   const budgets = useAsync(() => listBudgets(month), [month]);
   const recent = useAsync(() => listTransactions({ page: 1, pageSize: RECENT_COUNT }), []);
@@ -80,6 +84,13 @@ export default function Dashboard() {
           )}
           <QuickActions />
           {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
+          <IncomeExpenseChart
+            period={selected.period}
+            date={selected.date}
+            timeSeries={current?.timeSeries}
+            hidden={hidden}
+          />
+          <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />
           <RecentTransactions transactions={recent.data?.data} names={names} hidden={hidden} error={recent.error} />
         </div>
 
