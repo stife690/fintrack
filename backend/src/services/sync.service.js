@@ -12,7 +12,9 @@ import * as transactions from './transactions.service.js';
 
 /**
  * @typedef {object} SyncResult
- * @property {Array<{ localId: string, serverId: string }>} synced Operaciones aplicadas sin conflicto.
+ * @property {Array<{ localId: string, serverId: string, transaction?: TransactionRecord }>} synced
+ *   Operaciones aplicadas sin conflicto. Los `create` traen la transacción guardada, porque no
+ *   vuelven en `serverChanges` y el dispositivo necesita la categoría que le quedó.
  * @property {Array<{ localId: string, serverId: string, resolution: 'server_wins'|'client_wins', serverVersion: TransactionRecord|null }>} conflicts Operaciones que chocaron con un cambio del servidor.
  * @property {TransactionRecord[]} serverChanges Lo que cambió en el servidor desde `lastSyncedAt`.
  * @property {Date} syncedAt Hora del servidor para la próxima sincronización.
@@ -152,7 +154,7 @@ export async function syncBatch(userId, { lastSyncedAt, operations }) {
   for (const operation of operations) {
     if (operation.op === 'create') {
       const record = await applyCreate(userId, operation, aiQuota);
-      synced.push({ localId: operation.localId, serverId: record.id });
+      synced.push({ localId: operation.localId, serverId: record.id, transaction: record });
       touched.add(record.id);
     } else {
       // Se vuelve a leer: una operación anterior del lote pudo cambiarla.
