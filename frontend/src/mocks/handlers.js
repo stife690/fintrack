@@ -303,6 +303,34 @@ export const handlers = [
     return HttpResponse.json({ transaction: current, alert: mockAlert(current) });
   }),
 
+  http.get(`${API_V1}/insights`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    await delay(800);
+    if ((transactions.get(user.id) ?? []).length < 3) {
+      return error(
+        422,
+        'INSUFFICIENT_HISTORY',
+        'Aún no hay suficiente historial. Registra movimientos durante al menos un mes para recibir insights.',
+      );
+    }
+    return HttpResponse.json({
+      month: new Date().toISOString().slice(0, 7),
+      insights: [
+        {
+          type: 'saving_opportunity',
+          title: 'Gastas más en alimentación',
+          detail: 'Este mes llevas 18 % más que el anterior. Reducir los domicilios a 2 por semana podría ahorrarte $120.000.',
+        },
+        {
+          type: 'positive_trend',
+          title: 'Transporte a la baja',
+          detail: 'Gastaste $45.000 menos que el mes pasado en transporte.',
+        },
+      ],
+    });
+  }),
+
   http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
     if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     return HttpResponse.json({ key: MOCK_VAPID_PUBLIC_KEY });

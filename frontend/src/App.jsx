@@ -12,6 +12,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
+const Insights = lazy(() => import('@/pages/app/Insights'));
 const Account = lazy(() => import('@/pages/app/Account'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
@@ -68,6 +69,7 @@ export default function App() {
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/transacciones" element={<Transactions />} />
                 <Route path="/app/presupuestos" element={<Budgets />} />
+                <Route path="/app/insights" element={<Insights />} />
                 <Route path="/app/cuenta" element={<Account />} />
                 <Route path="/app/notificaciones" element={<Navigate to="/app/cuenta" replace />} />
               </Route>
