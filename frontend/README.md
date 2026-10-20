@@ -51,7 +51,7 @@ Vite incrusta estas variables en el build: si cambian, hay que volver a compilar
 | `/` | Landing |
 | `/login` | Inicio de sesión |
 | `/registro` | Crear cuenta |
-| `/app` | Zona privada (requiere sesión) |
+| `/app` | Inicio (requiere sesión): balance y gráficos del periodo, presupuestos y últimos movimientos. Sin ningún movimiento muestra un estado vacío con accesos para registrar el primero |
 | `/app/transacciones` | Registrar, listar, filtrar, editar y eliminar transacciones; la categoría la sugiere la IA si no se elige |
 | `*` | 404 |
 
@@ -138,6 +138,12 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 - Por ahora solo se registran movimientos **nuevos** sin conexión; editar o eliminar sigue necesitando internet.
 
 **Cómo verificarlo:** `npm run build && npm run preview`, inicia sesión, en DevTools → **Network** marca *Offline* y registra un gasto: aparece como pendiente (DevTools → **Application → IndexedDB → fintrack**). Quita *Offline*: se envía solo y aparece en el historial.
+
+## Estado vacío del inicio (FT-0004)
+
+Si el usuario todavía no tiene movimientos (`total === 0` en `GET /transactions`), `src/pages/app/Dashboard.jsx` reemplaza el selector de periodo, el balance y los gráficos por `src/components/dashboard/DashboardEmpty.jsx`: un mensaje de bienvenida, botones para registrar un gasto o un ingreso (abren el formulario con el tipo elegido) y un adelanto de lo que verá. La tarjeta de presupuestos se mantiene, porque se pueden crear antes del primer movimiento.
+
+**Cómo verificarlo:** crea una cuenta nueva y entra a `/app`: aparece "Registra tu primer movimiento". Registra un gasto y vuelve al inicio: ya se ven el balance y los gráficos. La prueba está en `DashboardEmpty.test.jsx` (`npm test`).
 
 ## Despliegue (Vercel)
 
