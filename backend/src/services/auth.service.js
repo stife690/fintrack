@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
 import { AppError } from '../errors/app-error.js';
@@ -7,6 +8,7 @@ import {
   revokeRefreshToken,
   saveRefreshToken,
 } from '../repositories/refresh-tokens.repository.js';
+import { googleVerifier } from './google-auth.service.js';
 import { generateRefreshToken, hashRefreshToken, signAccessToken } from './token.service.js';
 
 /** Costo de bcrypt: cada +1 duplica el tiempo de cifrado (10 ≈ decenas de ms). */
@@ -57,6 +59,25 @@ export async function login({ email, password }) {
   const matches = await bcrypt.compare(password, user ? user.passwordHash : DUMMY_HASH);
   if (!user || !matches) {
     throw new AppError(401, 'UNAUTHORIZED', 'Correo o contraseña incorrectos');
+  }
+  return { user: { id: user.id, email: user.email, name: user.name }, ...(await issueTokens(user.id)) };
+}
+
+/**
+ * Inicia sesión con una cuenta de Google. Si el correo ya tiene cuenta en FinTrack, entra a esa
+ * misma cuenta; si no, la crea (con el nombre de Google). Las cuentas creadas así no tienen
+ * contraseña utilizable: se guarda el hash de una cadena aleatoria que nadie conoce.
+ * @param {string} credential `id_token` de Google Identity Services, ya validado como texto.
+ * @param {{ verify: (credential: string) => Promise<{ email: string, name: string|null }> }} [verifier]
+ * @returns {Promise<{ user: { id: string, email: string, name: string|null }, accessToken: string, refreshToken: string }>}
+ */
+export async function loginWithGoogle(credential, verifier = googleVerifier) {
+  const { email, name } = await verifier.verify(credential);
+  let user = await findUserByEmail(email);
+  if (!user) {
+    const passwordHash = await bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+    // Si otra petición creó la cuenta en este instante, `createUser` devuelve null: se vuelve a buscar.
+    user = (await createUser({ email, passwordHash, name })) ?? (await findUserByEmail(email));
   }
   return { user: { id: user.id, email: user.email, name: user.name }, ...(await issueTokens(user.id)) };
 }

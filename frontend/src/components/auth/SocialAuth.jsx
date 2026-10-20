@@ -1,4 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/auth/AuthContext';
+import { GOOGLE_CLIENT_ID, loadGoogleIdentity } from '@/lib/google';
 
 /** Logo oficial de Google en SVG. */
 function GoogleIcon() {
@@ -12,11 +17,70 @@ function GoogleIcon() {
   );
 }
 
+/** Ancho máximo que acepta el botón de Google (px). */
+const MAX_BUTTON_WIDTH = 400;
+
 /**
- * Separador "o" + botón "Continuar con Google" deshabilitado (aún no hay login social).
- * Se mantiene para respetar el diseño de la plantilla.
+ * Separador "o" + botón "Continuar con Google" (login y registro).
+ * Con `VITE_GOOGLE_CLIENT_ID` muestra el botón oficial de Google Identity Services: al elegir una
+ * cuenta, Google entrega un `credential` y se inicia sesión con `signInWithGoogle` (si el correo
+ * es nuevo, la cuenta se crea). Sin esa variable se deja el botón deshabilitado con "Próximamente".
  */
 export default function SocialAuth() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { signInWithGoogle } = useAuth();
+  const buttonRef = useRef(null);
+  const [status, setStatus] = useState(GOOGLE_CLIENT_ID ? 'loading' : 'off'); // loading | ready | failed | off
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState('');
+
+  // Siempre llama a la versión más reciente (la callback de Google se registra una sola vez).
+  const onCredential = useRef(null);
+  onCredential.current = async ({ credential }) => {
+    setError('');
+    setSigningIn(true);
+    try {
+      await signInWithGoogle(credential);
+      navigate(location.state?.from ?? '/app', { replace: true });
+    } catch (err) {
+      setError(err.message || 'No pudimos iniciar sesión con Google. Inténtalo de nuevo.');
+      setSigningIn(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return undefined;
+    let cancelled = false;
+    loadGoogleIdentity()
+      .then((google) => {
+        if (cancelled || !buttonRef.current) return;
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response) => onCredential.current(response),
+          ux_mode: 'popup',
+        });
+        google.accounts.id.renderButton(buttonRef.current, {
+          type: 'standard',
+          theme: 'filled_black',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          locale: 'es',
+          width: Math.min(buttonRef.current.clientWidth || MAX_BUTTON_WIDTH, MAX_BUTTON_WIDTH),
+        });
+        setStatus('ready');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message);
+        setStatus('failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <div className="flex items-center gap-4">
@@ -24,13 +88,47 @@ export default function SocialAuth() {
         <span className="text-xs uppercase tracking-wide text-white/45">o</span>
         <span className="h-px flex-1 bg-white/10" />
       </div>
-      <Button type="button" variant="outline" size="lg" className="w-full text-base" disabled aria-describedby="google-soon">
-        <GoogleIcon />
-        Continuar con Google
-        <span id="google-soon" className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70">
-          Próximamente
-        </span>
-      </Button>
+
+      {status === 'off' ? (
+        <Button type="button" variant="outline" size="lg" className="w-full text-base" disabled aria-describedby="google-soon">
+          <GoogleIcon />
+          Continuar con Google
+          <span id="google-soon" className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70">
+            Próximamente
+          </span>
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div className="relative flex min-h-11 w-full justify-center">
+            <div
+              ref={buttonRef}
+              className={signingIn ? 'pointer-events-none w-full opacity-50' : 'w-full'}
+              aria-hidden={status !== 'ready'}
+            />
+            {status === 'loading' && (
+              <span className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-white/55">
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Cargando Google…
+              </span>
+            )}
+          </div>
+          {signingIn && (
+            <p role="status" className="flex items-center justify-center gap-2 text-sm text-white/65">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Entrando con Google…
+            </p>
+          )}
+          <p className="text-center text-xs text-white/45">
+            Al continuar con Google aceptas los términos de uso y la política de privacidad.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
     </>
   );
 }

@@ -38,7 +38,7 @@ tags:
   - name: Health
     description: Verificación de disponibilidad del servicio
   - name: Auth
-    description: Registro, login, refresh y logout (F1 — REQ-001 a REQ-005)
+    description: Registro, login (con contraseña o con Google), refresh y logout (F1 — REQ-001 a REQ-005)
   - name: Users
     description: Perfil y configuración del usuario
   - name: Transactions
@@ -136,6 +136,49 @@ paths:
               example:
                 error: { code: UNAUTHORIZED, message: Correo o contraseña incorrectos }
         "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Inicia sesión (o crea la cuenta) con Google
+      description: |
+        El frontend obtiene un `credential` (id_token firmado por Google) con Google Identity Services y
+        lo envía aquí. El servidor verifica la firma, que el token sea para su `GOOGLE_CLIENT_ID` y que el
+        correo esté verificado; no usa el secreto de cliente. Si ya existe una cuenta con ese correo, entra
+        a esa misma cuenta; si no, la crea con el nombre de Google. Las cuentas nuevas no tienen una
+        contraseña utilizable. Devuelve la misma forma que el login.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential: { type: string, description: id_token (JWT) de Google Identity Services }
+      responses:
+        "200":
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: "UNAUTHORIZED — el token de Google no es válido o su correo no está verificado"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: { code: UNAUTHORIZED, message: No pudimos verificar tu cuenta de Google }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503":
+          description: "GOOGLE_NOT_CONFIGURED — el servidor no tiene `GOOGLE_CLIENT_ID`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: { code: GOOGLE_NOT_CONFIGURED, message: El inicio de sesión con Google no está disponible }
 
   /auth/refresh:
     post:

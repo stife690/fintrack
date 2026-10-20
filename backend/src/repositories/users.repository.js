@@ -13,16 +13,16 @@ const USER_COLUMNS = 'id, email, nombre AS name, password_hash AS "passwordHash"
 
 /**
  * Crea un usuario. Si el correo ya existe no inserta nada.
- * @param {{ email: string, passwordHash: string }} data
+ * @param {{ email: string, passwordHash: string, name?: string|null }} data
  * @returns {Promise<UserRecord|null>} El usuario creado, o `null` si el correo ya estaba registrado.
  */
-export async function createUser({ email, passwordHash }) {
+export async function createUser({ email, passwordHash, name = null }) {
   const { rows } = await pool.query(
-    `INSERT INTO usuarios (email, password_hash)
-     VALUES ($1, $2)
+    `INSERT INTO usuarios (email, password_hash, nombre)
+     VALUES ($1, $2, $3)
      ON CONFLICT (email) DO NOTHING
      RETURNING ${USER_COLUMNS}`,
-    [email, passwordHash],
+    [email, passwordHash, name],
   );
   return rows[0] ?? null;
 }
