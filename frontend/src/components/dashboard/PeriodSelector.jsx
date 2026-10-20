@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ChipGroup from '@/components/common/ChipGroup';
+import PeriodJumpPicker from '@/components/dashboard/PeriodJumpPicker';
 import { PERIOD_OPTIONS, isCurrentPeriod, periodLabel, shiftPeriod, todayIso } from '@/lib/period';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +27,8 @@ function ArrowButton({ label, onClick, disabled = false, children }) {
 
 /**
  * Selector de periodo del dashboard (FT-0004): semana, mes o año, y flechas para moverse
- * al periodo anterior o siguiente. No deja avanzar más allá del periodo actual.
+ * al periodo anterior o siguiente. Tocar el nombre del periodo abre un panel para saltar directo
+ * a otro (p. ej. de septiembre a enero). No deja ir más allá del periodo actual.
  *
  * Es un componente "controlado": no guarda nada propio, recibe `period` y `date` del padre
  * y le avisa con `onChange` cuando el usuario cambia algo.
@@ -56,10 +58,7 @@ export default function PeriodSelector({ period, date, onChange, className }) {
         <ArrowButton label="Periodo anterior" onClick={() => onChange({ period, date: shiftPeriod(period, date, -1) })}>
           <ChevronLeft className="size-4" aria-hidden="true" />
         </ArrowButton>
-        {/* aria-live: el lector de pantalla anuncia el periodo nuevo al usar las flechas. */}
-        <p aria-live="polite" className="min-w-36 text-center text-sm font-medium first-letter:uppercase">
-          {label}
-        </p>
+        <PeriodJumpPicker period={period} date={date} label={label} onPick={(next) => onChange({ period, date: next })} />
         <ArrowButton
           label="Periodo siguiente"
           disabled={atCurrent}
