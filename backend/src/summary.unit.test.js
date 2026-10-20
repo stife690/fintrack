@@ -128,3 +128,33 @@ test('summary sin transacciones devuelve ceros y listas vacías (REQ-015)', asyn
     timeSeries: [],
   });
 });
+
+test('summary redondea los porcentajes a un decimal aunque no sumen exacto 100', async () => {
+  const { service } = serviceWith({
+    byCategory: [
+      { type: 'gasto', category: 'alimentacion', total: 100 },
+      { type: 'gasto', category: 'transporte', total: 100 },
+      { type: 'gasto', category: 'salud', total: 100 },
+    ],
+    series: [],
+  });
+  const result = await service.summary('u1', { period: 'month', date: '2026-10-20' });
+  assert.deepEqual(
+    result.expense.byCategory.map((c) => c.percentage),
+    [33.3, 33.3, 33.3],
+  );
+});
+
+test('summary con solo ingresos deja los gastos en 0 y la serie con expense 0', async () => {
+  const { service } = serviceWith({
+    byCategory: [{ type: 'ingreso', category: 'salario', total: 2000000 }],
+    series: [{ date: '2026-10-15', type: 'ingreso', total: 2000000 }],
+  });
+  const result = await service.summary('u1', { period: 'month', date: '2026-10-20' });
+  assert.deepEqual(result.income, {
+    total: 2000000,
+    byCategory: [{ category: 'salario', total: 2000000, percentage: 100 }],
+  });
+  assert.deepEqual(result.expense, { total: 0, byCategory: [] });
+  assert.deepEqual(result.timeSeries, [{ date: '2026-10-15', income: 2000000, expense: 0 }]);
+});

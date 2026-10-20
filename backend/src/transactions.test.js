@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
 import { pool } from './config/db.js';
+import { env } from './config/env.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/`.
 // Si la tabla `transacciones` no existe se omiten con un aviso en vez de fallar.
@@ -24,7 +25,8 @@ after(async () => {
 
 /**
  * Levanta la app en un puerto libre y entrega un cliente HTTP con dos usuarios ya registrados.
- * El proveedor de IA queda sin clave, así que las transacciones sin categoría salen `sin_clasificar`.
+ * La clave de IA se quita mientras dura la prueba (aunque `.env` traiga una), así que las
+ * transacciones sin categoría salen `sin_clasificar` sin llamar a un proveedor real.
  * @param {(ctx: { api: (path: string, init?: { method?: string, body?: unknown, token?: string }) => Promise<{ status: number, body: object | null }>, alice: string, bob: string }) => Promise<void>} fn
  * @returns {Promise<void>}
  */
@@ -50,9 +52,12 @@ async function withApi(fn) {
     });
     return res.body.accessToken;
   };
+  const previousKey = env.aiApiKey;
+  env.aiApiKey = undefined;
   try {
     await fn({ api, alice: await register(), bob: await register() });
   } finally {
+    env.aiApiKey = previousKey;
     server.close();
   }
 }
@@ -337,6 +342,132 @@ test('GET /summary sin transacciones responde ceros y listas vacías', options, 
     assert.deepEqual(res.body.income, { total: 0, byCategory: [] });
     assert.deepEqual(res.body.expense, { total: 0, byCategory: [] });
     assert.deepEqual(res.body.timeSeries, []);
+  });
+});
+
+test(
+  'GET /summary incluye el primer y el último día del periodo, y nada fuera',
+  options,
+  async () => {
+    await withApi(async ({ api, alice }) => {
+      const gasto = (date, amount) =>
+        api('/transactions', {
+          method: 'POST',
+          token: alice,
+          body: { ...GASTO, amount, category: 'otros', date },
+        });
+      // Semana del lunes 2026-10-19 al domingo 2026-10-25, y bordes de mes y de año.
+      const days = [
+        ['2025-12-31', 1],
+        ['2026-01-01', 2],
+        ['2026-09-30', 4],
+        ['2026-10-01', 8],
+        ['2026-10-18', 16],
+        ['2026-10-19', 32],
+        ['2026-10-25', 64],
+        ['2026-10-26', 128],
+        ['2026-10-31', 256],
+        ['2026-11-01', 512],
+        ['2026-12-31', 1024],
+        ['2027-01-01', 2048],
+      ];
+      const created = await Promise.all(days.map(([date, amount]) => gasto(date, amount)));
+      assert.deepEqual(
+        created.map((r) => r.status),
+        days.map(() => 201),
+        'todas las transacciones de prueba deben crearse',
+      );
+      const total = async (query) =>
+        (await api(`/transactions/summary?${query}`, { token: alice })).body.expense.total;
+
+      // Cada monto es una potencia de 2: el total dice exactamente qué días entraron.
+      assert.equal(await total('period=week&date=2026-10-22'), 32 + 64);
+      assert.equal(await total('period=month&date=2026-10-15'), 8 + 16 + 32 + 64 + 128 + 256);
+      assert.equal(
+        await total('period=year&date=2026-06-01'),
+        2 + 4 + 8 + 16 + 32 + 64 + 128 + 256 + 512 + 1024,
+      );
+    });
+  },
+);
+
+test('GET /summary agrupa los gastos sin clasificar con category null', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    // Sin clave de IA, un gasto sin categoría queda `sin_clasificar`.
+    const created = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, amount: 3000, description: 'Algo raro' },
+    });
+    assert.equal(created.body.transaction.source, 'sin_clasificar');
+    await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, amount: 1000, category: 'transporte' },
+    });
+
+    const res = await api('/transactions/summary?period=month&date=2026-10-12', { token: alice });
+    assert.deepEqual(res.body.expense, {
+      total: 4000,
+      byCategory: [
+        { category: null, total: 3000, percentage: 75 },
+        { category: 'transporte', total: 1000, percentage: 25 },
+      ],
+    });
+  });
+});
+
+test('GET /summary suma centavos sin errores de redondeo', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    // En categorías distintas: la suma final la hace JS (0.1 + 0.2 daría 0.30000000000000004).
+    for (const [amount, category] of [
+      [0.1, 'alimentacion'],
+      [0.2, 'transporte'],
+    ]) {
+      await api('/transactions', {
+        method: 'POST',
+        token: alice,
+        body: { ...GASTO, amount, category },
+      });
+    }
+    const res = await api('/transactions/summary?period=month&date=2026-10-12', { token: alice });
+    assert.equal(res.body.expense.total, 0.3);
+    assert.deepEqual(res.body.timeSeries, [{ date: '2026-10-12', income: 0, expense: 0.3 }]);
+  });
+});
+
+test('GET /summary refleja las ediciones de fecha y de tipo', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    const created = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, amount: 5000, category: 'otros', date: '2026-10-12' },
+    });
+    const id = created.body.transaction.id;
+    const october = () =>
+      api('/transactions/summary?period=month&date=2026-10-01', { token: alice }).then(
+        (r) => r.body,
+      );
+
+    // Pasa a ser un ingreso del mismo mes: sale de gastos y entra en ingresos.
+    await api(`/transactions/${id}`, {
+      method: 'PUT',
+      token: alice,
+      body: { type: 'ingreso', category: 'otros_ingresos' },
+    });
+    let summary = await october();
+    assert.equal(summary.expense.total, 0);
+    assert.equal(summary.income.total, 5000);
+
+    // Se mueve a noviembre: octubre queda vacío.
+    await api(`/transactions/${id}`, { method: 'PUT', token: alice, body: { date: '2026-11-03' } });
+    summary = await october();
+    assert.equal(summary.income.total, 0);
+    assert.deepEqual(summary.timeSeries, []);
+    const november = await api('/transactions/summary?period=month&date=2026-11-01', {
+      token: alice,
+    });
+    assert.equal(november.body.income.total, 5000, 'debe aparecer en el mes nuevo');
   });
 });
 
