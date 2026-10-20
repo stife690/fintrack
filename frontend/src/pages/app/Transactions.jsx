@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { CloudUpload, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
+import { formatDate, formatMoney } from '@/components/transactions/format';
 import usePageTitle from '@/hooks/usePageTitle';
+import { SYNC_EVENT, listPending, queueCreate } from '@/offline/sync';
 import {
   createTransaction,
   deleteTransaction,
@@ -48,8 +50,37 @@ function savedMessage(saved, names) {
 }
 
 /**
+ * Movimientos registrados sin conexión que esperan sincronizarse (FT-0009).
+ * @param {{ operations: import('@/offline/db').PendingOperation[] }} props
+ */
+function PendingList({ operations }) {
+  return (
+    <section aria-labelledby="pending-title" className="mt-4 rounded-xl bg-brand-soft/60 p-4">
+      <h3 id="pending-title" className="flex items-center gap-2 text-sm font-medium text-brand">
+        <CloudUpload className="size-4" aria-hidden="true" />
+        Pendientes de sincronizar ({operations.length})
+      </h3>
+      <ul className="mt-2 divide-y divide-ink/10">
+        {operations.map(({ localId, transaction: t }) => (
+          <li key={localId} className="flex items-center justify-between gap-4 py-2 text-sm">
+            <span className="min-w-0 truncate">
+              {t.description} <span className="text-ink/50">· {formatDate(t.date)}</span>
+            </span>
+            <span className="tabular-nums">
+              {t.type === 'ingreso' ? '+' : '−'}
+              {formatMoney(t.amount)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
  * Página privada `/app/transacciones`: formulario de registro y listado con filtros
  * (tipo, categoría, rango de fechas) y paginación. FT-0002.
+ * Sin conexión, los movimientos nuevos se guardan en el dispositivo y se sincronizan después (FT-0009).
  */
 export default function Transactions() {
   usePageTitle('Movimientos');
@@ -66,6 +97,7 @@ export default function Transactions() {
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
   const [version, setVersion] = useState(0); // se incrementa para forzar la recarga del listado
+  const [pending, setPending] = useState([]);
 
   const categoryNames = useMemo(
     () => Object.fromEntries([...categories.expense, ...categories.income].map((c) => [c.key, c.name])),
@@ -96,6 +128,25 @@ export default function Transactions() {
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
+  // La cola offline cambia al registrar sin conexión y cuando una sincronización termina.
+  useEffect(() => {
+    const refresh = () => listPending().then(setPending);
+    const onSync = ({ detail }) => {
+      refresh();
+      if (detail.synced?.length) {
+        const n = detail.synced.length;
+        setNotice(n === 1 ? 'Se sincronizó 1 movimiento guardado sin conexión.' : `Se sincronizaron ${n} movimientos guardados sin conexión.`);
+        reload();
+      }
+      if (detail.rejected?.length) {
+        setError('Algunos movimientos guardados sin conexión no eran válidos y no se pudieron sincronizar.');
+      }
+    };
+    refresh();
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
+  }, [reload]);
+
   const changeFilters = (changes) => {
     setFilters((f) => ({ ...f, ...changes }));
     setPage(1);
@@ -112,7 +163,16 @@ export default function Transactions() {
       setEditing(null);
       return;
     }
-    const saved = await createTransaction(values);
+    let saved;
+    try {
+      if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
+      saved = await createTransaction(values);
+    } catch (err) {
+      if (err.code !== 'NETWORK_ERROR') throw err;
+      await queueCreate(values);
+      setNotice('Guardado sin conexión. Se sincronizará cuando vuelva internet.');
+      return;
+    }
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
@@ -166,6 +226,7 @@ export default function Transactions() {
           <p role="status" className="mt-4 min-h-5 text-sm text-positive">
             {notice}
           </p>
+          {pending.length > 0 && <PendingList operations={pending} />}
           {error && (
             <p role="alert" className="mt-2 text-sm text-negative">
               {error}{' '}

@@ -6,6 +6,7 @@
  * `Error` con mensaje para el usuario; en los 422, `err.fields` trae el problema por campo.
  */
 import { authFetch } from '@/lib/authFetch';
+import { db } from '@/offline/db';
 
 /**
  * @typedef {object} Transaction
@@ -38,7 +39,10 @@ async function request(path, { method = 'GET', body } = {}) {
   try {
     res = await authFetch(path, { method, body });
   } catch {
-    throw new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
+    const err = new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
+    // Permite a la página guardar el movimiento en la cola offline (FT-0009).
+    err.code = 'NETWORK_ERROR';
+    throw err;
   }
   if (res.status === 204) return null;
 
@@ -59,10 +63,19 @@ async function request(path, { method = 'GET', body } = {}) {
 
 /**
  * Catálogo cerrado de categorías separado por tipo (`GET /categories`).
+ * Se guarda una copia en el dispositivo para poder registrar movimientos sin conexión (FT-0009).
  * @returns {Promise<{ expense: Category[], income: Category[] }>}
  */
-export function getCategories() {
-  return request('/categories');
+export async function getCategories() {
+  try {
+    const categories = await request('/categories');
+    await db.meta.put({ key: 'categories', value: categories }).catch(() => {});
+    return categories;
+  } catch (err) {
+    const cached = err.code === 'NETWORK_ERROR' && (await db.meta.get('categories').catch(() => null));
+    if (cached) return cached.value;
+    throw err;
+  }
 }
 
 /**

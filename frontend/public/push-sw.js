@@ -1,10 +1,27 @@
 /*
- * Manejadores de notificaciones push (FT-0011). `vite-plugin-pwa` genera el service worker
- * principal (caché y modo offline) y lo importa con `importScripts('push-sw.js')`, así que
- * estos eventos conviven con el caché sin tocarlo.
+ * Manejadores de notificaciones push (FT-0011) y del aviso de Background Sync (FT-0009).
+ * `vite-plugin-pwa` genera el service worker principal (caché y modo offline) y lo importa con
+ * `importScripts('push-sw.js')`, así que estos eventos conviven con el caché sin tocarlo.
  */
 
 const DEFAULT_URL = '/app/transacciones';
+
+/** Debe coincidir con `SYNC_TAG` de `src/offline/sync.js`. */
+const SYNC_TAG = 'fintrack-sync';
+
+/*
+ * Background Sync (FT-0009): el navegador dispara `sync` cuando vuelve la conexión.
+ * La sesión vive en localStorage, que el service worker no puede leer, así que el envío
+ * lo hace la app: aquí solo se le avisa a cada pestaña abierta de FinTrack.
+ */
+self.addEventListener('sync', (event) => {
+  if (event.tag !== SYNC_TAG) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      for (const client of clients) client.postMessage({ type: SYNC_TAG });
+    }),
+  );
+});
 
 /** Muestra la notificación cuando el servidor envía un push (`{ title, body, url }`). */
 self.addEventListener('push', (event) => {
