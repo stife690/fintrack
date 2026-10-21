@@ -1,7 +1,8 @@
 import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { ArrowLeftRight, CircleUserRound, CloudUpload, House, Loader2, Sparkles, Target, WifiOff } from 'lucide-react';
+import { ArrowLeftRight, CircleUserRound, House, Loader2, Sparkles, Target } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
+import SyncStatus from '@/components/layout/SyncStatus';
 import { useAuth } from '@/auth/AuthContext';
 import useOfflineSync from '@/hooks/useOfflineSync';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
@@ -148,7 +149,7 @@ function Shell() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const online = useOnlineStatus();
-  const { pending, syncing } = useOfflineSync();
+  const { pending, rejected, syncing } = useOfflineSync();
   useSyncProfile();
 
   return (
@@ -173,31 +174,7 @@ function Shell() {
           </Link>
         </header>
 
-        {/* Una sola región de estado, siempre montada: así el lector de pantalla anuncia cada cambio. */}
-        <div role="status" aria-atomic="true">
-          {!online ? (
-            <p className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-caution/10 px-4 py-2.5 text-sm text-ink md:mx-8 md:mt-6">
-              <WifiOff className="size-4 shrink-0 text-caution" aria-hidden="true" />
-              Sin conexión. Los movimientos nuevos se guardan en este dispositivo y se envían al volver internet
-              {pending > 0 && ` (${pending} ${pending === 1 ? 'pendiente' : 'pendientes'})`}.
-            </p>
-          ) : (
-            pending > 0 && (
-              <p
-                className="mx-4 mt-2 flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-2.5 text-sm text-brand md:mx-8 md:mt-6"
-              >
-                {syncing ? (
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
-                ) : (
-                  <CloudUpload className="size-4 shrink-0" aria-hidden="true" />
-                )}
-                {syncing
-                  ? `Sincronizando ${pending} ${pending === 1 ? 'movimiento' : 'movimientos'}…`
-                  : `${pending} ${pending === 1 ? 'movimiento pendiente' : 'movimientos pendientes'} de sincronizar. Se reintentará automáticamente.`}
-              </p>
-            )
-          )}
-        </div>
+        <SyncStatus online={online} pending={pending} rejected={rejected} syncing={syncing} />
 
         <main
           id="contenido"

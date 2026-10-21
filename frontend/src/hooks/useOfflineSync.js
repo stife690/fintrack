@@ -8,10 +8,12 @@ import { useEffect, useState } from 'react';
  * Debe usarse una sola vez, en el layout privado (`AppShell`).
  *
  * `@/offline/sync` (con Dexie) se carga con `import()` para no engordar el bundle inicial.
- * @returns {{ pending: number, syncing: boolean }}
+ * `pending` son los movimientos que esperan enviarse; `rejected`, los que el servidor rechazó y
+ * siguen en la cola hasta que el usuario los descarte.
+ * @returns {{ pending: number, rejected: number, syncing: boolean }}
  */
 export default function useOfflineSync() {
-  const [state, setState] = useState({ pending: 0, syncing: false });
+  const [state, setState] = useState({ pending: 0, rejected: 0, syncing: false });
 
   useEffect(() => {
     let cleanup = () => {};
@@ -19,7 +21,15 @@ export default function useOfflineSync() {
 
     import('@/offline/sync').then(({ SYNC_EVENT, SYNC_TAG, listPending, syncNow }) => {
       if (cancelled) return;
-      const onSync = (event) => setState({ pending: event.detail.pending, syncing: event.detail.syncing });
+      // El evento trae `pending`; los rechazados se cuentan en la cola, que es donde permanecen.
+      const countRejected = () =>
+        listPending().then(
+          (ops) => !cancelled && setState((s) => ({ ...s, rejected: ops.filter((o) => o.rejected).length })),
+        );
+      const onSync = (event) => {
+        setState((s) => ({ ...s, pending: event.detail.pending, syncing: event.detail.syncing }));
+        countRejected();
+      };
       const onOnline = () => syncNow();
       const onMessage = (event) => event.data?.type === SYNC_TAG && syncNow();
 
@@ -33,7 +43,13 @@ export default function useOfflineSync() {
       };
 
       listPending().then(
-        (ops) => !cancelled && setState((s) => ({ ...s, pending: ops.filter((o) => !o.rejected).length })),
+        (ops) =>
+          !cancelled &&
+          setState((s) => ({
+            ...s,
+            pending: ops.filter((o) => !o.rejected).length,
+            rejected: ops.filter((o) => o.rejected).length,
+          })),
       );
       syncNow();
     });
