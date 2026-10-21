@@ -71,6 +71,7 @@ async function openApp(context, session, path = '/app/transacciones') {
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log('   [pageerror]', e.message));
   page.on('response', (r) => r.status() === 429 && rateLimited++);
+  if (process.env.CONSOLE) page.on('console', (m) => console.log(`   [console.${m.type()}]`, m.text())); // `CONSOLE=1`
   await page.goto(`${APP}/login`);
   await page.evaluate((s) => localStorage.setItem('fintrack.session', JSON.stringify(s)), session);
   await page.goto(APP + path, { waitUntil: 'networkidle0' });
@@ -136,6 +137,7 @@ async function caso(id, name, fn) {
     const detail = rateLimited ? `${err.message} (${rateLimited} respuestas 429 del servidor)` : err.message;
     results.push({ id, name, ok: false, detail });
     console.log(`✗ ${id} ${name}\n   ${detail}`);
+    if (process.env.STACK) console.log(err.stack); // `STACK=1`: en qué línea del script falló
   } finally {
     await context.close();
   }
@@ -475,14 +477,37 @@ await caso('C15', 'lastSyncedAt dañado en el dispositivo no traba la cola', asy
 });
 
 
+/** Espera a que la página deje de desplazarse: la posición no cambia en 150 ms. */
+const scrollSettled = (page) =>
+  page.waitForFunction(
+    () =>
+      new Promise((res) => {
+        const y = window.scrollY;
+        setTimeout(() => res(window.scrollY === y), 150);
+      }),
+    { timeout: 5000, polling: 50 },
+  );
+
 /** Edita el monto de un movimiento desde la lista (con o sin conexión). */
 async function editAmount(page, description, amount) {
   await page.bringToFront();
   await page.click(`button[aria-label="Editar ${description}"]`);
   await page.$eval('#tx-amount', (e) => e.select());
   await page.type('#tx-amount', String(amount));
+  // "Editar" sube al formulario con scroll suave: si se hace clic mientras la página se mueve,
+  // el botón ya no está donde Puppeteer lo midió y el clic cae en otro lado (C16, C18 y C19 fallaban así).
+  await scrollSettled(page);
   await page.click('button[type=submit]');
-  await page.waitForFunction(() => /Cambios guardados/.test(document.body.innerText), { timeout: 8000, polling: 200 });
+  await page
+    .waitForFunction(() => /Cambios guardados/.test(document.body.innerText), { timeout: 8000, polling: 200 })
+    .catch(async () => {
+      const body = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(-900));
+      const typed = await page.evaluate(() => document.querySelector('#tx-amount')?.value);
+      const queued = await pendingCount(page);
+      throw new Error(
+        `no se guardó la edición de «${description}» (monto en el formulario: ${typed}; en la cola: ${queued}). En pantalla: ${body}`,
+      );
+    });
 }
 
 /** Lee un movimiento del servidor por descripción. */
@@ -548,7 +573,28 @@ await caso('C18', 'Conflicto: otro dispositivo editó después (gana el servidor
     check(conflict?.resolution === 'server_wins', `resolución: ${conflict?.resolution ?? 'sin evento de conflicto'}`);
     check((await serverRow(s, 'C18 mercado')).amount === 30000, 'el servidor no conservó la edición más reciente');
     await a.waitForFunction(() => document.body.innerText.includes('30.000'), { timeout: 8000 });
-    return 'server_wins: queda 30.000 en el servidor y en el celular; el evento trae el conflicto';
+    // El aviso: franja global y detalle en Movimientos; sobrevive a recargar hasta tocar "Entendido".
+    const seen = (text) =>
+      a.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 8000 }, text).catch(async () => {
+        const body = await a.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 600));
+        throw new Error(`no apareció «${text}». En pantalla: ${body}`);
+      });
+    await seen('1 cambio tuyo no se aplicó');
+    await seen('Tu edición de «C18 mercado» no se aplicó');
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await seen('Tu edición de «C18 mercado» no se aplicó');
+    await a.evaluate(() =>
+      [...document.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith('Entendido')).click(),
+    );
+    await a
+      .waitForFunction(() => !/Conflictos de sincronización|1 cambio tuyo no se aplicó/.test(document.body.innerText), {
+        timeout: 8000,
+      })
+      .catch(async () => {
+        const body = await a.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 600));
+        throw new Error(`el aviso no se quitó con Entendido. En pantalla: ${body}`);
+      });
+    return 'server_wins: queda 30.000 en el servidor y en el celular; el aviso se ve, sobrevive a recargar y se quita con Entendido';
   } finally {
     await phone.close();
     await laptop.close();
@@ -572,7 +618,14 @@ await caso('C19', 'Conflicto: el dispositivo editó después (gana el dispositiv
     await a.setOfflineMode(false);
     await waitPending(a, 0);
     check((await serverRow(s, 'C19 taxi')).amount === 20000, 'no ganó la edición más reciente (la del celular)');
-    return 'client_wins: queda 20.000, la edición más reciente';
+    // Ganó el usuario: el aviso es informativo, no una advertencia.
+    for (const text of [
+      'Un conflicto de sincronización se resolvió a tu favor',
+      'Tu edición de «C19 taxi» reemplazó un cambio hecho en otro dispositivo',
+    ]) {
+      await a.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 8000 }, text);
+    }
+    return 'client_wins: queda 20.000, la edición más reciente; el aviso dice que se resolvió a su favor';
   } finally {
     await phone.close();
     await laptop.close();

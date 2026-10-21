@@ -4,6 +4,8 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 **Resultado: 20 de 20 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
 
+> **2026-10-21:** C18 y C19 se ampliaron con el aviso de conflicto al usuario (FT-0009). Tras corregir una falla intermitente del script (ver *Falla intermitente del script, corregida*), la batería completa dio **20 de 20 en 3 corridas seguidas**.
+
 ## Entorno
 
 - Backend y base de datos con `docker compose up -d` (API en `http://localhost:3000`).
@@ -64,13 +66,20 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 | C15 | [FT-0009] Bug: la cola queda trabada si el 422 no apunta a una operación | Corregido |
 | C16 | Editar sin conexión | Con red, registrar un gasto de 10.000. Quitar la red, recargar y editarlo a 15.000. Conectar. | Sin red se ve 15.000 al instante; al conectar el servidor queda en 15.000. | ✅ Pasa |
 | C17 | Eliminar sin conexión | Con red, registrar. Quitar la red, recargar y eliminarlo. Conectar. | Sin red desaparece y queda como "Eliminar" en Pendientes; al conectar se borra en el servidor. | ✅ Pasa |
-| C18 | Conflicto: gana el servidor | El celular, sin red, edita a 20.000. Después el computador, con red, edita a 30.000. El celular se conecta. | Gana la edición más reciente (30.000) en el servidor y en el celular; el evento `fintrack:sync` trae el conflicto `server_wins`. | ✅ Pasa |
-| C19 | Conflicto: gana el dispositivo | El computador edita a 30.000. Después el celular, sin red, edita a 20.000 y se conecta. | Gana la más reciente (20.000). | ✅ Pasa |
+| C18 | Conflicto: gana el servidor | El celular, sin red, edita a 20.000. Después el computador, con red, edita a 30.000. El celular se conecta. | Gana la edición más reciente (30.000) en el servidor y en el celular; el evento `fintrack:sync` trae el conflicto `server_wins`. Se avisa al usuario: franja "1 cambio tuyo no se aplicó…" y detalle en Movimientos; el aviso sobrevive a recargar y se quita con **Entendido**. | ✅ Pasa |
+| C19 | Conflicto: gana el dispositivo | El computador edita a 30.000. Después el celular, sin red, edita a 20.000 y se conecta. | Gana la más reciente (20.000). El aviso es informativo: "…se resolvió a tu favor". | ✅ Pasa |
 | C20 | Edición rechazada y descartada | En la cola hay una edición que el servidor rechaza (monto negativo). Conectar y tocar Descartar. | La copia local vuelve a como estaba (4.000); el servidor no cambia. | ✅ Pasa |
 
 ## Límites conocidos (no son fallas de estos casos)
 
 - La hora del cambio la pone el dispositivo y el servidor la compara con la suya (last-write-wins): si el reloj del celular está muy desfasado, puede ganar la edición equivocada.
-- Todavía no se le avisa al usuario cuando hay un conflicto: el evento ya trae `conflicts`, y mostrarlo es la tarea *Notificación de conflicto de sincronización al usuario*.
+- El aviso de conflicto lo ve el usuario solo en el dispositivo donde ocurrió: se guarda en IndexedDB (`meta`, llave `conflicts:<userId>`), no en el servidor. Si cierra sesión, se conserva hasta que vuelva a entrar y toque **Entendido**.
 - Con la app **cerrada** no se sincroniza: se envía al volver a abrirla. El service worker no puede leer la sesión, que está en `localStorage`.
 - Background Sync existe solo en navegadores basados en Chromium. En Safari y Firefox, la sincronización depende del evento `online` mientras la app está abierta.
+
+## Falla intermitente del script, corregida
+
+- **Síntoma:** los casos que editan (C16, C18, C19) fallaban a veces sin error: el formulario tenía el monto nuevo, pero la cola quedaba vacía y nunca aparecía "Cambios guardados". En `main`, C16 falló 3 de 6 corridas.
+- **Causa:** el botón **Editar** sube al formulario con `window.scrollTo({ behavior: 'smooth' })`. El script escribía el monto y hacía clic en "Guardar cambios" mientras la página aún se desplazaba: Puppeteer medía el botón en un lugar y, al hacer clic, ya se había movido (en una corrida, de `y=109` a `y=408`). El clic no caía en el botón y el foco quedaba en `<body>`. Era un problema de la prueba, no de la app.
+- **Corrección:** `editAmount` espera a que la página deje de desplazarse (`scrollSettled`) antes del clic. Resultado: C16 pasó 8 de 8 y la batería completa dio 20 de 20 en 3 corridas seguidas.
+- **Para diagnosticar fallas futuras:** `STACK=1` muestra la línea del script que falló y `CONSOLE=1` la consola del navegador. Si falla una edición, el mensaje incluye el monto del formulario y cuántas operaciones hay en la cola.

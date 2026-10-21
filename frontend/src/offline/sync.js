@@ -202,6 +202,35 @@ export function syncNow() {
 }
 
 /**
+ * Conflictos de sincronización que el usuario todavía no ha visto, del más antiguo al más reciente.
+ * Cada uno trae `op`, `name`, `resolution` y `serverVersion` para armar el mensaje (`conflictMessage`).
+ * @returns {Promise<Array<import('./conflictMessage').SyncConflict & { localId: string, serverId: string, at: string }>>}
+ */
+export async function listConflicts() {
+  const userId = currentUserId();
+  if (!userId) return [];
+  return (await db.meta.get(`conflicts:${userId}`))?.value ?? [];
+}
+
+/**
+ * Marca avisos de conflicto como vistos. Sin `localIds` descarta todos los del usuario.
+ * @param {string[]} [localIds]
+ * @returns {Promise<void>}
+ */
+export async function dismissConflicts(localIds) {
+  const userId = currentUserId();
+  if (!userId) return;
+  const key = `conflicts:${userId}`;
+  await db.transaction('rw', db.meta, async () => {
+    const earlier = (await db.meta.get(key))?.value ?? [];
+    const left = localIds ? earlier.filter((c) => !localIds.includes(c.localId)) : [];
+    if (left.length > 0) await db.meta.put({ key, value: left });
+    else await db.meta.delete(key);
+  });
+  await announce();
+}
+
+/**
  * Descarta un movimiento que el servidor rechazó (el usuario decide).
  * @param {string} localId
  * @returns {Promise<void>}
@@ -334,6 +363,19 @@ async function sendBatch(userId, queue, metaKey, lastSyncedAt) {
     ...result.conflicts.filter((c) => !c.serverVersion).map((c) => c.serverId),
     ...changes.filter((t) => t.deletedAt).map((t) => t.id),
   ];
+  // Para avisarle al usuario hace falta saber qué había hecho (editar o eliminar) y de qué movimiento:
+  // el servidor no lo repite, pero la cola todavía lo tiene (se borra en la transacción de abajo).
+  const sentAt = new Date().toISOString();
+  const sent = new Map(queue.map((o) => [o.localId, o]));
+  const conflicts = result.conflicts.map((c) => {
+    const o = sent.get(c.localId);
+    return {
+      ...c,
+      op: o?.op ?? 'update',
+      name: o?.original?.description ?? o?.preview?.description ?? c.serverVersion?.description,
+      at: sentAt,
+    };
+  });
   await db.transaction('rw', db.pending, db.meta, db.transactions, async () => {
     await db.pending.bulkDelete(confirmed);
     await db.transactions.bulkPut(
@@ -341,10 +383,17 @@ async function sendBatch(userId, queue, metaKey, lastSyncedAt) {
     );
     await db.transactions.bulkDelete(gone);
     await db.meta.put({ key: metaKey, value: result.syncedAt });
+    // Los avisos se guardan en el dispositivo hasta que el usuario los descarte: el evento se dispara
+    // una sola vez y puede llegar cuando no hay ninguna pantalla que lo escuche.
+    if (conflicts.length > 0) {
+      const key = `conflicts:${userId}`;
+      const earlier = (await db.meta.get(key))?.value ?? [];
+      const ids = new Set(conflicts.map((c) => c.localId));
+      await db.meta.put({ key, value: [...earlier.filter((c) => !ids.has(c.localId)), ...conflicts] });
+    }
   });
-  // `conflicts` va en el evento para que la interfaz pueda avisarle al usuario (tarea de David).
   if (confirmed.length > 0) {
-    await announce({ synced: result.synced, ...(result.conflicts.length && { conflicts: result.conflicts }) });
+    await announce({ synced: result.synced, ...(conflicts.length && { conflicts }) });
   }
 
   // Si había más de un lote, se envía el siguiente.

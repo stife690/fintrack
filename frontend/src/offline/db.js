@@ -5,7 +5,8 @@
  *   Cada una guarda el `userId` de la sesión con que se hizo, para no enviarla con otra cuenta.
  * - `transactions`: copia del historial de cada usuario, para verlo sin conexión. Se llena con
  *   `serverChanges` de `/sync/batch` (la primera vez, todo el historial; después, solo lo que cambió).
- * - `meta`: datos sueltos por llave: `lastSyncedAt:<userId>` y la copia del catálogo `categories`.
+ * - `meta`: datos sueltos por llave: `lastSyncedAt:<userId>`, `conflicts:<userId>` (avisos de conflicto
+ *   que el usuario aún no ha visto) y la copia del catálogo `categories`.
  */
 import Dexie from 'dexie';
 
