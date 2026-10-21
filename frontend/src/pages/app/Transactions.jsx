@@ -4,6 +4,7 @@ import { CloudUpload, Download, Loader2, WifiOff } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
+import ConflictList from '@/components/transactions/ConflictList';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
@@ -14,7 +15,9 @@ import {
   SYNC_EVENT,
   cacheTransaction,
   discardPending,
+  dismissConflicts,
   listCached,
+  listConflicts,
   listPending,
   queueCreate,
   queueDelete,
@@ -147,6 +150,7 @@ export default function Transactions() {
   const [budgetAlert, setBudgetAlert] = useState({ alert: null, category: null }); // FT-0006
   const [version, setVersion] = useState(0); // se incrementa para forzar la recarga del listado
   const [pending, setPending] = useState([]);
+  const [conflicts, setConflicts] = useState([]); // avisos de conflicto que el usuario aún no ha visto
   // Sin conexión se muestra la copia guardada en el dispositivo: hora de su última actualización
   // (`''` si nunca se ha llenado) o `null` cuando la lista viene del servidor.
   const [cachedAt, setCachedAt] = useState(null);
@@ -210,7 +214,10 @@ export default function Transactions() {
 
   // La cola offline cambia al registrar sin conexión y cuando una sincronización termina.
   useEffect(() => {
-    const refresh = () => listPending().then(setPending);
+    const refresh = () => {
+      listPending().then(setPending);
+      listConflicts().then(setConflicts);
+    };
     const onSync = ({ detail }) => {
       refresh();
       if (detail.synced?.length) {
@@ -361,6 +368,9 @@ export default function Transactions() {
             {notice}
           </p>
           {cachedAt !== null && <CachedNotice syncedAt={cachedAt} />}
+          {conflicts.length > 0 && (
+            <ConflictList conflicts={conflicts} onDismiss={(ids) => dismissConflicts(ids).catch((err) => setError(err.message))} />
+          )}
           {pending.length > 0 && <PendingList operations={pending} onError={setError} />}
           {error && (
             <p role="alert" className="mt-2 text-sm text-negative">
