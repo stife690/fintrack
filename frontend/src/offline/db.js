@@ -13,8 +13,15 @@ import Dexie from 'dexie';
  * @typedef {object} PendingOperation
  * @property {string} localId Id generado en el dispositivo; el servidor lo usa para no duplicar.
  * @property {string} userId Dueño de la operación.
- * @property {'create'} op Por ahora solo se registran movimientos nuevos sin conexión.
- * @property {{ amount: number, description: string, type: string, date: string, category: string|null }} transaction
+ * @property {'create'|'update'|'delete'} op
+ * @property {object} [transaction] En `create`, la transacción completa; en `update`, solo los
+ *   campos que cambian; no va en `delete`.
+ * @property {string} [serverId] Solo en `update` y `delete`: id de la transacción en el servidor.
+ * @property {string} [updatedAt] Solo en `update` y `delete`: hora del cambio en el dispositivo
+ *   (el servidor la compara con la suya: last-write-wins).
+ * @property {object} [preview] Solo en `update` y `delete`: cómo queda la transacción, para mostrarla.
+ * @property {object} [original] Solo en `update` y `delete`: cómo estaba antes, para restaurar la
+ *   copia local si el servidor rechaza el cambio y el usuario lo descarta.
  * @property {string} createdAt Hora del dispositivo en que se registró (ISO 8601).
  * @property {string} [rejected] Motivo si el servidor la rechazó (422): ya no se envía y se le
  *   muestra al usuario para que la descarte o la vuelva a registrar.
