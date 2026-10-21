@@ -345,6 +345,27 @@ test('GET /summary sin transacciones responde ceros y listas vacías', options, 
   });
 });
 
+test('POST con el mismo localId no duplica: devuelve la transacción ya guardada', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    const body = { ...GASTO, category: 'alimentacion', localId: `loc-${randomUUID()}` };
+    const first = await api('/transactions', { method: 'POST', token: alice, body });
+    // El cliente reintenta porque la primera respuesta no le llegó.
+    const retry = await api('/transactions', { method: 'POST', token: alice, body });
+    assert.equal(first.status, 201);
+    assert.equal(retry.body.transaction.id, first.body.transaction.id);
+    const list = await api(`/transactions?q=${GASTO.description}`, { token: alice });
+    assert.equal(list.body.total, 1);
+
+    const bad = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, localId: '' },
+    });
+    assert.equal(bad.status, 422);
+    assert.deepEqual(bad.body.error.details.map((d) => d.field), ['localId']);
+  });
+});
+
 test(
   'GET /summary incluye el primer y el último día del periodo, y nada fuera',
   options,

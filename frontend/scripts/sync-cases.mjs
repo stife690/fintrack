@@ -422,6 +422,58 @@ await caso('C13', 'Un movimiento creado en otro dispositivo llega a la copia loc
   }
 });
 
+
+/** Agrega a IndexedDB un pendiente o un valor en `meta` (simula datos viejos o dañados). */
+const idbPut = (page, store, value) =>
+  page.evaluate(
+    (store, value) =>
+      new Promise((res) => {
+        const req = indexedDB.open('fintrack');
+        req.onsuccess = () => {
+          const tx = req.result.transaction(store, 'readwrite');
+          tx.objectStore(store).put(value);
+          tx.oncomplete = res;
+        };
+      }),
+    store,
+    value,
+  );
+
+await caso('C14', 'Operación rechazada por otro motivo: se aparta y se muestra, no se pierde', async (ctx) => {
+  const s = await newUser('c14');
+  const page = await openApp(ctx, s);
+  await page.setOfflineMode(true);
+  await register(page, 'C14 válido');
+  await idbPut(page, 'pending', {
+    localId: crypto.randomUUID(),
+    userId: s.user.id,
+    op: 'create',
+    transaction: { amount: -5, description: 'C14 monto inválido', type: 'gasto', date: '2026-10-20', category: null },
+    createdAt: new Date().toISOString(),
+  });
+  await page.setOfflineMode(false);
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForFunction(() => document.body.innerText.includes('No se pudo sincronizar'), { timeout: 10000 });
+  const rows = await serverRows(s);
+  check(rows.length === 1, `en el servidor hay ${rows.length} (esperado: solo el válido)`);
+  check((await pendingCount(page)) === 1, 'el rechazado no debía borrarse de la cola');
+  const discard = await page.evaluate(() => Boolean([...document.querySelectorAll('button')].find((b) => b.textContent.startsWith('Descartar'))));
+  check(discard, 'falta el botón Descartar');
+  return 'el válido llega; el inválido queda en la cola con el motivo y el botón Descartar';
+});
+
+await caso('C15', 'lastSyncedAt dañado en el dispositivo no traba la cola', async (ctx) => {
+  const s = await newUser('c15');
+  const page = await openApp(ctx, s);
+  await page.setOfflineMode(true);
+  await register(page, 'C15 bus');
+  await idbPut(page, 'meta', { key: `lastSyncedAt:${s.user.id}`, value: 'no-es-una-fecha' });
+  await page.setOfflineMode(false);
+  await waitPending(page, 0);
+  check((await serverRows(s)).length === 1, 'no llegó al servidor');
+  return 'el 422 por lastSyncedAt reinicia la fecha y el lote se envía';
+});
+
 await browser.close();
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} casos pasaron`);

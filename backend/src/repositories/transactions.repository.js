@@ -31,13 +31,24 @@ export const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
 export async function insertTransaction(data) {
   const { rows } = await pool.query(
     `WITH ins AS (
-       INSERT INTO transacciones (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen)
-       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7)
+       INSERT INTO transacciones (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id)
+       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (usuario_id, local_id) WHERE local_id IS NOT NULL DO NOTHING
        RETURNING *
      )
      SELECT ${COLUMNS} FROM ins t ${JOIN}`,
-    [data.userId, data.category, data.amount, data.description, data.type, data.date, data.source],
+    [
+      data.userId,
+      data.category,
+      data.amount,
+      data.description,
+      data.type,
+      data.date,
+      data.source,
+      data.localId ?? null,
+    ],
   );
+  // `undefined` solo si otra petición ya guardó ese `localId` (se busca con `findByLocalId`).
   return rows[0];
 }
 

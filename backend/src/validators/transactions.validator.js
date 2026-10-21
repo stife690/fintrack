@@ -119,6 +119,16 @@ export function parseCreateTransaction(body) {
     if (!(field in source)) details.push({ field, problem: 'Es obligatorio' });
   }
   const values = readFields(source, details);
+  // `localId` opcional (FT-0009): si el cliente reintenta tras perder la respuesta, no se duplica.
+  if ('localId' in source) {
+    const { localId } = source;
+    // Misma regla que en /sync/batch: el mismo localId puede llegar por las dos vías.
+    if (typeof localId === 'string' && localId.trim() !== '' && localId.length <= 64) {
+      values.localId = localId;
+    } else {
+      details.push({ field: 'localId', problem: 'Debe ser un texto de 1 a 64 caracteres' });
+    }
+  }
   throwIfInvalid(details);
   return { category: null, ...values };
 }

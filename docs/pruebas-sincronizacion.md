@@ -1,8 +1,8 @@
 # Pruebas de sincronización con conexión intermitente (FT-0009)
 
-Casos de prueba del registro sin conexión y la sincronización con `POST /sync/batch`, ejecutados el **2026-10-20**. C1–C11 sobre `main` (`a6ace62`); C12 y C13 en la rama de la copia local del historial.
+Casos de prueba del registro sin conexión y la sincronización con `POST /sync/batch`, ejecutados el **2026-10-20** con las correcciones de los bugs encontrados.
 
-**Resultado: 10 de 13 casos pasan.** Los 3 que fallan son bugs ya registrados en ClickUp como subtareas de *[FT-0009] Pruebas de sincronización con conexión intermitente*.
+**Resultado: 15 de 15 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
 
 ## Entorno
 
@@ -12,7 +12,7 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 ## Cómo ejecutarlos
 
-Los 13 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
+Los 15 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
 
 ```bash
 docker compose up -d                       # en la raíz
@@ -43,24 +43,25 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 | C3 | Varios movimientos sin conexión | Sin red, registrar 3 gastos. Conectar. | Se envían en un solo lote. Servidor: 3. | ✅ Pasa (1 petición con 3 operaciones) |
 | C4 | Conexión que va y viene | 3 veces seguidas: quitar la red, registrar, devolver la red y volver a quitarla a los 150 ms. | Los 3 llegan, sin duplicados. | ✅ Pasa |
 | C5 | Se pierde la respuesta de `/sync/batch` | Sin red, registrar. Conectar: el servidor aplica el lote, pero la respuesta no llega. Reabrir la app. | La cola conserva el pendiente; al reenviarlo con el mismo `localId`, el servidor no lo duplica. Servidor: 1. | ✅ Pasa |
-| C6 | Servidor caído al reconectar | Sin red, registrar. Volver la red con el servidor sin responder. Recuperar el servidor y esperar 8 s. | Se reintenta solo cuando el servidor vuelve. | ❌ **Falla**: no reintenta hasta recargar (cola 1, servidor 0). Bug *No reintenta si falla el primer envío al reconectar*. |
-| C7 | Se pierde la respuesta de `POST /transactions` con conexión | Con red, registrar: el servidor lo guarda, pero la respuesta no llega. | El movimiento queda una sola vez. | ❌ **Falla**: la app lo pone en la cola y al sincronizar queda **duplicado** (servidor: 2). Bug *Movimiento duplicado si se pierde la respuesta del POST*. |
+| C6 | Servidor caído al reconectar | Sin red, registrar. Volver la red con el servidor sin responder. Recuperar el servidor y esperar 8 s. | Se reintenta solo cuando el servidor vuelve. | ✅ Pasa: reintenta solo a los 5 s, 15 s y 60 s (antes no reintentaba hasta recargar) |
+| C7 | Se pierde la respuesta de `POST /transactions` con conexión | Con red, registrar: el servidor lo guarda, pero la respuesta no llega. | El movimiento queda una sola vez. | ✅ Pasa: el mismo `localId` viaja en el POST y en la cola; el servidor no duplica (antes quedaba duplicado) |
 | C8 | Dos dispositivos, uno sin conexión | Celular sin red registra A; computador con red registra B. El celular se conecta. El computador recarga. | Servidor: A y B. El computador ve A al recargar. | ✅ Pasa |
 | C9 | Dos pestañas del mismo dispositivo | Dos pestañas abiertas, sin red. Registrar en una. Volver la red en ambas. | Llega una sola vez, aunque las dos pestañas intenten enviar. | ✅ Pasa (lo frena el `localId` en el servidor) |
 | C10 | Otra cuenta en el mismo dispositivo | Ana registra sin red. Sin enviar, entra Beto en el mismo navegador, con red. Después vuelve Ana. | Con Beto no se envía el pendiente de Ana (ni a su cuenta ni a la de ella). Al volver Ana, llega a su cuenta. | ✅ Pasa |
-| C11 | Operación rechazada (422) | En la cola hay un pendiente válido y uno con una categoría que el servidor ya no acepta. Conectar. | El válido llega y el rechazado no se pierde: se reintenta sin categoría o se le muestra al usuario. | ❌ **Falla**: el válido llega, pero el rechazado se **borra de la cola** y se pierde. Bug *Un 422 borra el movimiento de la cola offline*. |
+| C11 | Operación rechazada (422) | En la cola hay un pendiente válido y uno con una categoría que el servidor ya no acepta. Conectar. | El válido llega y el rechazado no se pierde: se reintenta sin categoría o se le muestra al usuario. | ✅ Pasa: el rechazado por categoría se reenvía sin categoría y llega (antes se borraba de la cola) |
 | C12 | Historial visible sin conexión | Con red, registrar 2 gastos. Quitar la red y recargar. Filtrar por "Ingresos". | Se ven los 2 desde la copia guardada en el dispositivo, con un aviso. El filtro funciona sin red. | ✅ Pasa |
 | C13 | Cambio hecho en otro dispositivo | El computador registra un gasto. El celular abre la app (con red), luego pierde la conexión y recarga. | El celular ve el gasto del computador sin conexión. | ✅ Pasa |
+| C14 | Operación rechazada por otro motivo | En la cola hay un pendiente válido y uno con monto negativo. Conectar. | El válido llega; el inválido no se borra: queda en "Pendientes" con el motivo y el botón Descartar. | ✅ Pasa |
+| C15 | `lastSyncedAt` dañado en el dispositivo | Con un pendiente, guardar un `lastSyncedAt` inválido en IndexedDB. Conectar. | La app reinicia la fecha y el lote se envía (la cola no se traba). | ✅ Pasa |
 
 ## Bugs encontrados
 
-| Caso | Bug en ClickUp | Responsable |
+| Caso | Bug en ClickUp | Estado |
 |---|---|---|
-| C6 | [FT-0009] Bug: no reintenta si falla el primer envío al reconectar | Nicolas |
-| C7 | [FT-0009] Bug: movimiento duplicado si se pierde la respuesta del POST | David |
-| C11 | [FT-0009] Bug: un 422 borra el movimiento de la cola offline | David |
-
-Al corregir cada bug, hay que repetir su caso y cambiar aquí el resultado a ✅.
+| C6 | [FT-0009] Bug: no reintenta si falla el primer envío al reconectar | Corregido |
+| C7 | [FT-0009] Bug: movimiento duplicado si se pierde la respuesta del POST | Corregido |
+| C11 | [FT-0009] Bug: un 422 borra el movimiento de la cola offline | Corregido |
+| C15 | [FT-0009] Bug: la cola queda trabada si el 422 no apunta a una operación | Corregido |
 
 ## Límites conocidos (no son fallas de estos casos)
 

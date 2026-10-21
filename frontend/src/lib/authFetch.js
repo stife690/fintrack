@@ -42,7 +42,12 @@ async function doRefresh() {
     throw new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
   }
   if (res.status === 401 || res.status === 400) return expire();
-  if (!res.ok) throw new Error('No pudimos renovar tu sesión. Inténtalo de nuevo.');
+  // Con código: el servidor respondió (5xx), no es falta de conexión (no va a la cola offline).
+  if (!res.ok) {
+    throw Object.assign(new Error('No pudimos renovar tu sesión. Inténtalo de nuevo.'), {
+      code: 'REFRESH_FAILED',
+    });
+  }
 
   const { accessToken, refreshToken } = await res.json();
   saveSession({ ...session, accessToken, refreshToken });

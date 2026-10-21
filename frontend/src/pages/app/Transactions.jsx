@@ -13,6 +13,7 @@ import usePageTitle from '@/hooks/usePageTitle';
 import {
   SYNC_EVENT,
   cacheTransaction,
+  discardPending,
   listCached,
   listPending,
   queueCreate,
@@ -78,26 +79,35 @@ function CachedNotice({ syncedAt }) {
 
 /**
  * Movimientos registrados sin conexión que esperan sincronizarse (FT-0009).
- * @param {{ operations: import('@/offline/db').PendingOperation[] }} props
+ * @param {{ operations: import('@/offline/db').PendingOperation[], onError: (message: string) => void }} props
  */
-function PendingList({ operations }) {
+function PendingList({ operations, onError }) {
+  const waiting = operations.filter((o) => !o.rejected).length;
   return (
     <section aria-labelledby="pending-title" className="mt-4 rounded-xl bg-brand-soft/60 p-4">
       <h3 id="pending-title" className="flex items-center gap-2 text-sm font-medium text-brand">
         <CloudUpload className="size-4" aria-hidden="true" />
-        Pendientes de sincronizar ({operations.length})
+        Pendientes de sincronizar ({waiting})
       </h3>
       <ul className="mt-2 divide-y divide-ink/10">
-        {operations.map(({ localId, transaction: t }) => (
-          <li key={localId} className="flex items-center justify-between gap-4 py-2 text-sm">
+        {operations.map(({ localId, transaction: t, rejected }) => (
+          <li key={localId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm">
             <span className="min-w-0 break-words">
               {t.description} <span className="text-ink/60">· {formatDate(t.date)}</span>
+              {rejected && (
+                <span className="block text-negative">No se pudo sincronizar: {rejected}</span>
+              )}
             </span>
             <span className="shrink-0 tabular-nums">
               <span className="sr-only">{t.type === 'ingreso' ? 'Ingreso de ' : 'Gasto de '}</span>
               <span aria-hidden="true">{t.type === 'ingreso' ? '+' : '−'}</span>
               {formatMoney(t.amount)}
             </span>
+            {rejected && (
+              <Button size="sm" variant="outline" onClick={() => discardPending(localId).catch((err) => onError(err.message))}>
+                Descartar<span className="sr-only"> {t.description}</span>
+              </Button>
+            )}
           </li>
         ))}
       </ul>
@@ -189,7 +199,7 @@ export default function Transactions() {
         reload();
       }
       if (detail.rejected?.length) {
-        setError('Algunos movimientos guardados sin conexión no eran válidos y no se pudieron sincronizar.');
+        setError('Un movimiento guardado sin conexión no se pudo sincronizar. Revísalo en "Pendientes de sincronizar".');
       }
     };
     refresh();
@@ -216,13 +226,16 @@ export default function Transactions() {
       setEditing(null);
       return;
     }
+    // El mismo `localId` en el envío directo y en la cola: si el POST llegó al servidor pero la
+    // respuesta se perdió, al sincronizar el servidor lo reconoce y no lo duplica (FT-0009).
+    const localId = crypto.randomUUID();
     let created;
     try {
       if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
-      created = await createTransaction(values);
+      created = await createTransaction({ ...values, localId });
     } catch (err) {
       if (err.code !== 'NETWORK_ERROR') throw err;
-      await queueCreate(values);
+      await queueCreate(values, localId);
       // Sin conexión no hay alerta de presupuesto: se calcula en el servidor.
       setBudgetAlert({ alert: null, category: null });
       setNotice('Guardado sin conexión. Se sincronizará cuando vuelva internet.');
@@ -302,7 +315,7 @@ export default function Transactions() {
             {notice}
           </p>
           {cachedAt !== null && <CachedNotice syncedAt={cachedAt} />}
-          {pending.length > 0 && <PendingList operations={pending} />}
+          {pending.length > 0 && <PendingList operations={pending} onError={setError} />}
           {error && (
             <p role="alert" className="mt-2 text-sm text-negative">
               {error}{' '}

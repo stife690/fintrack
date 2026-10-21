@@ -20,11 +20,32 @@ export const SYNC_EVENT = 'fintrack:sync';
 /** Etiqueta de Background Sync; el service worker la recibe en `public/push-sw.js`. */
 export const SYNC_TAG = 'fintrack-sync';
 
+/** Nombre legible de los campos que puede señalar un 422, para el motivo del rechazo. */
+const FIELD_LABELS = {
+  amount: 'Monto',
+  description: 'Descripción',
+  type: 'Tipo',
+  date: 'Fecha',
+  category: 'Categoría',
+};
+
 /** Máximo de operaciones por lote que acepta el servidor (contrato). */
 const MAX_BATCH = 200;
 
 /** Envío en curso: si se pide otro a la vez, se comparte el mismo. */
 let running = null;
+
+/** Esperas antes de reintentar si el envío falla con pendientes (servidor caído, 429…). */
+const RETRY_DELAYS_MS = [5_000, 15_000, 60_000];
+let retries = 0;
+let retryTimer = null;
+
+/** Programa otro intento; la espera crece hasta 1 minuto mientras siga fallando. */
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(syncNow, RETRY_DELAYS_MS[Math.min(retries, RETRY_DELAYS_MS.length - 1)]);
+  retries += 1;
+}
 
 function currentUserId() {
   return getSession()?.user?.id ?? null;
@@ -41,7 +62,7 @@ export async function listPending() {
 }
 
 async function announce(extra = {}) {
-  const pending = (await listPending()).length;
+  const pending = (await listPending()).filter((o) => !o.rejected).length;
   window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { pending, syncing: Boolean(running), ...extra } }));
 }
 
@@ -61,14 +82,15 @@ async function requestBackgroundSync() {
 /**
  * Guarda en el dispositivo un movimiento registrado sin conexión.
  * @param {{ amount: number, description: string, type: string, date: string, category?: string|null }} values
+ * @param {string} [localId] El que ya se usó en un `POST /transactions` que falló, para no duplicar.
  * @returns {Promise<import('./db').PendingOperation>}
  */
-export async function queueCreate(values) {
+export async function queueCreate(values, localId = crypto.randomUUID()) {
   const userId = currentUserId();
   if (!userId) throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
 
   const operation = {
-    localId: crypto.randomUUID(),
+    localId,
     userId,
     op: 'create',
     transaction: { ...values, category: values.category ?? null },
@@ -85,11 +107,24 @@ export async function queueCreate(values) {
  * @returns {Promise<void>}
  */
 export function syncNow() {
-  running ??= doSync().finally(() => {
-    running = null;
-    announce();
-  });
+  // `navigator.locks`: con varias pestañas abiertas, envían por turnos y no el mismo lote a la vez.
+  running ??= (navigator.locks ? navigator.locks.request('fintrack-sync', doSync) : doSync())
+    .catch((err) => console.error('No se pudo sincronizar', err)) // p. ej. IndexedDB no disponible
+    .finally(() => {
+      running = null;
+      announce().catch(() => {});
+    });
   return running;
+}
+
+/**
+ * Descarta un movimiento que el servidor rechazó (el usuario decide).
+ * @param {string} localId
+ * @returns {Promise<void>}
+ */
+export async function discardPending(localId) {
+  await db.pending.delete(localId);
+  await announce();
 }
 
 /**
@@ -101,7 +136,7 @@ export function syncNow() {
  */
 export async function cacheTransaction(transaction) {
   const userId = currentUserId();
-  if (userId) await db.transactions.put({ ...transaction, userId });
+  if (userId && !transaction.deletedAt) await db.transactions.put({ ...transaction, userId });
 }
 
 /**
@@ -130,7 +165,7 @@ async function doSync() {
   if (!userId || !navigator.onLine) return;
 
   // Sin pendientes se envía un lote vacío: sirve para traer los cambios del servidor.
-  const queue = (await listPending()).slice(0, MAX_BATCH);
+  const queue = (await listPending()).filter((o) => !o.rejected).slice(0, MAX_BATCH);
   if (queue.length > 0) await announce();
 
   const metaKey = `lastSyncedAt:${userId}`;
@@ -146,18 +181,40 @@ async function doSync() {
       },
     });
   } catch (err) {
-    // 422: el lote se rechaza completo; se quitan las operaciones inválidas para que el resto pase.
+    // 422: el lote se rechaza completo. Nada se borra: se arregla o se aparta lo inválido y se reenvía.
     if (err.code === 'VALIDATION_ERROR' && err.fields) {
-      const invalid = rejectedIndexes(err.fields).map((i) => queue[i]).filter(Boolean);
-      if (invalid.length > 0) {
-        await db.pending.bulkDelete(invalid.map((o) => o.localId));
-        await announce({ rejected: invalid });
+      retries = 0; // el servidor respondió: no es una caída
+      if ('lastSyncedAt' in err.fields) {
+        await db.meta.delete(metaKey); // valor dañado: se vuelve a pedir todo el historial
         return doSync();
       }
+      const rejected = [];
+      let changed = 0;
+      for (const [i, problems] of rejectedOperations(err.fields)) {
+        const op = queue[i];
+        if (!op) continue;
+        const onlyCategory = problems.every(([field]) => field.endsWith('.transaction.category'));
+        if (onlyCategory && op.transaction.category) {
+          // Catálogo guardado desactualizado: se envía sin categoría y la IA la sugiere.
+          await db.pending.update(op.localId, { transaction: { ...op.transaction, category: null } });
+        } else {
+          const [field, problem] = problems[0];
+          const label = FIELD_LABELS[field.split('.').pop()] ?? field;
+          await db.pending.update(op.localId, { rejected: `${label}: ${problem}` });
+          rejected.push(op);
+        }
+        changed += 1;
+      }
+      if (rejected.length > 0) await announce({ rejected });
+      // Solo se reintenta si algo cambió: si no, el mismo lote volvería a fallar sin fin.
+      return changed > 0 ? doSync() : undefined;
     }
-    // Sin red o servidor caído: la cola se conserva y se reintenta en la próxima conexión.
+    // Sin red, servidor caído o 429: la cola se conserva y se reintenta sola.
+    if (queue.length > 0) scheduleRetry();
     return;
   }
+  retries = 0;
+  clearTimeout(retryTimer);
 
   const confirmed = result.synced.map((s) => s.localId);
   // Lo creado en este lote no vuelve en `serverChanges`: se toma de `synced[].transaction`.
@@ -178,17 +235,19 @@ async function doSync() {
 }
 
 /**
- * Posiciones de las operaciones con problemas, según los campos del 422
- * (`operations[3].transaction.amount` → 3).
+ * Problemas del 422 agrupados por operación
+ * (`operations[3].transaction.amount` → 3 → [[campo, problema], …]).
  * @param {Record<string, string>} fields
- * @returns {number[]}
+ * @returns {Map<number, Array<[string, string]>>}
  */
-function rejectedIndexes(fields) {
-  const indexes = Object.keys(fields)
-    .map((field) => /^operations\[(\d+)\]/.exec(field)?.[1])
-    .filter((i) => i !== undefined)
-    .map(Number);
-  return [...new Set(indexes)];
+function rejectedOperations(fields) {
+  const byIndex = new Map();
+  for (const [field, problem] of Object.entries(fields)) {
+    const i = /^operations\[(\d+)\]/.exec(field)?.[1];
+    if (i === undefined) continue;
+    byIndex.set(Number(i), [...(byIndex.get(Number(i)) ?? []), [field, problem]]);
+  }
+  return byIndex;
 }
 
 /**

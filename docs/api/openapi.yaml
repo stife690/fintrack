@@ -941,6 +941,13 @@ components:
           allOf: [{ $ref: "#/components/schemas/NullableCategoryKey" }]
           description: Opcional; si viene vacío se categoriza con IA.
         date: { type: string, format: date }
+        localId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: |
+            Opcional. Id que genera el cliente antes de enviar. Si llega de nuevo (la respuesta
+            anterior se perdió), se devuelve la transacción ya guardada en lugar de crear otra.
     TransactionUpdate:
       type: object
       minProperties: 1
