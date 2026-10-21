@@ -232,7 +232,12 @@ test(
           transaction: { amount: 300 },
         },
       ]);
-      assert.deepEqual(res.body.synced, [{ localId: 'loc-1', serverId }]);
+      // El update trae la versión final, para que el dispositivo actualice su copia local.
+      const [synced] = res.body.synced;
+      assert.equal(synced.localId, 'loc-1');
+      assert.equal(synced.serverId, serverId);
+      assert.equal(synced.transaction.id, serverId);
+      assert.equal(synced.transaction.amount, 300);
       assert.deepEqual(res.body.conflicts, []);
       assert.equal((await api(`/transactions/${serverId}`, { token })).body.amount, 300);
     });

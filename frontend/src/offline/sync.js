@@ -14,7 +14,10 @@ import { db } from './db';
 import { apiRequest } from '@/lib/apiRequest';
 import { getSession } from '@/auth/tokenStorage';
 
-/** Evento en `window`: `detail` es `{ pending, syncing, synced?, rejected? }`. */
+/**
+ * Evento en `window`: `detail` es `{ pending, syncing, synced?, rejected?, conflicts? }`.
+ * `conflicts` trae lo que resolvió el servidor (`server_wins`/`client_wins`, con `serverVersion`).
+ */
 export const SYNC_EVENT = 'fintrack:sync';
 
 /** Etiqueta de Background Sync; el service worker la recibe en `public/push-sw.js`. */
@@ -27,6 +30,8 @@ const FIELD_LABELS = {
   type: 'Tipo',
   date: 'Fecha',
   category: 'Categoría',
+  serverId: 'Movimiento',
+  updatedAt: 'Hora del cambio',
 };
 
 /** Máximo de operaciones por lote que acepta el servidor (contrato). */
@@ -34,6 +39,8 @@ const MAX_BATCH = 200;
 
 /** Envío en curso: si se pide otro a la vez, se comparte el mismo. */
 let running = null;
+/** `localId` de las operaciones del lote que se está enviando: no se modifican mientras tanto. */
+const sending = new Set();
 
 /** Esperas antes de reintentar si el envío falla con pendientes (servidor caído, 429…). */
 const RETRY_DELAYS_MS = [5_000, 15_000, 60_000];
@@ -103,6 +110,83 @@ export async function queueCreate(values, localId = crypto.randomUUID()) {
 }
 
 /**
+ * Guarda una edición hecha sin conexión y la aplica de una vez a la copia local.
+ * Varias ediciones del mismo movimiento se juntan en una sola operación.
+ * @param {import('./db').CachedTransaction} current Cómo está el movimiento ahora.
+ * @param {object} changes Solo los campos que cambian.
+ * @returns {Promise<void>}
+ */
+export async function queueUpdate(current, changes) {
+  const userId = currentUserId();
+  if (!userId) throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
+
+  // Sin categoría la IA la sugiere al sincronizar; mientras tanto se ve "Sin clasificar".
+  const source = 'category' in changes ? (changes.category ? 'manual' : 'sin_clasificar') : current.source;
+  const preview = { ...current, ...changes, source };
+  const updatedAt = new Date().toISOString();
+  // Se junta con una edición anterior solo si no se está enviando: si no, el servidor confirmaría
+  // la versión vieja y se borraría de la cola con el cambio nuevo adentro.
+  const earlier = (await listPending()).find(
+    (o) => o.op === 'update' && o.serverId === current.id && !o.rejected && !sending.has(o.localId),
+  );
+
+  await db.transaction('rw', db.pending, db.transactions, async () => {
+    if (earlier) {
+      await db.pending.update(earlier.localId, {
+        transaction: { ...earlier.transaction, ...changes },
+        updatedAt,
+        preview,
+      });
+    } else {
+      await db.pending.add({
+        localId: crypto.randomUUID(),
+        userId,
+        op: 'update',
+        serverId: current.id,
+        transaction: changes,
+        updatedAt,
+        preview,
+        original: current,
+        createdAt: updatedAt,
+      });
+    }
+    await db.transactions.put({ ...preview, userId });
+  });
+  await announce();
+  requestBackgroundSync();
+}
+
+/**
+ * Guarda una eliminación hecha sin conexión y quita el movimiento de la copia local.
+ * Si había una edición pendiente de ese movimiento, ya no hace falta enviarla.
+ * @param {import('./db').CachedTransaction} current
+ * @returns {Promise<void>}
+ */
+export async function queueDelete(current) {
+  const userId = currentUserId();
+  if (!userId) throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
+
+  const updatedAt = new Date().toISOString();
+  const edits = (await listPending()).filter((o) => o.op === 'update' && o.serverId === current.id);
+  await db.transaction('rw', db.pending, db.transactions, async () => {
+    await db.pending.bulkDelete(edits.map((o) => o.localId));
+    await db.pending.add({
+      localId: crypto.randomUUID(),
+      userId,
+      op: 'delete',
+      serverId: current.id,
+      updatedAt,
+      preview: current,
+      original: edits[0]?.original ?? current,
+      createdAt: updatedAt,
+    });
+    await db.transactions.delete(current.id);
+  });
+  await announce();
+  requestBackgroundSync();
+}
+
+/**
  * Envía la cola al servidor y trae lo que cambió allá. Sin conexión o sin sesión no hace nada.
  * @returns {Promise<void>}
  */
@@ -123,7 +207,12 @@ export function syncNow() {
  * @returns {Promise<void>}
  */
 export async function discardPending(localId) {
-  await db.pending.delete(localId);
+  const op = await db.pending.get(localId);
+  await db.transaction('rw', db.pending, db.transactions, async () => {
+    await db.pending.delete(localId);
+    // Edición o borrado rechazado: la copia local vuelve a como estaba antes del cambio.
+    if (op?.original) await db.transactions.put({ ...op.original, userId: op.userId });
+  });
   await announce();
 }
 
@@ -170,14 +259,28 @@ async function doSync() {
 
   const metaKey = `lastSyncedAt:${userId}`;
   const lastSyncedAt = (await db.meta.get(metaKey))?.value ?? null;
+  queue.forEach((o) => sending.add(o.localId));
+  try {
+    return await sendBatch(userId, queue, metaKey, lastSyncedAt);
+  } finally {
+    sending.clear();
+  }
+}
 
+/** Envía un lote a `/sync/batch` y aplica la respuesta a la cola y a la copia local. */
+async function sendBatch(userId, queue, metaKey, lastSyncedAt) {
   let result;
   try {
     result = await apiRequest('/sync/batch', {
       method: 'POST',
       body: {
         lastSyncedAt,
-        operations: queue.map(({ op, localId, transaction }) => ({ op, localId, transaction })),
+        operations: queue.map(({ op, localId, transaction, serverId, updatedAt }) => ({
+          op,
+          localId,
+          ...(transaction && { transaction }),
+          ...(serverId && { serverId, updatedAt }),
+        })),
       },
     });
   } catch (err) {
@@ -216,19 +319,33 @@ async function doSync() {
   retries = 0;
   clearTimeout(retryTimer);
 
-  const confirmed = result.synced.map((s) => s.localId);
-  // Lo creado en este lote no vuelve en `serverChanges`: se toma de `synced[].transaction`.
-  const created = result.synced.map((s) => s.transaction).filter(Boolean);
-  const changes = [...created, ...result.serverChanges];
+  // Con conflicto el servidor ya decidió (last-write-wins): esas operaciones también salen de la cola.
+  const confirmed = [...result.synced, ...result.conflicts].map((s) => s.localId);
+  // Lo de este lote no vuelve en `serverChanges`: se toma de `synced[].transaction` (create y update)
+  // y de `conflicts[].serverVersion` (la versión que quedó en el servidor).
+  const changes = [
+    ...result.synced.map((s) => s.transaction).filter(Boolean),
+    ...result.conflicts.map((c) => c.serverVersion).filter(Boolean),
+    ...result.serverChanges,
+  ];
+  // Borradas: los conflictos sin versión (ya no existen) y lo que llega con `deletedAt`.
+  // (Un `delete` propio ya se quitó de la copia en `queueDelete`.)
+  const gone = [
+    ...result.conflicts.filter((c) => !c.serverVersion).map((c) => c.serverId),
+    ...changes.filter((t) => t.deletedAt).map((t) => t.id),
+  ];
   await db.transaction('rw', db.pending, db.meta, db.transactions, async () => {
     await db.pending.bulkDelete(confirmed);
     await db.transactions.bulkPut(
       changes.filter((t) => !t.deletedAt).map((t) => ({ ...t, userId })),
     );
-    await db.transactions.bulkDelete(changes.filter((t) => t.deletedAt).map((t) => t.id));
+    await db.transactions.bulkDelete(gone);
     await db.meta.put({ key: metaKey, value: result.syncedAt });
   });
-  if (confirmed.length > 0) await announce({ synced: result.synced });
+  // `conflicts` va en el evento para que la interfaz pueda avisarle al usuario (tarea de David).
+  if (confirmed.length > 0) {
+    await announce({ synced: result.synced, ...(result.conflicts.length && { conflicts: result.conflicts }) });
+  }
 
   // Si había más de un lote, se envía el siguiente.
   if (queue.length === MAX_BATCH) return doSync();

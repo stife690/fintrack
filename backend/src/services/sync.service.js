@@ -13,8 +13,8 @@ import * as transactions from './transactions.service.js';
 /**
  * @typedef {object} SyncResult
  * @property {Array<{ localId: string, serverId: string, transaction?: TransactionRecord }>} synced
- *   Operaciones aplicadas sin conflicto. Los `create` traen la transacción guardada, porque no
- *   vuelven en `serverChanges` y el dispositivo necesita la categoría que le quedó.
+ *   Operaciones aplicadas sin conflicto. Los `create` y `update` traen la transacción guardada,
+ *   porque no vuelven en `serverChanges` y el dispositivo necesita la categoría que le quedó.
  * @property {Array<{ localId: string, serverId: string, resolution: 'server_wins'|'client_wins', serverVersion: TransactionRecord|null }>} conflicts Operaciones que chocaron con un cambio del servidor.
  * @property {TransactionRecord[]} serverChanges Lo que cambió en el servidor desde `lastSyncedAt`.
  * @property {Date} syncedAt Hora del servidor para la próxima sincronización.
@@ -81,7 +81,7 @@ async function applyCreate(userId, { localId, transaction }, aiQuota) {
  * @param {TransactionRecord|null} current Versión actual en el servidor.
  * @param {Date|null} lastSyncedAt
  * @param {Set<string>} touched Ids ya modificados por este mismo lote: no cuentan como cambio del servidor.
- * @returns {Promise<{ synced?: { localId: string, serverId: string }, conflict?: object, touched?: string }>}
+ * @returns {Promise<{ synced?: { localId: string, serverId: string, transaction?: TransactionRecord }, conflict?: object, touched?: string }>}
  */
 async function applyChange(userId, operation, current, lastSyncedAt, touched) {
   const { localId, serverId } = operation;
@@ -109,13 +109,15 @@ async function applyChange(userId, operation, current, lastSyncedAt, touched) {
     };
   }
 
+  // En `update` se devuelve la versión final: el servidor pudo recalcular la categoría con IA.
+  let transaction;
   if (operation.op === 'update') {
-    await transactions.update(userId, serverId, operation.transaction);
+    transaction = await transactions.update(userId, serverId, operation.transaction);
   } else {
     await transactions.remove(userId, serverId);
   }
 
-  if (!changedOnServer) return { synced: { localId, serverId }, touched: serverId };
+  if (!changedOnServer) return { synced: { localId, serverId, transaction }, touched: serverId };
   return {
     conflict: {
       localId,

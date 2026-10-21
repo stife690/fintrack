@@ -40,6 +40,9 @@ services:
       # Dentro de la red de Docker la BD se llama `db` y usa su puerto interno 5432.
       DATABASE_URL: postgresql://fintrack:fintrack_dev@db:5432/fintrack
       CORS_ORIGIN: http://localhost:5173
+      # Registros/logins por IP cada 15 min. La batería `npm run test:sync` crea un usuario por caso:
+      # AUTH_RATE_LIMIT_MAX=100 docker compose up -d backend
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
     ports:
       - "3000:3000"
 

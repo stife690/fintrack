@@ -17,6 +17,8 @@ import {
   listCached,
   listPending,
   queueCreate,
+  queueDelete,
+  queueUpdate,
   uncacheTransaction,
 } from '@/offline/sync';
 import {
@@ -90,26 +92,34 @@ function PendingList({ operations, onError }) {
         Pendientes de sincronizar ({waiting})
       </h3>
       <ul className="mt-2 divide-y divide-ink/10">
-        {operations.map(({ localId, transaction: t, rejected }) => (
-          <li key={localId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm">
-            <span className="min-w-0 break-words">
-              {t.description} <span className="text-ink/60">· {formatDate(t.date)}</span>
+        {operations.map(({ localId, op, transaction, preview, rejected }) => {
+          // En `update` y `delete` se muestra cómo queda el movimiento, no solo lo que cambió.
+          const t = preview ?? transaction;
+          return (
+            <li key={localId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm">
+              <span className="min-w-0 break-words">
+                {op !== 'create' && (
+                  <span className="mr-1 font-medium">{op === 'delete' ? 'Eliminar:' : 'Editar:'}</span>
+                )}
+                <span className={op === 'delete' ? 'line-through' : undefined}>{t.description}</span>{' '}
+                <span className="text-ink/60">· {formatDate(t.date)}</span>
+                {rejected && (
+                  <span className="block text-negative">No se pudo sincronizar: {rejected}</span>
+                )}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                <span className="sr-only">{t.type === 'ingreso' ? 'Ingreso de ' : 'Gasto de '}</span>
+                <span aria-hidden="true">{t.type === 'ingreso' ? '+' : '−'}</span>
+                {formatMoney(t.amount)}
+              </span>
               {rejected && (
-                <span className="block text-negative">No se pudo sincronizar: {rejected}</span>
+                <Button size="sm" variant="outline" onClick={() => discardPending(localId).catch((err) => onError(err.message))}>
+                  Descartar<span className="sr-only"> {t.description}</span>
+                </Button>
               )}
-            </span>
-            <span className="shrink-0 tabular-nums">
-              <span className="sr-only">{t.type === 'ingreso' ? 'Ingreso de ' : 'Gasto de '}</span>
-              <span aria-hidden="true">{t.type === 'ingreso' ? '+' : '−'}</span>
-              {formatMoney(t.amount)}
-            </span>
-            {rejected && (
-              <Button size="sm" variant="outline" onClick={() => discardPending(localId).catch((err) => onError(err.message))}>
-                Descartar<span className="sr-only"> {t.description}</span>
-              </Button>
-            )}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -198,6 +208,8 @@ export default function Transactions() {
         setNotice(n === 1 ? 'Se sincronizó 1 movimiento guardado sin conexión.' : `Se sincronizaron ${n} movimientos guardados sin conexión.`);
         reload();
       }
+      // Conflicto (otro dispositivo cambió el mismo movimiento): la copia ya tiene la versión final.
+      if (detail.conflicts?.length && !detail.synced?.length) reload();
       if (detail.rejected?.length) {
         setError('Un movimiento guardado sin conexión no se pudo sincronizar. Revísalo en "Pendientes de sincronizar".');
       }
@@ -216,7 +228,20 @@ export default function Transactions() {
     if (editing) {
       const changes = diff(editing, values);
       if (Object.keys(changes).length > 0) {
-        const { transaction, alert } = await updateTransaction(editing.id, changes);
+        let updated;
+        try {
+          if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
+          updated = await updateTransaction(editing.id, changes);
+        } catch (err) {
+          if (err.code !== 'NETWORK_ERROR') throw err;
+          await queueUpdate(editing, changes);
+          setBudgetAlert({ alert: null, category: null });
+          setNotice('Cambios guardados sin conexión. Se sincronizarán cuando vuelva internet.');
+          setEditing(null);
+          reload();
+          return;
+        }
+        const { transaction, alert } = updated;
         setBudgetAlert({ alert, category: transaction.category });
         setNotice('Cambios guardados.');
         reload();
@@ -251,10 +276,21 @@ export default function Transactions() {
 
   const handleDelete = async (transaction) => {
     try {
-      await deleteTransaction(transaction.id);
+      let offline = !navigator.onLine;
+      if (!offline) {
+        try {
+          await deleteTransaction(transaction.id);
+        } catch (err) {
+          if (err.code !== 'NETWORK_ERROR') throw err;
+          offline = true;
+        }
+      }
+      if (offline) await queueDelete(transaction);
+      else uncacheTransaction(transaction.id).catch(() => {});
       if (editing?.id === transaction.id) setEditing(null);
-      setNotice('Movimiento eliminado.');
-      uncacheTransaction(transaction.id).catch(() => {});
+      setNotice(
+        offline ? 'Eliminado sin conexión. Se sincronizará cuando vuelva internet.' : 'Movimiento eliminado.',
+      );
       // Si era la última de la página, retrocede una para no quedar en una página vacía.
       if (result.data.length === 1 && page > 1) setPage(page - 1);
       else reload();

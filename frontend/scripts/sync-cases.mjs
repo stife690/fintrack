@@ -13,8 +13,8 @@
  *   CASES=C6,C11 npm run test:sync          # solo algunos casos
  *   CHROME_PATH=/ruta/a/chrome APP_URL=http://localhost:5173 API_URL=http://localhost:3000 npm run test:sync
  *
- * Crea un usuario de prueba por caso (`sync.*@fintrack.dev`), así que usa 12 de los 20 intentos
- * de registro permitidos cada 15 min: para repetirlo enseguida, reinicia el backend local.
+ * Crea un usuario de prueba por caso (`sync.*@fintrack.dev`), 21 en total, y el backend permite
+ * 20 registros cada 15 min: levántalo con `AUTH_RATE_LIMIT_MAX=100 docker compose up -d backend`.
  *
  * Código de salida: 0 = todos los casos pasan, 1 = alguno falló.
  */
@@ -472,6 +472,154 @@ await caso('C15', 'lastSyncedAt dañado en el dispositivo no traba la cola', asy
   await waitPending(page, 0);
   check((await serverRows(s)).length === 1, 'no llegó al servidor');
   return 'el 422 por lastSyncedAt reinicia la fecha y el lote se envía';
+});
+
+
+/** Edita el monto de un movimiento desde la lista (con o sin conexión). */
+async function editAmount(page, description, amount) {
+  await page.bringToFront();
+  await page.click(`button[aria-label="Editar ${description}"]`);
+  await page.$eval('#tx-amount', (e) => e.select());
+  await page.type('#tx-amount', String(amount));
+  await page.click('button[type=submit]');
+  await page.waitForFunction(() => /Cambios guardados/.test(document.body.innerText), { timeout: 8000, polling: 200 });
+}
+
+/** Lee un movimiento del servidor por descripción. */
+async function serverRow(session, description) {
+  return (await serverRows(session, description)).find((r) => r.description === description);
+}
+
+await caso('C16', 'Editar sin conexión: se ve al instante y se sincroniza', async (ctx) => {
+  const s = await newUser('c16');
+  const page = await openApp(ctx, s);
+  await register(page, 'C16 almuerzo', 10000);
+  await page.setOfflineMode(true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+  await editAmount(page, 'C16 almuerzo', 15000);
+  const shown = await page.evaluate(() => document.body.innerText.includes('15.000'));
+  check(shown, 'sin conexión no se ve el monto nuevo');
+  check((await serverRow(s, 'C16 almuerzo')).amount === 10000, 'cambió en el servidor estando offline');
+  await page.setOfflineMode(false);
+  await waitPending(page, 0);
+  check((await serverRow(s, 'C16 almuerzo')).amount === 15000, 'la edición no llegó al servidor');
+  return 'sin red se ve 15.000 al instante; al conectar el servidor queda en 15.000';
+});
+
+await caso('C17', 'Eliminar sin conexión: desaparece y se sincroniza', async (ctx) => {
+  const s = await newUser('c17');
+  const page = await openApp(ctx, s);
+  await register(page, 'C17 cine');
+  await page.setOfflineMode(true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+  await page.click('button[aria-label="Eliminar C17 cine"]');
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Sí, eliminar').click());
+  await page.waitForFunction(() => /Eliminado sin conexión/.test(document.body.innerText), { timeout: 8000 });
+  check((await serverRows(s)).length === 1, 'se borró en el servidor estando offline');
+  await page.setOfflineMode(false);
+  await waitPending(page, 0);
+  check((await serverRows(s)).length === 0, 'el borrado no llegó al servidor');
+  return 'sin red se marca para eliminar; al conectar se borra en el servidor';
+});
+
+await caso('C18', 'Conflicto: otro dispositivo editó después (gana el servidor)', async () => {
+  const s = await newUser('c18');
+  const phone = await browser.createBrowserContext();
+  const laptop = await browser.createBrowserContext();
+  try {
+    const a = await openApp(phone, s);
+    await register(a, 'C18 mercado', 10000);
+    const b = await openApp(laptop, s);
+    await a.setOfflineMode(true);
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await a.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+    await editAmount(a, 'C18 mercado', 20000); // celular sin red
+    await sleep(1100);
+    await editAmount(b, 'C18 mercado', 30000); // computador con red, más tarde
+    const conflicts = a.evaluate(
+      (event) =>
+        new Promise((res) => window.addEventListener(event, (e) => e.detail.conflicts && res(e.detail.conflicts))),
+      'fintrack:sync',
+    );
+    await a.setOfflineMode(false);
+    const [conflict] = await Promise.race([conflicts, sleep(10000).then(() => [])]);
+    check(conflict?.resolution === 'server_wins', `resolución: ${conflict?.resolution ?? 'sin evento de conflicto'}`);
+    check((await serverRow(s, 'C18 mercado')).amount === 30000, 'el servidor no conservó la edición más reciente');
+    await a.waitForFunction(() => document.body.innerText.includes('30.000'), { timeout: 8000 });
+    return 'server_wins: queda 30.000 en el servidor y en el celular; el evento trae el conflicto';
+  } finally {
+    await phone.close();
+    await laptop.close();
+  }
+});
+
+await caso('C19', 'Conflicto: el dispositivo editó después (gana el dispositivo)', async () => {
+  const s = await newUser('c19');
+  const phone = await browser.createBrowserContext();
+  const laptop = await browser.createBrowserContext();
+  try {
+    const a = await openApp(phone, s);
+    await register(a, 'C19 taxi', 10000);
+    const b = await openApp(laptop, s);
+    await editAmount(b, 'C19 taxi', 30000); // computador con red, primero
+    await sleep(1100);
+    await a.setOfflineMode(true);
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await a.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+    await editAmount(a, 'C19 taxi', 20000); // celular sin red, más tarde
+    await a.setOfflineMode(false);
+    await waitPending(a, 0);
+    check((await serverRow(s, 'C19 taxi')).amount === 20000, 'no ganó la edición más reciente (la del celular)');
+    return 'client_wins: queda 20.000, la edición más reciente';
+  } finally {
+    await phone.close();
+    await laptop.close();
+  }
+});
+
+await caso('C20', 'Edición sin conexión rechazada: al descartarla, la copia vuelve a como estaba', async (ctx) => {
+  const s = await newUser('c20');
+  const page = await openApp(ctx, s);
+  await register(page, 'C20 parqueadero', 4000);
+  const row = await serverRow(s, 'C20 parqueadero');
+  await page.setOfflineMode(true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+  // Una edición que el servidor rechaza (monto negativo), como la dejaría un dispositivo viejo.
+  const bad = { ...row, amount: -1 };
+  await idbPut(page, 'pending', {
+    localId: crypto.randomUUID(),
+    userId: s.user.id,
+    op: 'update',
+    serverId: row.id,
+    transaction: { amount: -1 },
+    updatedAt: new Date().toISOString(),
+    preview: bad,
+    original: row,
+    createdAt: new Date().toISOString(),
+  });
+  await idbPut(page, 'transactions', { ...bad, userId: s.user.id });
+  await page.setOfflineMode(false);
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForFunction(() => document.body.innerText.includes('No se pudo sincronizar'), { timeout: 10000 });
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.startsWith('Descartar')).click());
+  await waitPending(page, 0);
+  const cached = await page.evaluate(
+    (id) =>
+      new Promise((res) => {
+        const req = indexedDB.open('fintrack');
+        req.onsuccess = () => {
+          const g = req.result.transaction('transactions').objectStore('transactions').get(id);
+          g.onsuccess = () => res(g.result?.amount);
+        };
+      }),
+    row.id,
+  );
+  check(cached === 4000, `la copia local quedó con ${cached}`);
+  check((await serverRow(s, 'C20 parqueadero')).amount === 4000, 'cambió en el servidor');
+  return 'rechazada → Descartar → la copia local vuelve a 4.000';
 });
 
 await browser.close();
