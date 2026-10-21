@@ -5,6 +5,9 @@
  * envía la cola en un lote → lo que el servidor confirma en `synced` se borra de la cola.
  * Si la respuesta se pierde, reenviar el mismo `localId` no duplica (el servidor lo reconoce).
  *
+ * `syncNow` también trae lo que cambió en el servidor (`serverChanges`) aunque no haya pendientes,
+ * y lo guarda en la copia local del historial (`db.transactions`) para poder verlo sin conexión.
+ *
  * Cada cambio se anuncia en `window` con `SYNC_EVENT` para que la interfaz se actualice.
  */
 import { db } from './db';
@@ -78,7 +81,7 @@ export async function queueCreate(values) {
 }
 
 /**
- * Envía la cola al servidor. Sin conexión, sin sesión o sin pendientes no hace nada.
+ * Envía la cola al servidor y trae lo que cambió allá. Sin conexión o sin sesión no hace nada.
  * @returns {Promise<void>}
  */
 export function syncNow() {
@@ -89,13 +92,46 @@ export function syncNow() {
   return running;
 }
 
+/**
+ * Guarda en la copia local una transacción que el servidor acaba de devolver (crear o editar con
+ * conexión), sin pedir otra sincronización: `/sync/batch` comparte el límite de 30 peticiones
+ * por minuto con crear y editar.
+ * @param {import('./db').CachedTransaction} transaction
+ * @returns {Promise<void>}
+ */
+export async function cacheTransaction(transaction) {
+  const userId = currentUserId();
+  if (userId) await db.transactions.put({ ...transaction, userId });
+}
+
+/**
+ * Borra la copia del historial de un usuario al cerrar sesión, para no dejar sus datos en un
+ * dispositivo compartido. La cola `pending` se conserva: son movimientos que aún no llegan al
+ * servidor y se envían cuando ese usuario vuelva a entrar.
+ * @param {string} userId
+ * @returns {Promise<void>}
+ */
+export async function clearCachedHistory(userId) {
+  await db.transactions.where('userId').equals(userId).delete();
+  await db.meta.delete(`lastSyncedAt:${userId}`);
+}
+
+/**
+ * Quita de la copia local una transacción eliminada con conexión.
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+export function uncacheTransaction(id) {
+  return db.transactions.delete(id);
+}
+
 async function doSync() {
   const userId = currentUserId();
   if (!userId || !navigator.onLine) return;
 
+  // Sin pendientes se envía un lote vacío: sirve para traer los cambios del servidor.
   const queue = (await listPending()).slice(0, MAX_BATCH);
-  if (queue.length === 0) return;
-  await announce();
+  if (queue.length > 0) await announce();
 
   const metaKey = `lastSyncedAt:${userId}`;
   const lastSyncedAt = (await db.meta.get(metaKey))?.value ?? null;
@@ -124,11 +160,18 @@ async function doSync() {
   }
 
   const confirmed = result.synced.map((s) => s.localId);
-  await db.transaction('rw', db.pending, db.meta, async () => {
+  // Lo creado en este lote no vuelve en `serverChanges`: se toma de `synced[].transaction`.
+  const created = result.synced.map((s) => s.transaction).filter(Boolean);
+  const changes = [...created, ...result.serverChanges];
+  await db.transaction('rw', db.pending, db.meta, db.transactions, async () => {
     await db.pending.bulkDelete(confirmed);
+    await db.transactions.bulkPut(
+      changes.filter((t) => !t.deletedAt).map((t) => ({ ...t, userId })),
+    );
+    await db.transactions.bulkDelete(changes.filter((t) => t.deletedAt).map((t) => t.id));
     await db.meta.put({ key: metaKey, value: result.syncedAt });
   });
-  await announce({ synced: result.synced });
+  if (confirmed.length > 0) await announce({ synced: result.synced });
 
   // Si había más de un lote, se envía el siguiente.
   if (queue.length === MAX_BATCH) return doSync();
@@ -146,4 +189,33 @@ function rejectedIndexes(fields) {
     .filter((i) => i !== undefined)
     .map(Number);
   return [...new Set(indexes)];
+}
+
+/**
+ * Historial guardado en el dispositivo, con los mismos filtros, orden y paginación que
+ * `GET /transactions`. Se usa cuando no hay conexión.
+ * @param {{ type?: string, category?: string, q?: string, from?: string, to?: string, page?: number, pageSize?: number }} [filters]
+ * @returns {Promise<{ data: import('./db').CachedTransaction[], page: number, pageSize: number, total: number, syncedAt: string|null }>}
+ */
+export async function listCached({ type, category, q, from, to, page = 1, pageSize = 20 } = {}) {
+  const userId = currentUserId();
+  if (!userId) return { data: [], page, pageSize, total: 0, syncedAt: null };
+
+  const text = q?.toLowerCase();
+  const rows = (await db.transactions.where('userId').equals(userId).toArray())
+    .filter((t) => !type || t.type === type)
+    .filter((t) => !category || t.category === category)
+    .filter((t) => !text || t.description.toLowerCase().includes(text))
+    .filter((t) => !from || t.date >= from)
+    .filter((t) => !to || t.date <= to)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+
+  const syncedAt = (await db.meta.get(`lastSyncedAt:${userId}`))?.value ?? null;
+  return {
+    data: rows.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pageSize,
+    total: rows.length,
+    syncedAt,
+  };
 }

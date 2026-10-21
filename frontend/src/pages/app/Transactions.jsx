@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CloudUpload, Download, Loader2 } from 'lucide-react';
+import { CloudUpload, Download, Loader2, WifiOff } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
@@ -10,7 +10,14 @@ import TransactionList from '@/components/transactions/TransactionList';
 import { formatDate, formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
-import { SYNC_EVENT, listPending, queueCreate } from '@/offline/sync';
+import {
+  SYNC_EVENT,
+  cacheTransaction,
+  listCached,
+  listPending,
+  queueCreate,
+  uncacheTransaction,
+} from '@/offline/sync';
 import {
   createTransaction,
   deleteTransaction,
@@ -49,6 +56,24 @@ function savedMessage(saved, names) {
   }
   const name = names[saved.category] ?? saved.category;
   return saved.source === 'ia' ? `Guardado en ${name} (sugerida por IA).` : `Guardado en ${name}.`;
+}
+
+/**
+ * Aviso de que el historial viene de la copia guardada en el dispositivo (FT-0009).
+ * @param {{ syncedAt: string }} props Hora ISO de la última actualización, o `''` si nunca se llenó.
+ */
+function CachedNotice({ syncedAt }) {
+  const when =
+    syncedAt &&
+    new Date(syncedAt).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return (
+    <p className="mt-2 flex items-start gap-2 rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
+      <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      {when
+        ? `Sin conexión: ves la copia guardada en este dispositivo (actualizada el ${when}).`
+        : 'Sin conexión: ves lo que está guardado en este dispositivo.'}
+    </p>
+  );
 }
 
 /**
@@ -102,6 +127,9 @@ export default function Transactions() {
   const [budgetAlert, setBudgetAlert] = useState({ alert: null, category: null }); // FT-0006
   const [version, setVersion] = useState(0); // se incrementa para forzar la recarga del listado
   const [pending, setPending] = useState([]);
+  // Sin conexión se muestra la copia guardada en el dispositivo: hora de su última actualización
+  // (`''` si nunca se ha llenado) o `null` cuando la lista viene del servidor.
+  const [cachedAt, setCachedAt] = useState(null);
 
   const categoryNames = useMemo(
     () => Object.fromEntries([...categories.expense, ...categories.income].map((c) => [c.key, c.name])),
@@ -117,13 +145,25 @@ export default function Transactions() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listTransactions({ ...filters, page, pageSize: PAGE_SIZE })
+    const query = { ...filters, page, pageSize: PAGE_SIZE };
+    listTransactions(query)
       .then((res) => {
         if (cancelled) return;
         setResult(res);
+        setCachedAt(null);
         setError('');
       })
-      .catch((err) => !cancelled && setError(err.message))
+      .catch(async (err) => {
+        if (cancelled) return;
+        if (err.code !== 'NETWORK_ERROR') return setError(err.message);
+        // Sin conexión: la copia del historial guardada en el dispositivo (FT-0009).
+        const cached = await listCached(query).catch(() => null);
+        if (cancelled) return;
+        if (!cached) return setError(err.message); // IndexedDB no disponible: error original
+        setResult(cached);
+        setCachedAt(cached.syncedAt ?? '');
+        setError('');
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -131,6 +171,12 @@ export default function Transactions() {
   }, [filters, page, version]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Al volver la conexión, la lista se vuelve a pedir al servidor.
+  useEffect(() => {
+    window.addEventListener('online', reload);
+    return () => window.removeEventListener('online', reload);
+  }, [reload]);
 
   // La cola offline cambia al registrar sin conexión y cuando una sincronización termina.
   useEffect(() => {
@@ -164,6 +210,8 @@ export default function Transactions() {
         setBudgetAlert({ alert, category: transaction.category });
         setNotice('Cambios guardados.');
         reload();
+        // La copia local es un respaldo: si falla, se corrige en la próxima sincronización.
+        cacheTransaction(transaction).catch(() => {});
       }
       setEditing(null);
       return;
@@ -185,6 +233,7 @@ export default function Transactions() {
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
+    cacheTransaction(saved).catch(() => {});
   };
 
   const handleDelete = async (transaction) => {
@@ -192,6 +241,7 @@ export default function Transactions() {
       await deleteTransaction(transaction.id);
       if (editing?.id === transaction.id) setEditing(null);
       setNotice('Movimiento eliminado.');
+      uncacheTransaction(transaction.id).catch(() => {});
       // Si era la última de la página, retrocede una para no quedar en una página vacía.
       if (result.data.length === 1 && page > 1) setPage(page - 1);
       else reload();
@@ -251,6 +301,7 @@ export default function Transactions() {
           <p role="status" className="mt-4 min-h-5 text-sm text-positive">
             {notice}
           </p>
+          {cachedAt !== null && <CachedNotice syncedAt={cachedAt} />}
           {pending.length > 0 && <PendingList operations={pending} />}
           {error && (
             <p role="alert" className="mt-2 text-sm text-negative">

@@ -134,6 +134,7 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 
 - Si no hay red (o el servidor no responde), el movimiento nuevo queda en el dispositivo y aparece en *Pendientes de sincronizar*.
 - Reenviar un lote no duplica: cada operación lleva un `localId` que el servidor reconoce.
+- **Copia local del historial** (`db.transactions`): se llena al abrir la app y al volver la conexión con `serverChanges` de `/sync/batch` (un lote vacío, que no cuenta para el límite de la IA), y con la respuesta de cada crear/editar/eliminar. Sin red, Movimientos muestra esa copia con un aviso. Al cerrar sesión se borra (la cola de pendientes no).
 - La sesión vive en `localStorage`, que el service worker no puede leer; por eso el envío lo hace la app abierta. Con la app cerrada, se sincroniza la próxima vez que se abra.
 - Por ahora solo se registran movimientos **nuevos** sin conexión; editar o eliminar sigue necesitando internet.
 

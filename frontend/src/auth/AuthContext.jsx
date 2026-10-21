@@ -41,8 +41,12 @@ export function AuthProvider({ children }) {
     } catch {
       // Si falla (sin conexión o token vencido), igual cerramos la sesión local.
     }
+    const userId = getSession()?.user?.id;
     clearSession();
     setUser(null);
+    // Import dinámico: Dexie no entra al bundle inicial. Si falla, el historial queda en el
+    // dispositivo, pero la sesión igual se cierra.
+    if (userId) import('@/offline/sync').then((m) => m.clearCachedHistory(userId)).catch(() => {});
   }
 
   /**
