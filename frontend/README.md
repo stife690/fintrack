@@ -137,6 +137,8 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 - La sesión vive en `localStorage`, que el service worker no puede leer; por eso el envío lo hace la app abierta. Con la app cerrada, se sincroniza la próxima vez que se abra.
 - Por ahora solo se registran movimientos **nuevos** sin conexión; editar o eliminar sigue necesitando internet.
 
+Casos de prueba con conexión intermitente y resultados: [`docs/pruebas-sincronizacion.md`](../docs/pruebas-sincronizacion.md).
+
 **Cómo verificarlo:** `npm run build && npm run preview`, inicia sesión, en DevTools → **Network** marca *Offline* y registra un gasto: aparece como pendiente (DevTools → **Application → IndexedDB → fintrack**). Quita *Offline*: se envía solo y aparece en el historial.
 
 ## Estado vacío del inicio (FT-0004)
