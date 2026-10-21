@@ -4,7 +4,7 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 **Resultado: 20 de 20 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
 
-> C18 y C19 se ampliaron después con el aviso de conflicto al usuario (FT-0009) y están **pendientes de volver a ejecutarse**: `CASES=C18,C19 npm run test:sync`.
+> **2026-10-21:** C18 y C19 se ampliaron con el aviso de conflicto al usuario (FT-0009) y pasan: `CASES=C16,C18,C19 npm run test:sync` dio 3 de 3. En la batería completa hubo una corrida de 17 de 20 por la falla intermitente descrita en *Límites conocidos*, que también ocurre en `main`.
 
 ## Entorno
 
@@ -66,13 +66,14 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 | C15 | [FT-0009] Bug: la cola queda trabada si el 422 no apunta a una operación | Corregido |
 | C16 | Editar sin conexión | Con red, registrar un gasto de 10.000. Quitar la red, recargar y editarlo a 15.000. Conectar. | Sin red se ve 15.000 al instante; al conectar el servidor queda en 15.000. | ✅ Pasa |
 | C17 | Eliminar sin conexión | Con red, registrar. Quitar la red, recargar y eliminarlo. Conectar. | Sin red desaparece y queda como "Eliminar" en Pendientes; al conectar se borra en el servidor. | ✅ Pasa |
-| C18 | Conflicto: gana el servidor | El celular, sin red, edita a 20.000. Después el computador, con red, edita a 30.000. El celular se conecta. | Gana la edición más reciente (30.000) en el servidor y en el celular; el evento `fintrack:sync` trae el conflicto `server_wins`. Se avisa al usuario: franja "1 cambio tuyo no se aplicó…" y detalle en Movimientos; el aviso sobrevive a recargar y se quita con **Entendido**. | ⏳ Re-ejecutar (se amplió con el aviso) |
-| C19 | Conflicto: gana el dispositivo | El computador edita a 30.000. Después el celular, sin red, edita a 20.000 y se conecta. | Gana la más reciente (20.000). El aviso es informativo: "…se resolvió a tu favor". | ⏳ Re-ejecutar (se amplió con el aviso) |
+| C18 | Conflicto: gana el servidor | El celular, sin red, edita a 20.000. Después el computador, con red, edita a 30.000. El celular se conecta. | Gana la edición más reciente (30.000) en el servidor y en el celular; el evento `fintrack:sync` trae el conflicto `server_wins`. Se avisa al usuario: franja "1 cambio tuyo no se aplicó…" y detalle en Movimientos; el aviso sobrevive a recargar y se quita con **Entendido**. | ✅ Pasa |
+| C19 | Conflicto: gana el dispositivo | El computador edita a 30.000. Después el celular, sin red, edita a 20.000 y se conecta. | Gana la más reciente (20.000). El aviso es informativo: "…se resolvió a tu favor". | ✅ Pasa |
 | C20 | Edición rechazada y descartada | En la cola hay una edición que el servidor rechaza (monto negativo). Conectar y tocar Descartar. | La copia local vuelve a como estaba (4.000); el servidor no cambia. | ✅ Pasa |
 
 ## Límites conocidos (no son fallas de estos casos)
 
 - La hora del cambio la pone el dispositivo y el servidor la compara con la suya (last-write-wins): si el reloj del celular está muy desfasado, puede ganar la edición equivocada.
+- **Falla intermitente sin resolver:** a veces la edición sin conexión no se guarda (el formulario tiene el monto nuevo, pero la cola queda vacía y no aparece "Cambios guardados"). Afecta a los casos que editan sin red (C16, C18, C19) y se vio una vez en C3. En `main`, C16 falló 3 de 6 corridas, así que no la introdujo el aviso de conflicto. Para diagnosticar: `STACK=1` muestra la línea del script y `CONSOLE=1` la consola del navegador.
 - El aviso de conflicto lo ve el usuario solo en el dispositivo donde ocurrió: se guarda en IndexedDB (`meta`, llave `conflicts:<userId>`), no en el servidor. Si cierra sesión, se conserva hasta que vuelva a entrar y toque **Entendido**.
 - Con la app **cerrada** no se sincroniza: se envía al volver a abrirla. El service worker no puede leer la sesión, que está en `localStorage`.
 - Background Sync existe solo en navegadores basados en Chromium. En Safari y Firefox, la sincronización depende del evento `online` mientras la app está abierta.
