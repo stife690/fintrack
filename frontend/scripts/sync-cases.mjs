@@ -10,6 +10,7 @@
  *
  * Uso (desde `frontend/`):
  *   npm run test:sync
+ *   CASES=C6,C11 npm run test:sync          # solo algunos casos
  *   CHROME_PATH=/ruta/a/chrome APP_URL=http://localhost:5173 API_URL=http://localhost:3000 npm run test:sync
  *
  * Crea un usuario de prueba por caso (`sync.*@fintrack.dev`), así que usa 12 de los 20 intentos
@@ -30,6 +31,8 @@ const APP = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
 const API = `${(process.env.API_URL || 'http://localhost:3000').replace(/\/$/, '')}/api/v1`;
 const PASSWORD = 'prueba1234';
 const results = [];
+/** Respuestas 429 (límite de peticiones) vistas en el caso actual: explican fallos por tiempo de espera. */
+let rateLimited = 0;
 
 const post = (path, body, token) =>
   fetch(API + path, {
@@ -67,6 +70,7 @@ const browser = await puppeteer.launch({
 async function openApp(context, session, path = '/app/transacciones') {
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log('   [pageerror]', e.message));
+  page.on('response', (r) => r.status() === 429 && rateLimited++);
   await page.goto(`${APP}/login`);
   await page.evaluate((s) => localStorage.setItem('fintrack.session', JSON.stringify(s)), session);
   await page.goto(APP + path, { waitUntil: 'networkidle0' });
@@ -117,15 +121,21 @@ const waitPending = (page, n, timeout = 10000) =>
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** `CASES=C6,C11 npm run test:sync` corre solo esos casos (útil al corregir un bug). */
+const only = process.env.CASES?.split(',').map((c) => c.trim());
+
 async function caso(id, name, fn) {
+  if (only && !only.includes(id)) return;
   const context = await browser.createBrowserContext();
+  rateLimited = 0;
   try {
     const detail = await fn(context);
     results.push({ id, name, ok: true, detail });
     console.log(`✓ ${id} ${name}\n   ${detail}`);
   } catch (err) {
-    results.push({ id, name, ok: false, detail: err.message });
-    console.log(`✗ ${id} ${name}\n   ${err.message}`);
+    const detail = rateLimited ? `${err.message} (${rateLimited} respuestas 429 del servidor)` : err.message;
+    results.push({ id, name, ok: false, detail });
+    console.log(`✗ ${id} ${name}\n   ${detail}`);
   } finally {
     await context.close();
   }
@@ -365,6 +375,51 @@ await caso('C11', 'Operación rechazada (422) en la cola (bug 86e3u5wnf)', async
   const lost = !rows.some((r) => r.description === 'C11 categoría vieja');
   check(rows.length === 2, `el válido llegó, pero "C11 categoría vieja" ${lost ? 'se borró de la cola y se perdió' : 'no llegó'} (servidor: ${rows.length})`);
   return 'llegaron los dos';
+});
+
+await caso('C12', 'Historial visible sin conexión (copia local), con filtros', async (ctx) => {
+  const s = await newUser('c12');
+  const page = await openApp(ctx, s);
+  await register(page, 'C12 sueldo');
+  await register(page, 'C12 arriendo');
+  await sleep(1500); // la copia local se actualiza después de cada cambio
+  await page.setOfflineMode(true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+  const both = await page.evaluate(
+    () => document.body.innerText.includes('C12 sueldo') && document.body.innerText.includes('C12 arriendo'),
+  );
+  check(both, 'sin conexión no se ven los dos movimientos del historial');
+  // Los dos son gastos: con el filtro "Ingresos" la copia local no debe mostrar ninguno.
+  await page.evaluate(() =>
+    [...document.querySelectorAll('label')].find((l) => l.textContent.trim() === 'Ingresos').click(),
+  );
+  await page.waitForFunction(() => document.body.innerText.includes('Ningún movimiento coincide'), {
+    timeout: 5000,
+  });
+  return 'sin red se ve el historial desde la copia local, con aviso, y el filtro por tipo funciona';
+});
+
+await caso('C13', 'Un movimiento creado en otro dispositivo llega a la copia local', async () => {
+  const s = await newUser('c13');
+  const phone = await browser.createBrowserContext();
+  const laptop = await browser.createBrowserContext();
+  try {
+    const a = await openApp(phone, s);
+    const b = await openApp(laptop, s);
+    await register(b, 'C13 desde el computador');
+    await a.reload({ waitUntil: 'networkidle0' }); // al abrir la app se traen los cambios
+    await sleep(1500);
+    await a.setOfflineMode(true);
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await a.waitForFunction(() => document.body.innerText.includes('copia guardada'), { timeout: 8000 });
+    const seen = await a.evaluate(() => document.body.innerText.includes('C13 desde el computador'));
+    check(seen, 'el celular sin red no tiene el movimiento del computador');
+    return 'el celular trae el cambio al abrir la app y lo muestra después sin conexión';
+  } finally {
+    await phone.close();
+    await laptop.close();
+  }
 });
 
 await browser.close();

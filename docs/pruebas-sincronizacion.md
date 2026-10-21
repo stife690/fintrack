@@ -1,8 +1,8 @@
 # Pruebas de sincronización con conexión intermitente (FT-0009)
 
-Casos de prueba del registro sin conexión y la sincronización con `POST /sync/batch`, ejecutados el **2026-10-20** sobre `main` (`a6ace62`).
+Casos de prueba del registro sin conexión y la sincronización con `POST /sync/batch`, ejecutados el **2026-10-20**. C1–C11 sobre `main` (`a6ace62`); C12 y C13 en la rama de la copia local del historial.
 
-**Resultado: 8 de 11 casos pasan.** Los 3 que fallan son bugs ya registrados en ClickUp como subtareas de *[FT-0009] Pruebas de sincronización con conexión intermitente*.
+**Resultado: 10 de 13 casos pasan.** Los 3 que fallan son bugs ya registrados en ClickUp como subtareas de *[FT-0009] Pruebas de sincronización con conexión intermitente*.
 
 ## Entorno
 
@@ -12,7 +12,7 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 ## Cómo ejecutarlos
 
-Los 11 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
+Los 13 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
 
 ```bash
 docker compose up -d                       # en la raíz
@@ -21,7 +21,7 @@ npm run build && npx vite preview --port 5173 &
 npm run test:sync                          # imprime ✓/✗ por caso; sale con 1 si alguno falla
 ```
 
-Si Chrome no está en la ruta por defecto, indícala con `CHROME_PATH=/ruta/a/chrome npm run test:sync`. Cada ejecución registra 12 usuarios de prueba, y el backend permite 20 registros cada 15 minutos: para repetirla enseguida en local, usa `docker restart fintrack-backend`.
+Para correr solo algunos casos: `CASES=C6,C11 npm run test:sync`. Si un caso falla por tiempo de espera, el script indica si el servidor respondió 429 (límite de peticiones). Si Chrome no está en la ruta por defecto, indícala con `CHROME_PATH=/ruta/a/chrome npm run test:sync`. Cada ejecución registra 12 usuarios de prueba, y el backend permite 20 registros cada 15 minutos: para repetirla enseguida en local, usa `docker restart fintrack-backend`.
 
 ## Cómo se simula cada situación
 
@@ -49,6 +49,8 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 | C9 | Dos pestañas del mismo dispositivo | Dos pestañas abiertas, sin red. Registrar en una. Volver la red en ambas. | Llega una sola vez, aunque las dos pestañas intenten enviar. | ✅ Pasa (lo frena el `localId` en el servidor) |
 | C10 | Otra cuenta en el mismo dispositivo | Ana registra sin red. Sin enviar, entra Beto en el mismo navegador, con red. Después vuelve Ana. | Con Beto no se envía el pendiente de Ana (ni a su cuenta ni a la de ella). Al volver Ana, llega a su cuenta. | ✅ Pasa |
 | C11 | Operación rechazada (422) | En la cola hay un pendiente válido y uno con una categoría que el servidor ya no acepta. Conectar. | El válido llega y el rechazado no se pierde: se reintenta sin categoría o se le muestra al usuario. | ❌ **Falla**: el válido llega, pero el rechazado se **borra de la cola** y se pierde. Bug *Un 422 borra el movimiento de la cola offline*. |
+| C12 | Historial visible sin conexión | Con red, registrar 2 gastos. Quitar la red y recargar. Filtrar por "Ingresos". | Se ven los 2 desde la copia guardada en el dispositivo, con un aviso. El filtro funciona sin red. | ✅ Pasa |
+| C13 | Cambio hecho en otro dispositivo | El computador registra un gasto. El celular abre la app (con red), luego pierde la conexión y recarga. | El celular ve el gasto del computador sin conexión. | ✅ Pasa |
 
 ## Bugs encontrados
 
