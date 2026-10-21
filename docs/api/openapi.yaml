@@ -1101,8 +1101,8 @@ components:
               transaction:
                 allOf: [{ $ref: "#/components/schemas/Transaction" }]
                 description: |
-                  Solo en operaciones `create`: la transacción guardada. No vuelve en
-                  `serverChanges` y el cliente necesita la categoría que le quedó (la IA pudo asignarla).
+                  En `create` y `update`: la transacción guardada. No vuelve en `serverChanges`
+                  y el cliente necesita la categoría que le quedó (la IA pudo asignarla). Se omite en `delete`.
         conflicts:
           type: array
           items:
