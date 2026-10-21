@@ -50,7 +50,8 @@ async function request(path, { method = 'GET', body } = {}) {
   let res;
   try {
     res = await authFetch(path, { method, body });
-  } catch {
+  } catch (cause) {
+    if (cause.code === 'REFRESH_FAILED') throw cause;
     const err = new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
     // Permite a la página guardar el movimiento en la cola offline (FT-0009).
     err.code = 'NETWORK_ERROR';

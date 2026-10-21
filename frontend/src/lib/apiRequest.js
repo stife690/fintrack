@@ -38,7 +38,8 @@ export async function apiRequest(path, { method = 'GET', body } = {}) {
   let res;
   try {
     res = await authFetch(path, { method, body });
-  } catch {
+  } catch (err) {
+    if (err.code === 'REFRESH_FAILED') throw err;
     throw new Error(CONNECTION_ERROR);
   }
   if (res.status === 204) return null;

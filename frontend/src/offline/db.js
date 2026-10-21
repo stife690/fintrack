@@ -16,6 +16,8 @@ import Dexie from 'dexie';
  * @property {'create'} op Por ahora solo se registran movimientos nuevos sin conexión.
  * @property {{ amount: number, description: string, type: string, date: string, category: string|null }} transaction
  * @property {string} createdAt Hora del dispositivo en que se registró (ISO 8601).
+ * @property {string} [rejected] Motivo si el servidor la rechazó (422): ya no se envía y se le
+ *   muestra al usuario para que la descarte o la vuelva a registrar.
  */
 
 /**

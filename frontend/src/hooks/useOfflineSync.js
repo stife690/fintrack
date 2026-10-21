@@ -32,7 +32,9 @@ export default function useOfflineSync() {
         navigator.serviceWorker?.removeEventListener('message', onMessage);
       };
 
-      listPending().then((ops) => !cancelled && setState((s) => ({ ...s, pending: ops.length })));
+      listPending().then(
+        (ops) => !cancelled && setState((s) => ({ ...s, pending: ops.filter((o) => !o.rejected).length })),
+      );
       syncNow();
     });
 

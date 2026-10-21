@@ -70,5 +70,13 @@ describe('transactionService: alerta de presupuesto (FT-0006)', () => {
     const error = await createTransaction({}).catch((err) => err);
     expect(error).toBeInstanceOf(Error);
     expect(error.message).toContain('No pudimos conectar');
+    expect(error.code).toBe('NETWORK_ERROR');
+  });
+
+  it('si el servidor falla al renovar la sesión no lo trata como falta de red', async () => {
+    const refreshFailed = Object.assign(new Error('No pudimos renovar tu sesión.'), { code: 'REFRESH_FAILED' });
+    authFetch.mockImplementation(() => Promise.reject(refreshFailed));
+    const error = await createTransaction({}).catch((err) => err);
+    expect(error.code).toBe('REFRESH_FAILED');
   });
 });
