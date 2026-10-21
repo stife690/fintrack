@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Sparkles, Trash2 } from 'lucide-react';
+import { CloudUpload, Pencil, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
 import CategoryIcon from '@/components/categories/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,10 +10,11 @@ import { formatDate, formatMoney } from './format';
  * @param {object} props
  * @param {import('@/services/transactionService').Transaction} props.transaction
  * @param {Record<string, string>} props.categoryNames Nombre legible por clave de categoría.
+ * @param {'pending'|'rejected'} [props.syncStatus] Hay un cambio sin sincronizar de este movimiento (FT-0008).
  * @param {(t: import('@/services/transactionService').Transaction) => void} props.onEdit
  * @param {(t: import('@/services/transactionService').Transaction) => Promise<void>} props.onDelete
  */
-function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
+function Row({ transaction: t, categoryNames, syncStatus, onEdit, onDelete }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const income = t.type === 'ingreso';
@@ -43,6 +44,18 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-xs text-brand">
               <Sparkles className="size-3" aria-hidden="true" />
               Sugerida por IA
+            </span>
+          )}
+          {syncStatus === 'pending' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-caution/10 px-2 py-0.5 text-xs text-caution">
+              <CloudUpload className="size-3" aria-hidden="true" />
+              Pendiente de sincronizar
+            </span>
+          )}
+          {syncStatus === 'rejected' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-negative/10 px-2 py-0.5 text-xs text-negative">
+              <TriangleAlert className="size-3" aria-hidden="true" />
+              No se pudo sincronizar
             </span>
           )}
         </p>
@@ -86,6 +99,7 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
  * @param {object} props
  * @param {import('@/services/transactionService').Transaction[]} props.transactions
  * @param {Record<string, string>} props.categoryNames Nombre legible por clave de categoría.
+ * @param {Map<string, 'pending'|'rejected'>} [props.pendingStatus] Estado de sincronización por id de movimiento.
  * @param {number} props.page Página actual (desde 1).
  * @param {number} props.pageSize
  * @param {number} props.total Total de transacciones que cumplen los filtros.
@@ -96,6 +110,7 @@ function Row({ transaction: t, categoryNames, onEdit, onDelete }) {
 export default function TransactionList({
   transactions,
   categoryNames,
+  pendingStatus,
   page,
   pageSize,
   total,
@@ -109,7 +124,14 @@ export default function TransactionList({
     <div>
       <ul className="divide-y divide-ink/10">
         {transactions.map((t) => (
-          <Row key={t.id} transaction={t} categoryNames={categoryNames} onEdit={onEdit} onDelete={onDelete} />
+          <Row
+            key={t.id}
+            transaction={t}
+            categoryNames={categoryNames}
+            syncStatus={pendingStatus?.get(t.id)}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         ))}
       </ul>
       {pages > 1 && (
