@@ -4,7 +4,7 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 **Resultado: 20 de 20 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
 
-> **2026-10-21:** C18 y C19 se ampliaron con el aviso de conflicto al usuario (FT-0009) y pasan: `CASES=C16,C18,C19 npm run test:sync` dio 3 de 3. En la batería completa hubo una corrida de 17 de 20 por la falla intermitente descrita en *Límites conocidos*, que también ocurre en `main`.
+> **2026-10-21:** C18 y C19 se ampliaron con el aviso de conflicto al usuario (FT-0009). Tras corregir una falla intermitente del script (ver *Falla intermitente del script, corregida*), la batería completa dio **20 de 20 en 3 corridas seguidas**.
 
 ## Entorno
 
@@ -73,7 +73,13 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 ## Límites conocidos (no son fallas de estos casos)
 
 - La hora del cambio la pone el dispositivo y el servidor la compara con la suya (last-write-wins): si el reloj del celular está muy desfasado, puede ganar la edición equivocada.
-- **Falla intermitente sin resolver:** a veces la edición sin conexión no se guarda (el formulario tiene el monto nuevo, pero la cola queda vacía y no aparece "Cambios guardados"). Afecta a los casos que editan sin red (C16, C18, C19) y se vio una vez en C3. En `main`, C16 falló 3 de 6 corridas, así que no la introdujo el aviso de conflicto. Para diagnosticar: `STACK=1` muestra la línea del script y `CONSOLE=1` la consola del navegador.
 - El aviso de conflicto lo ve el usuario solo en el dispositivo donde ocurrió: se guarda en IndexedDB (`meta`, llave `conflicts:<userId>`), no en el servidor. Si cierra sesión, se conserva hasta que vuelva a entrar y toque **Entendido**.
 - Con la app **cerrada** no se sincroniza: se envía al volver a abrirla. El service worker no puede leer la sesión, que está en `localStorage`.
 - Background Sync existe solo en navegadores basados en Chromium. En Safari y Firefox, la sincronización depende del evento `online` mientras la app está abierta.
+
+## Falla intermitente del script, corregida
+
+- **Síntoma:** los casos que editan (C16, C18, C19) fallaban a veces sin error: el formulario tenía el monto nuevo, pero la cola quedaba vacía y nunca aparecía "Cambios guardados". En `main`, C16 falló 3 de 6 corridas.
+- **Causa:** el botón **Editar** sube al formulario con `window.scrollTo({ behavior: 'smooth' })`. El script escribía el monto y hacía clic en "Guardar cambios" mientras la página aún se desplazaba: Puppeteer medía el botón en un lugar y, al hacer clic, ya se había movido (en una corrida, de `y=109` a `y=408`). El clic no caía en el botón y el foco quedaba en `<body>`. Era un problema de la prueba, no de la app.
+- **Corrección:** `editAmount` espera a que la página deje de desplazarse (`scrollSettled`) antes del clic. Resultado: C16 pasó 8 de 8 y la batería completa dio 20 de 20 en 3 corridas seguidas.
+- **Para diagnosticar fallas futuras:** `STACK=1` muestra la línea del script que falló y `CONSOLE=1` la consola del navegador. Si falla una edición, el mensaje incluye el monto del formulario y cuántas operaciones hay en la cola.

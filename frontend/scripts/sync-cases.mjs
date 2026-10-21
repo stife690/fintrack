@@ -477,12 +477,26 @@ await caso('C15', 'lastSyncedAt dañado en el dispositivo no traba la cola', asy
 });
 
 
+/** Espera a que la página deje de desplazarse: la posición no cambia en 150 ms. */
+const scrollSettled = (page) =>
+  page.waitForFunction(
+    () =>
+      new Promise((res) => {
+        const y = window.scrollY;
+        setTimeout(() => res(window.scrollY === y), 150);
+      }),
+    { timeout: 5000, polling: 50 },
+  );
+
 /** Edita el monto de un movimiento desde la lista (con o sin conexión). */
 async function editAmount(page, description, amount) {
   await page.bringToFront();
   await page.click(`button[aria-label="Editar ${description}"]`);
   await page.$eval('#tx-amount', (e) => e.select());
   await page.type('#tx-amount', String(amount));
+  // "Editar" sube al formulario con scroll suave: si se hace clic mientras la página se mueve,
+  // el botón ya no está donde Puppeteer lo midió y el clic cae en otro lado (C16, C18 y C19 fallaban así).
+  await scrollSettled(page);
   await page.click('button[type=submit]');
   await page
     .waitForFunction(() => /Cambios guardados/.test(document.body.innerText), { timeout: 8000, polling: 200 })
