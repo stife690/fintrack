@@ -156,6 +156,16 @@ export default function Transactions() {
     [categories],
   );
 
+  // Estado de sincronización de cada movimiento con cambios en la cola (FT-0008), por id del servidor.
+  // Solo `update` y `delete` tienen `serverId`: un `create` aún no existe en el historial.
+  const pendingStatus = useMemo(
+    () =>
+      new Map(
+        pending.filter((o) => o.serverId).map((o) => [o.serverId, o.rejected ? 'rejected' : 'pending']),
+      ),
+    [pending],
+  );
+
   useEffect(() => {
     getCategories()
       .then(setCategories)
@@ -374,6 +384,7 @@ export default function Transactions() {
               <TransactionList
                 transactions={result.data}
                 categoryNames={categoryNames}
+                pendingStatus={pendingStatus}
                 page={page}
                 pageSize={PAGE_SIZE}
                 total={result.total}
