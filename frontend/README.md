@@ -127,7 +127,8 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 
 | Archivo | Función |
 |---|---|
-| `src/offline/db.js` | Base IndexedDB (Dexie): cola `pending` y datos sueltos en `meta` (`lastSyncedAt`, copia de categorías). |
+| `src/offline/db.js` | Base IndexedDB (Dexie): cola `pending` y datos sueltos en `meta` (`lastSyncedAt`, avisos de conflicto, copia de categorías). |
+| `src/offline/conflictMessage.js` | Texto del aviso de conflicto y su tono (`warning` o `info`), según quién ganó y qué había hecho el usuario. |
 | `src/offline/sync.js` | `queueCreate` guarda el movimiento; `syncNow` envía la cola a `POST /sync/batch` y borra lo confirmado. |
 | `src/hooks/useOfflineSync.js` | En `AppShell`: sincroniza al abrir la app, al volver la conexión y con el aviso de Background Sync. |
 | `public/push-sw.js` | Evento `sync` (Background Sync): avisa a las pestañas abiertas para que sincronicen. |
@@ -138,7 +139,8 @@ Después corre `npm run dev` y confirma que el login con mocks sigue funcionando
 - Si el servidor rechaza un movimiento (422): por categoría, se reenvía sin categoría; por otro motivo, queda en "Pendientes" con el motivo y el botón **Descartar** (nunca se borra solo).
 - **Copia local del historial** (`db.transactions`): se llena al abrir la app y al volver la conexión con `serverChanges` de `/sync/batch` (un lote vacío, que no cuenta para el límite de la IA), y con la respuesta de cada crear/editar/eliminar. Sin red, Movimientos muestra esa copia con un aviso. Al cerrar sesión se borra (la cola de pendientes no).
 - La sesión vive en `localStorage`, que el service worker no puede leer; por eso el envío lo hace la app abierta. Con la app cerrada, se sincroniza la próxima vez que se abra.
-- Sin conexión también se puede **editar y eliminar**: el cambio se ve al instante en la copia local y va a la cola como `update`/`delete`. Si otro dispositivo cambió el mismo movimiento, decide el servidor por la hora del cambio (last-write-wins): la copia queda con la versión final y el evento `fintrack:sync` trae `conflicts` para avisarle al usuario.
+- Sin conexión también se puede **editar y eliminar**: el cambio se ve al instante en la copia local y va a la cola como `update`/`delete`. Si otro dispositivo cambió el mismo movimiento, decide el servidor por la hora del cambio (last-write-wins): la copia queda con la versión final y el evento `fintrack:sync` trae `conflicts`.
+- **Aviso de conflicto** (FT-0009): `sync.js` guarda cada conflicto en `meta` (`conflicts:<userId>`) con la operación y el nombre del movimiento, porque el evento se dispara una sola vez. `conflictMessage` arma el texto según quién ganó: advertencia si **su cambio no se aplicó**, informativo si ganó el suyo. Se ve en una franja global (`SyncStatus`) y en el detalle de Movimientos (`ConflictList`), y se quita con **Entendido** (`dismissConflicts`).
 
 Casos de prueba con conexión intermitente y resultados: [`docs/pruebas-sincronizacion.md`](../docs/pruebas-sincronizacion.md).
 

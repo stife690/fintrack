@@ -548,7 +548,20 @@ await caso('C18', 'Conflicto: otro dispositivo editó después (gana el servidor
     check(conflict?.resolution === 'server_wins', `resolución: ${conflict?.resolution ?? 'sin evento de conflicto'}`);
     check((await serverRow(s, 'C18 mercado')).amount === 30000, 'el servidor no conservó la edición más reciente');
     await a.waitForFunction(() => document.body.innerText.includes('30.000'), { timeout: 8000 });
-    return 'server_wins: queda 30.000 en el servidor y en el celular; el evento trae el conflicto';
+    // El aviso: franja global y detalle en Movimientos; sobrevive a recargar hasta tocar "Entendido".
+    const seen = (text) => a.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 8000 }, text);
+    await seen('1 cambio tuyo no se aplicó');
+    await seen('Tu edición de «C18 mercado» no se aplicó');
+    await a.reload({ waitUntil: 'domcontentloaded' });
+    await seen('Tu edición de «C18 mercado» no se aplicó');
+    await a.evaluate(() =>
+      [...document.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith('Entendido')).click(),
+    );
+    await a.waitForFunction(
+      () => !/Conflictos de sincronización|1 cambio tuyo no se aplicó/.test(document.body.innerText),
+      { timeout: 8000 },
+    );
+    return 'server_wins: queda 30.000 en el servidor y en el celular; el aviso se ve, sobrevive a recargar y se quita con Entendido';
   } finally {
     await phone.close();
     await laptop.close();
@@ -572,7 +585,14 @@ await caso('C19', 'Conflicto: el dispositivo editó después (gana el dispositiv
     await a.setOfflineMode(false);
     await waitPending(a, 0);
     check((await serverRow(s, 'C19 taxi')).amount === 20000, 'no ganó la edición más reciente (la del celular)');
-    return 'client_wins: queda 20.000, la edición más reciente';
+    // Ganó el usuario: el aviso es informativo, no una advertencia.
+    for (const text of [
+      'Un conflicto de sincronización se resolvió a tu favor',
+      'Tu edición de «C19 taxi» reemplazó un cambio hecho en otro dispositivo',
+    ]) {
+      await a.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 8000 }, text);
+    }
+    return 'client_wins: queda 20.000, la edición más reciente; el aviso dice que se resolvió a su favor';
   } finally {
     await phone.close();
     await laptop.close();
