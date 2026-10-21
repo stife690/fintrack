@@ -8,6 +8,7 @@ import {
   summarizeTransactions,
   updateTransaction,
 } from '../repositories/transactions.repository.js';
+import { findByLocalId } from '../repositories/sync.repository.js';
 import { resolveCategory } from './categorization.service.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,7 +87,7 @@ function present(record) {
  * @param {object} [deps]
  * @param {typeof listCategories} [deps.listCategories]
  * @param {typeof resolveCategory} [deps.resolveCategory]
- * @param {{ insertTransaction: typeof insertTransaction, findTransaction: typeof findTransaction, listTransactions: typeof listTransactions, updateTransaction: typeof updateTransaction, softDeleteTransaction: typeof softDeleteTransaction, summarizeTransactions: typeof summarizeTransactions }} [deps.repository]
+ * @param {{ insertTransaction: typeof insertTransaction, findTransaction: typeof findTransaction, listTransactions: typeof listTransactions, updateTransaction: typeof updateTransaction, softDeleteTransaction: typeof softDeleteTransaction, summarizeTransactions: typeof summarizeTransactions, findByLocalId?: typeof findByLocalId }} [deps.repository]
  * @returns {{
  *   create: (userId: string, input: object) => Promise<object>,
  *   list: (userId: string, filters: object) => Promise<{ data: object[], page: number, pageSize: number, total: number }>,
@@ -106,6 +107,7 @@ export function createTransactionService(deps = {}) {
     updateTransaction,
     softDeleteTransaction,
     summarizeTransactions,
+    findByLocalId,
   };
 
   /**
@@ -141,9 +143,13 @@ export function createTransactionService(deps = {}) {
    * @returns {Promise<object>}
    */
   async function create(userId, input) {
+    // Reintento de un POST cuya respuesta se perdió: se devuelve la que ya existe (FT-0009).
+    const existing = input.localId && (await repo.findByLocalId(userId, input.localId));
+    // Si ya se había borrado, se devuelve tal cual (con `deletedAt`) en vez de revivirla.
+    if (existing) return existing.deletedAt ? existing : present(existing);
     const { category, source } = await decideCategory(input);
     const record = await repo.insertTransaction({ ...input, userId, category, source });
-    return present(record);
+    return present(record ?? (await repo.findByLocalId(userId, input.localId)));
   }
 
   /**
