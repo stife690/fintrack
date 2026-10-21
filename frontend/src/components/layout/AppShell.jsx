@@ -149,7 +149,7 @@ function Shell() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const online = useOnlineStatus();
-  const { pending, rejected, syncing } = useOfflineSync();
+  const { pending, rejected, conflicts, conflictsLost, syncing } = useOfflineSync();
   useSyncProfile();
 
   return (
@@ -174,7 +174,14 @@ function Shell() {
           </Link>
         </header>
 
-        <SyncStatus online={online} pending={pending} rejected={rejected} syncing={syncing} />
+        <SyncStatus
+          online={online}
+          pending={pending}
+          rejected={rejected}
+          conflicts={conflicts}
+          conflictsLost={conflictsLost}
+          syncing={syncing}
+        />
 
         <main
           id="contenido"
