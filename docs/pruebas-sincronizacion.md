@@ -2,7 +2,7 @@
 
 Casos de prueba del registro sin conexión y la sincronización con `POST /sync/batch`, ejecutados el **2026-10-20** con las correcciones de los bugs encontrados.
 
-**Resultado: 15 de 15 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
+**Resultado: 20 de 20 casos pasan.** Los 3 que fallaban en la primera ejecución (C6, C7 y C11) eran bugs registrados en ClickUp y ya están corregidos.
 
 ## Entorno
 
@@ -12,7 +12,7 @@ Casos de prueba del registro sin conexión y la sincronización con `POST /sync/
 
 ## Cómo ejecutarlos
 
-Los 15 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
+Los 20 casos están automatizados en [`frontend/scripts/sync-cases.mjs`](../frontend/scripts/sync-cases.mjs):
 
 ```bash
 docker compose up -d                       # en la raíz
@@ -21,7 +21,7 @@ npm run build && npx vite preview --port 5173 &
 npm run test:sync                          # imprime ✓/✗ por caso; sale con 1 si alguno falla
 ```
 
-Para correr solo algunos casos: `CASES=C6,C11 npm run test:sync`. Si un caso falla por tiempo de espera, el script indica si el servidor respondió 429 (límite de peticiones). Si Chrome no está en la ruta por defecto, indícala con `CHROME_PATH=/ruta/a/chrome npm run test:sync`. Cada ejecución registra 12 usuarios de prueba, y el backend permite 20 registros cada 15 minutos: para repetirla enseguida en local, usa `docker restart fintrack-backend`.
+Para correr solo algunos casos: `CASES=C6,C11 npm run test:sync`. Si un caso falla por tiempo de espera, el script indica si el servidor respondió 429 (límite de peticiones). Si Chrome no está en la ruta por defecto, indícala con `CHROME_PATH=/ruta/a/chrome npm run test:sync`. Cada ejecución registra 21 usuarios de prueba y el backend permite 20 registros cada 15 minutos por IP: para correr la batería completa, levanta el backend local con `AUTH_RATE_LIMIT_MAX=100 docker compose up -d backend` (el valor por defecto sigue en 20).
 
 ## Cómo se simula cada situación
 
@@ -62,9 +62,15 @@ La cola se revisa en DevTools → **Application → IndexedDB → fintrack → p
 | C7 | [FT-0009] Bug: movimiento duplicado si se pierde la respuesta del POST | Corregido |
 | C11 | [FT-0009] Bug: un 422 borra el movimiento de la cola offline | Corregido |
 | C15 | [FT-0009] Bug: la cola queda trabada si el 422 no apunta a una operación | Corregido |
+| C16 | Editar sin conexión | Con red, registrar un gasto de 10.000. Quitar la red, recargar y editarlo a 15.000. Conectar. | Sin red se ve 15.000 al instante; al conectar el servidor queda en 15.000. | ✅ Pasa |
+| C17 | Eliminar sin conexión | Con red, registrar. Quitar la red, recargar y eliminarlo. Conectar. | Sin red desaparece y queda como "Eliminar" en Pendientes; al conectar se borra en el servidor. | ✅ Pasa |
+| C18 | Conflicto: gana el servidor | El celular, sin red, edita a 20.000. Después el computador, con red, edita a 30.000. El celular se conecta. | Gana la edición más reciente (30.000) en el servidor y en el celular; el evento `fintrack:sync` trae el conflicto `server_wins`. | ✅ Pasa |
+| C19 | Conflicto: gana el dispositivo | El computador edita a 30.000. Después el celular, sin red, edita a 20.000 y se conecta. | Gana la más reciente (20.000). | ✅ Pasa |
+| C20 | Edición rechazada y descartada | En la cola hay una edición que el servidor rechaza (monto negativo). Conectar y tocar Descartar. | La copia local vuelve a como estaba (4.000); el servidor no cambia. | ✅ Pasa |
 
 ## Límites conocidos (no son fallas de estos casos)
 
-- Solo se registran **movimientos nuevos** sin conexión: editar o eliminar sigue necesitando internet.
+- La hora del cambio la pone el dispositivo y el servidor la compara con la suya (last-write-wins): si el reloj del celular está muy desfasado, puede ganar la edición equivocada.
+- Todavía no se le avisa al usuario cuando hay un conflicto: el evento ya trae `conflicts`, y mostrarlo es la tarea *Notificación de conflicto de sincronización al usuario*.
 - Con la app **cerrada** no se sincroniza: se envía al volver a abrirla. El service worker no puede leer la sesión, que está en `localStorage`.
 - Background Sync existe solo en navegadores basados en Chromium. En Safari y Firefox, la sincronización depende del evento `online` mientras la app está abierta.
