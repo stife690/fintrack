@@ -40,6 +40,25 @@ describe('SyncStatus: estado de conexión y cola (FT-0008)', () => {
     expect(render({ online: false, rejected: 1 })).toContain('Un movimiento guardado sin conexión no se pudo sincronizar');
   });
 
+  it('conflicto donde su cambio no se aplicó: advertencia con enlace al detalle', () => {
+    const html = render({ conflicts: 1, conflictsLost: 1 });
+    expect(html).toContain('1 cambio tuyo no se aplicó porque otro dispositivo lo modificó después');
+    expect(html).toContain('href="/app/transacciones"');
+    expect(html).toContain('text-caution');
+    expect(render({ conflicts: 3, conflictsLost: 2 })).toContain('2 cambios tuyos no se aplicaron');
+  });
+
+  it('conflictos resueltos a su favor: aviso informativo', () => {
+    expect(render({ conflicts: 1 })).toContain('Un conflicto de sincronización se resolvió a tu favor');
+    const html = render({ conflicts: 2 });
+    expect(html).toContain('2 conflictos de sincronización se resolvieron a tu favor');
+    expect(html).not.toContain('text-caution');
+  });
+
+  it('sin conflictos no aparece el aviso', () => {
+    expect(render({ conflicts: 0, conflictsLost: 0 })).not.toContain('Ver detalle');
+  });
+
   it('pendientes y rechazados se muestran a la vez', () => {
     const html = render({ pending: 1, rejected: 1 });
     expect(html).toContain('1 movimiento pendiente de sincronizar');
