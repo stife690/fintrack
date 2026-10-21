@@ -569,6 +569,8 @@ paths:
           lógicamente) modificadas después de `lastSyncedAt`, sin las de este lote (REQ-025).
           Con `lastSyncedAt: null` (primera vez) devuelve todas las no borradas.
         - `syncStatus` vive solo en IndexedDB; el servidor no lo almacena.
+        - Un lote con operaciones cuenta para el límite de peticiones de la IA (puede responder 429).
+          Un lote vacío (`operations: []`) solo trae `serverChanges`, no usa la IA y no cuenta.
       requestBody:
         required: true
         content:
@@ -583,6 +585,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   # ---------------------------------------------------------------- Push
   /push/vapid-public-key:

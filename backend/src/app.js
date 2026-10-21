@@ -45,7 +45,10 @@ export function createApp() {
   const aiRateLimit = createAiRateLimit();
   app.post('/api/v1/transactions', aiRateLimit);
   app.put('/api/v1/transactions/:id', aiRateLimit);
-  app.post('/api/v1/sync/batch', aiRateLimit);
+  // Un lote vacío solo trae los cambios del servidor (copia local del cliente): no usa la IA.
+  app.post('/api/v1/sync/batch', (req, res, next) =>
+    req.body?.operations?.length ? aiRateLimit(req, res, next) : next(),
+  );
   app.get('/api/v1/insights', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
