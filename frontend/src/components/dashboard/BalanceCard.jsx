@@ -49,10 +49,11 @@ function Total({ label, value, hidden, positive = false }) {
  * @param {object} props
  * @param {string} props.periodLabel Periodo legible, p. ej. `octubre`, `esta semana` o `2026`.
  * @param {{ income: number, expense: number, balance: number }|undefined} props.totals `undefined` mientras carga.
+ * @param {string} [props.note] Reemplaza "Calculando…" cuando no hay totales que esperar (p. ej. sin conexión).
  * @param {boolean} props.hidden
  * @param {() => void} props.onToggleHidden
  */
-export default function BalanceCard({ periodLabel, totals, hidden, onToggleHidden }) {
+export default function BalanceCard({ periodLabel, totals, note, hidden, onToggleHidden }) {
   const negative = totals && totals.balance < 0;
   return (
     <section aria-labelledby="balance-title" className="relative">
@@ -82,7 +83,7 @@ export default function BalanceCard({ periodLabel, totals, hidden, onToggleHidde
         </p>
         <p className="relative mt-2 text-sm text-white/75">
           {totals === undefined
-            ? 'Calculando…'
+            ? (note ?? 'Calculando…')
             : negative
               ? 'En este periodo has gastado más de lo que te ha entrado.'
               : 'Lo que te ha entrado menos lo que has gastado.'}
