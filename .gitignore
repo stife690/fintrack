@@ -13,3 +13,6 @@ Thumbs.db
 
 # Build del frontend
 dist/
+
+# Grafo de conocimiento local (graphify)
+graphify-out/
