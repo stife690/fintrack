@@ -52,8 +52,9 @@ export function BudgetAlert({ budgets, names }) {
  * @param {Record<string, string>} props.names Nombre por clave de categoría.
  * @param {string} props.monthLabel
  * @param {string} [props.error]
+ * @param {string} [props.note] Aviso neutral en lugar de la carga cuando no hay datos que esperar (p. ej. sin conexión).
  */
-export default function BudgetOverview({ budgets, names, monthLabel, error }) {
+export default function BudgetOverview({ budgets, names, monthLabel, error, note }) {
   const sorted = budgets ? [...budgets].sort((a, b) => b.percentage - a.percentage) : [];
   const allGood = budgets?.length > 0 && budgets.every((b) => b.alert.level === 'none');
 
@@ -70,6 +71,8 @@ export default function BudgetOverview({ budgets, names, monthLabel, error }) {
 
       {error ? (
         <p className="mt-4 text-sm text-negative">{error}</p>
+      ) : budgets === undefined && note ? (
+        <p className="mt-4 text-sm text-ink/60">{note}</p>
       ) : budgets === undefined ? (
         <div className="mt-5 space-y-5" aria-busy="true">
           {[0, 1, 2].map((i) => (
