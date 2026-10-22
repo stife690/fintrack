@@ -21,9 +21,14 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
         className="pointer-events-none absolute -top-40 left-1/2 size-[560px] -translate-x-1/2 rounded-full bg-violet/20 blur-[140px]"
       />
 
-      <header className="container-page relative flex h-20 items-center justify-between">
+      {/* El margen superior deja libre la zona de la hora y la batería en el iPhone (viewport-fit=cover). */}
+      <header className="container-page relative mt-[env(safe-area-inset-top)] flex h-20 items-center justify-between">
         <Logo />
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-white">
+        {/* Píldora con borde y 40px de alto: se distingue del fondo y es fácil de tocar. */}
+        <Link
+          to="/"
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white motion-safe:transition-[color,background-color,transform] motion-safe:active:scale-[0.97]"
+        >
           <ArrowLeft className="size-4" aria-hidden="true" />
           <span>
             Volver<span className="hidden sm:inline"> al inicio</span>

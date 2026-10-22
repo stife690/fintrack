@@ -40,7 +40,9 @@ export default function Navbar() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-colors duration-300',
+        // pt-safe: en el iPhone la página se dibuja bajo la hora y la batería (viewport-fit=cover);
+        // ese relleno baja la barra justo debajo, y el fondo la cubre para que no se vea borrosa.
+        'fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-colors duration-300',
         scrolled || open ? 'bg-black/80 backdrop-blur-lg' : 'bg-transparent',
       )}
     >
@@ -66,24 +68,35 @@ export default function Navbar() {
           </Button>
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden [&_svg]:size-6"
-          aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X /> : <Menu />}
-        </Button>
+        {/* En móvil, "Iniciar sesión" queda siempre a la vista junto al menú. */}
+        <div className="flex items-center gap-1 lg:hidden">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="rounded-full border border-white/15 px-3.5 text-white hover:bg-white/10 hover:text-white motion-safe:transition-[color,background-color,transform] motion-safe:active:scale-[0.97]"
+          >
+            <Link to="/login">Iniciar sesión</Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="[&_svg]:size-6"
+            aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X /> : <Menu />}
+          </Button>
+        </div>
       </nav>
 
       <AnimatePresence>
         {open && (
           <motion.div
             id="mobile-menu"
-            className="h-[calc(100dvh-5rem)] overflow-y-auto border-t border-white/10 bg-black lg:hidden"
+            className="h-[calc(100dvh-5rem-env(safe-area-inset-top))] overflow-y-auto border-t border-white/10 bg-black lg:hidden"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
