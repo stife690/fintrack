@@ -314,18 +314,22 @@ await caso('O10', 'Iniciar sesión sin conexión: avisa sin romperse', async (ct
   return 'la pantalla de login abre sin red y muestra "No pudimos conectar con el servidor"';
 });
 
-await caso('O11', 'Inicio sin conexión: cuenta los pendientes y no se rompe', async (ctx) => {
+await caso('O11', 'Inicio sin conexión: muestra la copia local, sin errores, y se actualiza al volver', async (ctx) => {
   const s = await newUser('o11');
   const page = await openApp(ctx, s, '/app/transacciones');
+  await register(page, 'O11 arriendo', { amount: 900000 }); // con red: queda en el servidor y en la copia local
   await airplane(page, true);
-  await register(page, 'O11 tinto');
-  await navigate(page, '/app');
-  await waitText(page, '1 pendiente');
+  await page.goto(`${APP}/app`, { waitUntil: 'domcontentloaded' }); // abrir Inicio en frío, en modo avión
+  await waitText(page, 'O11 arriendo');
+  await waitText(page, 'Sin conexión: se actualiza al volver internet.');
   const t = await text(page);
   check(!crashed(t), 'pantalla de error');
-  check(!t.includes('Te damos la bienvenida'), 'muestra el estado vacío aunque hay un pendiente');
-  const errors = (t.match(/No pudimos/g) ?? []).length;
-  return `muestra el pendiente; ${errors} avisos "No pudimos…" en balance, últimos movimientos y presupuestos`;
+  check(!t.includes('No pudimos'), 'muestra avisos "No pudimos…"');
+  check(!t.includes('Te damos la bienvenida'), 'muestra el estado vacío aunque hay movimientos');
+  await airplane(page, false);
+  await page.waitForFunction(() => !document.body.innerText.includes('se actualiza al volver internet'), { timeout: 10000 });
+  check((await text(page)).includes('900.000'), 'al volver la red no cargó el balance');
+  return 'sin red: últimos movimientos desde el dispositivo y un aviso neutral; al volver la red carga el balance solo';
 });
 
 await caso('O12', 'Conexión intermitente navegando por toda la app', async (ctx) => {

@@ -2,7 +2,7 @@
 
 Recorrido de **todas las funcionalidades** sin conexión y con conexión intermitente. Complementa [pruebas-sincronizacion.md](pruebas-sincronizacion.md), que cubre la cola offline y `POST /sync/batch` (FT-0008, FT-0009).
 
-Ejecutadas el **2026-10-22**. **Resultado: 13 de 13 casos pasan**, y la batería de sincronización sigue en 20 de 20. Se encontraron 2 problemas: uno se corrigió (O1) y otro queda registrado (O11).
+Ejecutadas el **2026-10-22**. **Resultado: 13 de 13 casos pasan**, y la batería de sincronización sigue en 20 de 20. Se encontraron 2 problemas y los dos se corrigieron.
 
 ## Entorno
 
@@ -35,7 +35,7 @@ Los casos están en [`frontend/scripts/offline-cases.mjs`](../frontend/scripts/o
 | O8 | Cuenta sin conexión | "Agregar nombre" desactivado; el tema, que es local, sigue funcionando. | ✅ Pasa |
 | O9 | El access token vence mientras no hay red | El usuario sigue en la app y registra; al volver la red se renueva la sesión y se envía el pendiente. | ✅ Pasa |
 | O10 | Iniciar sesión sin conexión | La pantalla abre y muestra "No pudimos conectar con el servidor", sin romperse. | ✅ Pasa |
-| O11 | Inicio sin conexión con un pendiente | No se rompe, cuenta el pendiente y no muestra la bienvenida de cuenta vacía. | ✅ Pasa, con observación (bug 2) |
+| O11 | Abrir Inicio en modo avión y volver a conectar | Últimos movimientos desde la copia del dispositivo, ningún "No pudimos…" y un aviso neutral en balance y presupuestos; al volver la red el balance carga solo. | ✅ Pasa (tras corregir el bug 2) |
 | O12 | Conexión intermitente navegando por toda la app (3 vueltas) | Sin pantallas de error; 3 movimientos, sin duplicados. | ✅ Pasa |
 | O13 | Cerrar sesión sin conexión con un pendiente | La sesión se cierra; al volver a entrar con red, el pendiente se envía. | ✅ Pasa |
 
@@ -44,7 +44,7 @@ Los casos están en [`frontend/scripts/offline-cases.mjs`](../frontend/scripts/o
 | # | Caso | Problema | Estado |
 |---|---|---|---|
 | 1 | O1 | Presupuestos, abierto sin red, mostraba el error **y además** "No tienes presupuestos en octubre", aunque no pudo saber si había. | Corregido en `Budgets.jsx`: si la carga falla, solo queda el error con Reintentar. |
-| 2 | O11 | Inicio, sin red, muestra 4 avisos "No pudimos conectar con el servidor" (balance, últimos movimientos y presupuestos) en lugar de un solo aviso o de la copia local del historial. No se pierde nada, pero se ve roto. | Registrado en ClickUp (Sprint 3). |
+| 2 | O11 | Inicio, sin red, muestra 4 avisos "No pudimos conectar con el servidor" (balance, últimos movimientos y presupuestos) en lugar de un solo aviso o de la copia local del historial. No se pierde nada, pero se ve roto. | Corregido en `Dashboard.jsx`: los últimos movimientos salen de la copia local (como en Movimientos), el balance y los presupuestos dicen "Sin conexión: se actualiza al volver internet." y todo se recarga al reconectar. Los gráficos se calculan en el servidor y esperan a la conexión. |
 
 ## Revisión de Gemini sobre el script
 
