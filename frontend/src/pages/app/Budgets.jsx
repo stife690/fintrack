@@ -141,7 +141,8 @@ export default function Budgets() {
                 <Loader2 className="animate-spin" aria-hidden="true" /> Cargando…
               </p>
             ) : budgets.length === 0 ? (
-              <p className="py-10 text-center text-ink/50">
+              // Si la carga falló (p. ej. sin conexión) no se sabe si hay presupuestos: solo queda el error.
+              !error && <p className="py-10 text-center text-ink/50">
                 No tienes presupuestos en {monthLabel}. Crea uno para ver cuánto llevas gastado en
                 esa categoría.
               </p>
