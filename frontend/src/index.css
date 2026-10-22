@@ -134,12 +134,21 @@
     color-scheme: dark;
   }
 
+  /*
+   * Fondo negro (el de la landing y el login) en vez de blanco: si el celular aleja el zoom
+   * o la página rebota al hacer scroll, lo que queda fuera del contenido no se ve blanco.
+   * En /app, index.html y ThemeProvider ponen el color del tema en --boot-bg y en línea.
+   * overflow-x: clip evita que algo más ancho que la pantalla deje alejar el zoom en el iPhone.
+   */
   html {
     scroll-behavior: smooth;
+    background-color: var(--boot-bg, #000);
+    overflow-x: clip;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-[var(--boot-bg,#000)] text-foreground font-sans antialiased;
+    overflow-x: clip;
   }
 
   ::selection {

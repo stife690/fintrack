@@ -18,7 +18,7 @@ const fadeUp = (delay) => ({
  */
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-black pb-16 pt-36 text-white md:pb-24 md:pt-44">
+    <section className="relative overflow-hidden bg-black pb-16 pt-[calc(9rem+env(safe-area-inset-top))] text-white md:pb-24 md:pt-44">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-[55%] size-[520px] -translate-x-1/2 rounded-full bg-violet/25 blur-[140px]"
