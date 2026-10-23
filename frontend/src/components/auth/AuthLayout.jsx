@@ -12,8 +12,9 @@ import Logo from '@/components/common/Logo';
  * @param {string} props.subtitle
  * @param {React.ReactNode} props.children
  * @param {React.ReactNode} [props.footer] Texto bajo el formulario (p. ej. enlace a la otra pantalla).
+ * @param {React.ComponentType<{ className?: string }>} [props.icon] Ícono de lucide sobre el título.
  */
-export default function AuthLayout({ title, subtitle, children, footer }) {
+export default function AuthLayout({ title, subtitle, children, footer, icon: Icon }) {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-black text-white">
       <div
@@ -44,6 +45,11 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="space-y-2 text-center">
+            {Icon && (
+              <div className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl bg-violet/15 text-violet-light ring-1 ring-inset ring-violet/30">
+                <Icon className="size-6" aria-hidden="true" />
+              </div>
+            )}
             <h1 className="text-balance text-4xl font-semibold tracking-tight">{title}</h1>
             <p className="text-sm text-white/55">{subtitle}</p>
           </div>

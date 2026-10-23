@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import AuthLayout from '@/components/auth/AuthLayout';
@@ -36,6 +36,8 @@ export default function Login() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: location.state?.email ?? '', password: '', remember: false },
   });
+  // El correo escrito pasa a "¿Olvidaste tu contraseña?" para no tener que escribirlo otra vez.
+  const email = useWatch({ control, name: 'email' });
 
   const onSubmit = async (values) => {
     setServerError('');
@@ -70,6 +72,11 @@ export default function Login() {
           Cuenta creada. Ya puedes iniciar sesión.
         </p>
       )}
+      {location.state?.passwordReset && (
+        <p className="rounded-xl bg-mint/10 px-4 py-3 text-sm text-mint" role="status">
+          Contraseña actualizada. Inicia sesión con la nueva.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
         <div className="space-y-4">
@@ -94,9 +101,13 @@ export default function Login() {
               Recordarme 30 días
             </Label>
           </div>
-          <span className="text-sm text-white/35" title="Próximamente">
+          <Link
+            to="/recuperar"
+            state={{ email }}
+            className="text-sm text-white/60 underline-offset-4 transition-colors hover:text-white hover:underline"
+          >
             ¿Olvidaste tu contraseña?
-          </span>
+          </Link>
         </div>
 
         {serverError && (

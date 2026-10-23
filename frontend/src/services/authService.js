@@ -1,8 +1,9 @@
 /**
  * Capa de autenticación del frontend, según `docs/api/openapi.yaml`.
  *
- * Llama a `POST /api/v1/auth/login`, `/auth/register` y `/auth/google`. Mientras la API
- * no los exponga, en desarrollo MSW los intercepta (ver `src/mocks/handlers.js`).
+ * Llama a `POST /api/v1/auth/login`, `/auth/register`, `/auth/google`, `/auth/forgot-password` y
+ * `/auth/reset-password`. Con `VITE_API_MOCKS` activo, en desarrollo MSW intercepta los que tiene
+ * simulados (ver `src/mocks/handlers.js`); los demás llegan a la API real.
  * Las páginas muestran `error.message`, así que aquí se traducen los errores de la API
  * (`{ error: { code, message, details? } }`) a mensajes para el usuario.
  */
@@ -90,6 +91,36 @@ export function loginWithGoogle(credential) {
     fallback: 'No pudimos iniciar sesión con Google. Inténtalo de nuevo.',
     messages: {
       GOOGLE_NOT_CONFIGURED: 'El inicio de sesión con Google no está disponible por ahora.',
+      RATE_LIMITED: TOO_MANY,
+    },
+  });
+}
+
+/**
+ * Pide el enlace para recuperar la contraseña. Contrato: `POST /auth/forgot-password { email }`;
+ * responde 200 con el mismo mensaje exista o no la cuenta (no revela qué correos están registrados).
+ * @param {string} email
+ * @returns {Promise<{ message: string }>}
+ */
+export function requestPasswordReset(email) {
+  return postJson('/auth/forgot-password', { email }, {
+    fallback: 'No pudimos enviar el enlace. Inténtalo de nuevo.',
+    messages: { RATE_LIMITED: TOO_MANY },
+  });
+}
+
+/**
+ * Cambia la contraseña con el token del enlace del correo. Contrato:
+ * `POST /auth/reset-password { token, password }` → 204; 400 `INVALID_RESET_TOKEN` si el enlace
+ * no existe, ya se usó o venció. Cierra todas las sesiones: después hay que iniciar sesión.
+ * @param {{ token: string, password: string }} data
+ * @returns {Promise<void>}
+ */
+export async function resetPassword({ token, password }) {
+  await postJson('/auth/reset-password', { token, password }, {
+    fallback: 'No pudimos cambiar tu contraseña. Inténtalo de nuevo.',
+    messages: {
+      INVALID_RESET_TOKEN: 'Este enlace ya no sirve: venció o ya se usó. Pide uno nuevo.',
       RATE_LIMITED: TOO_MANY,
     },
   });
