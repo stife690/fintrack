@@ -47,6 +47,57 @@ export async function getReadyRegistration() {
   return Promise.race([navigator.serviceWorker.ready, timeout]);
 }
 
+/** Espera antes de reintentar una suscripción que el servicio push rechazó, en ms. */
+const RETRY_DELAY_MS = 1000;
+
+/**
+ * Suscribe el dispositivo al servicio push del navegador. Reintenta una vez si el servicio
+ * falla (`AbortError`, a veces pasajero en Chrome de escritorio) y reemplaza una suscripción
+ * vieja hecha con otra llave VAPID (`InvalidStateError`).
+ * @param {ServiceWorkerRegistration} registration
+ * @param {string} key Llave pública VAPID en base64 URL-safe.
+ * @returns {Promise<PushSubscription>}
+ */
+export async function subscribePush(registration, key) {
+  const options = { userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) };
+  try {
+    return await registration.pushManager.subscribe(options);
+  } catch (err) {
+    if (err?.name === 'InvalidStateError') {
+      const old = await registration.pushManager.getSubscription();
+      await old?.unsubscribe();
+    } else if (err?.name === 'AbortError') {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    } else {
+      throw err;
+    }
+    return registration.pushManager.subscribe(options);
+  }
+}
+
+/**
+ * Texto para el usuario de un error al activar las notificaciones. Los errores del navegador
+ * llegan en inglés («Registration failed - push service error»); se explican en español.
+ * @param {unknown} err
+ * @returns {string}
+ */
+export function pushErrorMessage(err) {
+  switch (err?.name) {
+    case 'AbortError':
+      return (
+        'Tu navegador no pudo conectarse con su servicio de notificaciones. En Brave, activa ' +
+        '«Usar los servicios de Google para mensajería push» en Configuración → Privacidad y seguridad. ' +
+        'Si usas VPN, antivirus o un bloqueador de anuncios, pausa el bloqueo e inténtalo de nuevo.'
+      );
+    case 'NotAllowedError':
+      return 'El navegador no permitió las notificaciones. Revisa los permisos del sitio (el candado junto a la dirección).';
+    case 'NotSupportedError':
+      return 'Este navegador no permite notificaciones push.';
+    default:
+      return err?.message || 'No se pudieron activar las notificaciones. Inténtalo de nuevo.';
+  }
+}
+
 /**
  * Suscripción push actual de este dispositivo, o `null` si no hay (sin esperar al service worker).
  * @returns {Promise<PushSubscription|null>}

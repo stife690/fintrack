@@ -3,7 +3,8 @@ import {
   getCurrentSubscription,
   getReadyRegistration,
   isPushSupported,
-  urlBase64ToUint8Array,
+  pushErrorMessage,
+  subscribePush,
 } from '@/lib/push';
 import { getVapidPublicKey, registerSubscription, removeSubscription } from '@/services/pushService';
 
@@ -54,17 +55,14 @@ export default function usePushNotifications() {
       if (result !== 'granted') return false;
 
       const [registration, key] = await Promise.all([getReadyRegistration(), getVapidPublicKey()]);
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(key),
-      });
+      subscription = await subscribePush(registration, key);
       await registerSubscription(subscription.toJSON());
       setSubscribed(true);
       return true;
     } catch (err) {
       // Si el servidor no la guardó, se deshace la suscripción local para no quedar a medias.
       await subscription?.unsubscribe().catch(() => {});
-      setError(err.message);
+      setError(pushErrorMessage(err));
       return false;
     } finally {
       setBusy(false);
