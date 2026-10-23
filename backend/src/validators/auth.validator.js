@@ -63,3 +63,43 @@ export function parseGoogleCredential(body) {
   }
   return body.credential;
 }
+
+/**
+ * Comprueba el cuerpo de `POST /auth/forgot-password`: un `email` con forma de correo.
+ * @param {unknown} body
+ * @returns {string}
+ */
+export function parseForgotPassword(body) {
+  if (!body || typeof body.email !== 'string') {
+    throw invalidBody();
+  }
+  if (!EMAIL_RE.test(body.email.trim())) {
+    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+      { field: 'email', problem: 'Debe ser un correo válido' },
+    ]);
+  }
+  return body.email;
+}
+
+/**
+ * Comprueba el cuerpo de `POST /auth/reset-password`: el `token` del enlace y una `password`
+ * nueva con las mismas reglas del registro.
+ * @param {unknown} body
+ * @returns {{ token: string, password: string }}
+ */
+export function parseResetPassword(body) {
+  if (
+    !body ||
+    typeof body.token !== 'string' ||
+    body.token === '' ||
+    typeof body.password !== 'string'
+  ) {
+    throw invalidBody();
+  }
+  if (body.password.length < MIN_PASSWORD_LENGTH) {
+    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+      { field: 'password', problem: 'Debe tener al menos 8 caracteres' },
+    ]);
+  }
+  return { token: body.token, password: body.password };
+}

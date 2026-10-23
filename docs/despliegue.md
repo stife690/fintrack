@@ -48,6 +48,9 @@ Variables de entorno en producción:
 | Render | `VAPID_PUBLIC_KEY` | Llave pública del par generado con `npx web-push generate-vapid-keys` (se genera una sola vez) |
 | Render | `VAPID_PRIVATE_KEY` | Llave privada del mismo par (secreto: solo en el panel de Render) |
 | Render | `VAPID_SUBJECT` | `mailto:` del equipo, p. ej. `mailto:equipo@ejemplo.com` |
+| Render | `EMAIL_API_KEY` | Clave de la API de Brevo para el correo de recuperar contraseña (secreto: solo en el panel de Render) |
+| Render | `EMAIL_FROM` | Remitente verificado en Brevo |
+| Render | `APP_URL` | URL del frontend en Vercel, sin barra final (arma el enlace del correo) |
 
 ## Base de datos (Supabase)
 

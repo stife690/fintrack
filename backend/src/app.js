@@ -40,7 +40,16 @@ export function createApp() {
   );
   app.use(express.json());
   app.use(healthRoutes);
-  app.use(['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/google'], createAuthRateLimit());
+  app.use(
+    [
+      '/api/v1/auth/login',
+      '/api/v1/auth/register',
+      '/api/v1/auth/google',
+      '/api/v1/auth/forgot-password',
+      '/api/v1/auth/reset-password',
+    ],
+    createAuthRateLimit(),
+  );
   // Crear y editar pueden pedir la categoría a la IA: llevan límite de peticiones (contrato §1).
   const aiRateLimit = createAiRateLimit();
   app.post('/api/v1/transactions', aiRateLimit);

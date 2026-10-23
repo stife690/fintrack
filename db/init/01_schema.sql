@@ -25,6 +25,17 @@ CREATE TABLE refresh_tokens (
 );
 CREATE INDEX idx_refresh_tokens_usuario ON refresh_tokens(usuario_id);
 
+
+CREATE TABLE password_reset_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) UNIQUE NOT NULL, -- sha256 del token del enlace; el token nunca se guarda
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ NULL, -- se llena al usarlo: cada enlace sirve una sola vez
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_password_reset_tokens_usuario ON password_reset_tokens(usuario_id);
+
 CREATE TABLE categorias (
   id SMALLINT PRIMARY KEY,
   key VARCHAR(30) UNIQUE NOT NULL,

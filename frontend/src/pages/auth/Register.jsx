@@ -2,26 +2,19 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import AuthLayout from '@/components/auth/AuthLayout';
 import FormField from '@/components/auth/FormField';
 import PasswordInput from '@/components/auth/PasswordInput';
+import PasswordRules from '@/components/auth/PasswordRules';
 import SocialAuth from '@/components/auth/SocialAuth';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
-import { cn } from '@/lib/utils';
 import { registerSchema } from '@/lib/validation/auth';
 import { register as registerUser } from '@/services/authService';
-
-/** Requisitos de contraseña, iguales a los de `registerSchema`. */
-const PASSWORD_RULES = [
-  { label: '8 caracteres o más', test: (v) => v.length >= 8 },
-  { label: 'Una letra', test: (v) => /[A-Za-z]/.test(v) },
-  { label: 'Un número', test: (v) => /\d/.test(v) },
-];
 
 /**
  * Pantalla de registro. Valida en el cliente (zod), muestra los requisitos de la
@@ -81,21 +74,7 @@ export default function Register() {
             <FormField id="password" label="Contraseña" error={errors.password?.message}>
               <PasswordInput autoComplete="new-password" placeholder="••••••••" {...register('password')} />
             </FormField>
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Requisitos de la contraseña">
-              {PASSWORD_RULES.map((rule) => {
-                const ok = rule.test(password);
-                return (
-                  <li
-                    key={rule.label}
-                    className={cn('inline-flex items-center gap-1 transition-colors', ok ? 'text-success' : 'text-white/40')}
-                  >
-                    <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
-                    {rule.label}
-                    <span className="sr-only">{ok ? '(cumplido)' : '(pendiente)'}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            <PasswordRules password={password} />
           </div>
 
           <FormField id="confirmPassword" label="Confirmar contraseña" error={errors.confirmPassword?.message}>
