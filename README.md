@@ -21,7 +21,6 @@ Frontend (PWA, React)  →  Backend (API REST, Express)  →  PostgreSQL
 | [`backend/`](backend/) | API REST en Node.js + Express. Ver [backend/README.md](backend/README.md). |
 | [`docs/api/`](docs/api/) | Contrato de la API (OpenAPI) y convenciones de errores. |
 | [`docs/pruebas-sincronizacion.md`](docs/pruebas-sincronizacion.md) | Casos de prueba de la sincronización offline (FT-0009) y sus resultados. |
-| [`docs/pruebas-offline.md`](docs/pruebas-offline.md) | Pruebas offline de punta a punta de todas las funcionalidades y sus resultados. |
 | `frontend/` | PWA en Vite + React *(pendiente)*. |
 
 ## Flujo de trabajo
