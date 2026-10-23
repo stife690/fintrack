@@ -32,7 +32,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
 
 /**
  * Configuración del backend.
- * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined }}
+ * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined, emailApiKey: string|undefined, emailFrom: string|undefined, appUrl: string }}
  * @property {'gemini'|'anthropic'} aiProvider Proveedor de IA (`AI_PROVIDER`, por defecto "gemini").
  * @property {string|undefined} aiApiKey Clave del proveedor de IA (`AI_API_KEY`). Sin ella la IA queda desactivada y todo cae en "Sin clasificar".
  * @property {string|undefined} aiApiUrl Endpoint personalizado (`AI_API_URL`); si falta se usa el oficial del proveedor.
@@ -56,6 +56,9 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {boolean} remindersEnabled Si corre el programador del recordatorio diario (`REMINDERS_ENABLED`, por defecto sí; "false" lo apaga).
  * @property {number} reminderCheckIntervalMs Cada cuánto revisa los recordatorios, en ms (`REMINDER_CHECK_INTERVAL_MS`, por defecto 60000).
  * @property {number} syncAiMax Máximo de transacciones de un lote de /sync/batch que se categorizan con IA (`SYNC_AI_MAX`, por defecto 20; 0 la desactiva).
+ * @property {string|undefined} emailApiKey Clave de la API de Brevo (`EMAIL_API_KEY`). Sin ella no se envían correos: en desarrollo el enlace sale en la consola.
+ * @property {string|undefined} emailFrom Remitente de los correos (`EMAIL_FROM`); debe estar verificado en Brevo.
+ * @property {string} appUrl Dirección del frontend para armar los enlaces de los correos (`APP_URL`, por defecto http://localhost:5173, sin barra final).
  */
 export const env = {
   aiProvider,
@@ -81,4 +84,7 @@ export const env = {
   remindersEnabled: process.env.REMINDERS_ENABLED !== 'false',
   reminderCheckIntervalMs: Number(process.env.REMINDER_CHECK_INTERVAL_MS) || 60_000,
   syncAiMax: Number(process.env.SYNC_AI_MAX ?? 20),
+  emailApiKey: process.env.EMAIL_API_KEY?.trim() || undefined,
+  emailFrom: process.env.EMAIL_FROM?.trim() || undefined,
+  appUrl: (process.env.APP_URL || 'http://localhost:5173').trim().replace(/\/$/, ''),
 };

@@ -1,9 +1,19 @@
-import { login, loginWithGoogle, logout, refresh, register } from '../services/auth.service.js';
+import {
+  login,
+  loginWithGoogle,
+  logout,
+  refresh,
+  register,
+  requestPasswordReset,
+  resetPassword,
+} from '../services/auth.service.js';
 import {
   parseCredentials,
+  parseForgotPassword,
   parseGoogleCredential,
   parseNewCredentials,
   parseRefreshToken,
+  parseResetPassword,
 } from '../validators/auth.validator.js';
 
 /**
@@ -58,5 +68,31 @@ export async function postRefresh(req, res) {
  */
 export async function postLogout(req, res) {
   await logout({ userId: req.userId, refreshToken: parseRefreshToken(req.body) });
+  res.status(204).end();
+}
+
+/**
+ * `POST /api/v1/auth/forgot-password`: si el correo tiene cuenta, le envía un enlace para crear
+ * una contraseña nueva. Responde 200 con el mismo mensaje exista o no la cuenta.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postForgotPassword(req, res) {
+  await requestPasswordReset(parseForgotPassword(req.body));
+  res.json({
+    message: 'Si el correo está registrado, te enviamos un enlace para crear una contraseña nueva.',
+  });
+}
+
+/**
+ * `POST /api/v1/auth/reset-password`: cambia la contraseña con el token del enlace y cierra
+ * todas las sesiones. Responde 204 sin cuerpo.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postResetPassword(req, res) {
+  await resetPassword(parseResetPassword(req.body));
   res.status(204).end();
 }
