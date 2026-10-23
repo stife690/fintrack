@@ -118,7 +118,10 @@ Reglas:
 | `JWT_SECRET` | **Sí en producción** | *(texto largo y aleatorio)* | Secreto que firma los access tokens. Sin él el servidor no arranca en producción; en local hay un valor por defecto solo para desarrollo. |
 | `ACCESS_TOKEN_TTL` | No | `15m` | Duración del access token. |
 | `REFRESH_TOKEN_TTL_DAYS` | No | `30` | Días de vida del refresh token. |
-| `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login/registro permitidos por IP cada 15 minutos. |
+| `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login, registro y recuperar contraseña permitidos por IP cada 15 minutos. |
+| `EMAIL_API_KEY` | Para correos | *(secreto)* | Clave de la API de [Brevo](https://www.brevo.com) para enviar el correo de recuperar contraseña. Sin ella no se envían correos: en desarrollo el enlace se imprime en la consola; en producción solo se registra el error. |
+| `EMAIL_FROM` | Para correos | `fintrack@gmail.com` | Remitente de los correos; debe estar verificado en Brevo. |
+| `APP_URL` | En producción | `https://fintrack-seven-delta.vercel.app` | Dirección del frontend para armar el enlace del correo (sin barra final). Por defecto `http://localhost:5173`. |
 | `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
 | `VAPID_PUBLIC_KEY` | Para push | *(par generado con `npx web-push generate-vapid-keys`)* | Llave pública VAPID; el navegador la usa para suscribirse a las notificaciones. Sin las dos llaves el push y el recordatorio diario quedan desactivados. |
 | `VAPID_PRIVATE_KEY` | Para push | *(secreto)* | Llave privada VAPID con la que el servidor firma cada notificación. Nunca se sube al repo. |
@@ -151,6 +154,8 @@ En producción no hay archivo `.env`: las variables se configuran en el panel de
 | `POST` | `/api/v1/auth/login` | Inicia sesión. **200** con la misma forma que el registro · **401** `UNAUTHORIZED` (sin indicar qué campo falló) · **429** `RATE_LIMITED`. |
 | `POST` | `/api/v1/auth/refresh` | Body `{ refreshToken }`. **200** `{ accessToken, refreshToken }`; el token usado queda revocado (rotación) · **401** `UNAUTHORIZED`. |
 | `POST` | `/api/v1/auth/logout` | Requiere access token. Body `{ refreshToken }`. Revoca esa sesión. **204**. |
+| `POST` | `/api/v1/auth/forgot-password` | Body `{ email }`. Si tiene cuenta, envía un enlace `APP_URL/restablecer#token=…` que vence en 30 min y anula los anteriores. **200** `{ message }` igual exista o no la cuenta · **422** `VALIDATION_ERROR` · **429** `RATE_LIMITED`. |
+| `POST` | `/api/v1/auth/reset-password` | Body `{ token, password }` (8+ caracteres). Cambia la contraseña y cierra todas las sesiones. **204** · **400** `INVALID_RESET_TOKEN` (no existe, ya se usó o venció) · **422** `VALIDATION_ERROR` · **429** `RATE_LIMITED`. |
 | `GET` | `/api/v1/users/me` | Requiere access token. **200** `{ id, email, name, timezone }` (`name` es `null` si no lo ha puesto). |
 | `PATCH` | `/api/v1/users/me` | Requiere access token. Body `{ name }` (máx. 60; `null` o `""` lo borran). **200** con el perfil · **400** cuerpo inválido · **422** `VALIDATION_ERROR`. |
 | `GET` | `/api/v1/users/me/reminder-settings` | Requiere access token. **200** `{ time, timezone }` (`time` en `HH:mm`, o `null` si el recordatorio está desactivado). |
@@ -234,6 +239,7 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Autenticación con JWT: registro, login, refresh, logout y `GET /users/me`
 - [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
+- [x] Recuperar contraseña por correo (Brevo): enlace de un solo uso que vence en 30 minutos
 - [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) , PDF con gráficos y CSV (FT-0012)
 - [ ] Documentación Swagger del contrato

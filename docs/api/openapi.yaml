@@ -222,6 +222,71 @@ paths:
         "204": { description: Sesión cerrada }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Envía un enlace para crear una contraseña nueva
+      description: |
+        Si el correo tiene cuenta, guarda la huella (SHA-256) de un token aleatorio que vence en 30 minutos,
+        anula los enlaces anteriores sin usar y envía por correo `APP_URL/restablecer#token=<token>`.
+        Responde lo mismo exista o no la cuenta, y no espera al envío del correo, para no revelar qué
+        correos están registrados. Sin `EMAIL_API_KEY`, en desarrollo el enlace se imprime en la consola.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Solicitud recibida (exista o no la cuenta)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+              example:
+                message: Si el correo está registrado, te enviamos un enlace para crear una contraseña nueva.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Cambia la contraseña con el token del enlace
+      description: |
+        En una sola sentencia gasta el token (sirve una vez), guarda la contraseña nueva y revoca todos los
+        refresh tokens del usuario: después hay que iniciar sesión. La contraseña sigue las reglas del registro.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string, description: El token del enlace (lo que va después de `#token=`) }
+                password: { type: string, minLength: 8 }
+      responses:
+        "204": { description: Contraseña cambiada y sesiones cerradas }
+        "400":
+          description: "VALIDATION_ERROR (cuerpo malformado) o INVALID_RESET_TOKEN — el enlace no existe, ya se usó o venció"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: { code: INVALID_RESET_TOKEN, message: El enlace no es válido o ya venció. Pide uno nuevo. }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   # ---------------------------------------------------------------- Users
   /users/me:
     get:
@@ -738,7 +803,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     RateLimited:
-      description: "RATE_LIMITED — demasiadas peticiones (login, registro y endpoints con IA)"
+      description: "RATE_LIMITED — demasiadas peticiones (login, registro, recuperar contraseña y endpoints con IA)"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -761,6 +826,7 @@ components:
                 - TOKEN_EXPIRED
                 - NOT_FOUND
                 - EMAIL_TAKEN
+                - INVALID_RESET_TOKEN
                 - BUDGET_EXISTS
                 - INSUFFICIENT_HISTORY
                 - NO_DATA
