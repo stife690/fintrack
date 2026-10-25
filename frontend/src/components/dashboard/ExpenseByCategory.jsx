@@ -78,7 +78,7 @@ export default function ExpenseByCategory({ expense, names, hidden, className })
                 <span className="min-w-0 truncate font-medium">{r.name}</span>
                 <span className="shrink-0 tabular-nums text-ink/70">
                   {hidden ? MASK : formatMoney(r.total)}
-                  <span className="ml-2 inline-block w-12 text-right text-ink/50">{r.percentage}%</span>
+                  <span className="ml-2 inline-block w-12 text-right text-ink/60">{r.percentage}%</span>
                 </span>
               </div>
               <div className="mt-1.5 h-2 rounded-full bg-ink/6" aria-hidden="true">

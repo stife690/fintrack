@@ -167,7 +167,7 @@ function FormatPicker({ value, onChange }) {
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
                   <span className="font-semibold">{label}</span>
-                  <span className="text-xs text-ink/45">{extension}</span>
+                  <span className="text-xs text-ink/60">{extension}</span>
                 </span>
                 <span className="mt-0.5 block text-sm text-ink/60">{summary}</span>
               </span>
@@ -252,7 +252,7 @@ export default function Export() {
       <nav aria-label="Ruta" className="mb-4">
         <ol className="flex items-center gap-1.5 text-sm">
           <li>
-            <Link to="/app/transacciones" className="font-medium text-ink/55 transition-colors hover:text-brand">
+            <Link to="/app/transacciones" className="font-medium text-ink/60 transition-colors hover:text-brand">
               Movimientos
             </Link>
           </li>

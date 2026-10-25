@@ -142,7 +142,7 @@ export default function Budgets() {
               </p>
             ) : budgets.length === 0 ? (
               // Si la carga falló (p. ej. sin conexión) no se sabe si hay presupuestos: solo queda el error.
-              !error && <p className="py-10 text-center text-ink/50">
+              !error && <p className="py-10 text-center text-ink/60">
                 No tienes presupuestos en {monthLabel}. Crea uno para ver cuánto llevas gastado en
                 esa categoría.
               </p>

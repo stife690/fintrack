@@ -175,7 +175,7 @@ export default function TransactionForm({
         )}
       />
       {watch('category') === AUTO_CATEGORY && (
-        <p className="-mt-3 flex items-center gap-1.5 text-sm text-ink/55">
+        <p className="-mt-3 flex items-center gap-1.5 text-sm text-ink/60">
           <Sparkles className="size-4 shrink-0 text-brand" aria-hidden="true" />
           La clasificamos por ti al guardar.
         </p>

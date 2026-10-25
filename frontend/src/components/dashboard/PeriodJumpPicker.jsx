@@ -178,7 +178,7 @@ function WeekGrid({ date, onPick }) {
           <ChevronRight className="size-4" aria-hidden="true" />
         </NavButton>
       </div>
-      <div className="mb-1 grid grid-cols-7 text-center text-xs text-ink/50" aria-hidden="true">
+      <div className="mb-1 grid grid-cols-7 text-center text-xs text-ink/60" aria-hidden="true">
         {WEEKDAYS.map((w, i) => (
           <span key={i}>{w}</span>
         ))}
@@ -283,7 +283,7 @@ export default function PeriodJumpPicker({ period, date, label, onPick }) {
         <span aria-live="polite" className="first-letter:uppercase">
           {label}
         </span>
-        <ChevronDown className={cn('size-4 text-ink/50 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+        <ChevronDown className={cn('size-4 text-ink/60 transition-transform', open && 'rotate-180')} aria-hidden="true" />
       </button>
 
       {open && (

@@ -17,6 +17,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // `defer`: registerSW.js no bloquea el primer pintado (Lighthouse lo marcaba como render-blocking).
+      injectRegister: 'script-defer',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'FinTrack',
@@ -71,5 +73,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
+  build: {
+    // Junta los chunks diminutos (cada ícono de lucide salía en su propio archivo de ~1 KB):
+    // menos peticiones antes del primer pintado. Valor en bytes sin comprimir.
+    rollupOptions: { output: { experimentalMinChunkSize: 20_000 } },
   },
 })

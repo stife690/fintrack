@@ -387,7 +387,7 @@ export default function Transactions() {
                 <Loader2 className="animate-spin" aria-hidden="true" /> Cargando…
               </p>
             ) : result.data.length === 0 ? (
-              <p className="py-10 text-center text-ink/50">
+              <p className="py-10 text-center text-ink/60">
                 {hasFilters ? 'Ningún movimiento coincide con los filtros.' : 'Aún no tienes movimientos. Registra el primero con el formulario.'}
               </p>
             ) : (

@@ -77,7 +77,7 @@ export default function Testimonials() {
                 <Quote className="size-8 fill-violet text-violet" aria-hidden="true" />
                 <blockquote className="text-xl font-medium leading-snug text-obsidian md:text-2xl">“{t.quote}”</blockquote>
                 <div>
-                  <div className="flex gap-0.5" aria-label="5 de 5 estrellas">
+                  <div className="flex gap-0.5" role="img" aria-label="5 de 5 estrellas">
                     {Array.from({ length: 5 }, (_, k) => (
                       <Star key={k} className="size-4 fill-amber-400 text-amber-400" aria-hidden="true" />
                     ))}

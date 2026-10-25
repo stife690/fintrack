@@ -130,7 +130,7 @@ export default function BudgetOverview({ budgets, names, monthLabel, error, note
             })}
           </ul>
           {sorted.length > VISIBLE && (
-            <p className="mt-4 text-sm text-ink/50">y {sorted.length - VISIBLE} más</p>
+            <p className="mt-4 text-sm text-ink/60">y {sorted.length - VISIBLE} más</p>
           )}
         </>
       )}

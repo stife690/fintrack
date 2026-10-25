@@ -79,7 +79,7 @@ export default function Footer() {
         ))}
       </div>
 
-      <div className="container-page relative flex flex-col gap-3 border-t border-white/10 py-6 text-sm text-white/45 sm:flex-row sm:items-center sm:justify-between">
+      <div className="container-page relative flex flex-col gap-3 border-t border-white/10 py-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
         <p>© {new Date().getFullYear()} FinTrack. Proyecto académico.</p>
         <p className="inline-flex items-center gap-2" role="status">
           <span className={cn('size-2 rounded-full', STATUS_DOT[apiStatus])} />

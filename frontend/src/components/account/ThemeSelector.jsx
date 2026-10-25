@@ -43,7 +43,7 @@ export default function ThemeSelector() {
           </label>
         ))}
       </div>
-      <p className="mt-3 text-sm text-ink/50">
+      <p className="mt-3 text-sm text-ink/60">
         {preference === 'system'
           ? 'Sigue el modo claro u oscuro de tu dispositivo.'
           : 'Se guarda en este dispositivo.'}

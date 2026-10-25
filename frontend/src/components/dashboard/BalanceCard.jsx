@@ -63,7 +63,7 @@ export default function BalanceCard({ periodLabel, totals, note, hidden, onToggl
         <span aria-hidden="true" className="absolute -right-4 top-16 size-28 rounded-full bg-white/5" />
 
         <div className="relative flex items-start justify-between gap-4">
-          <h2 id="balance-title" className="text-sm font-medium text-white/80">
+          <h2 id="balance-title" className="text-sm font-medium text-white/90">
             Balance de {periodLabel}
           </h2>
           <button
@@ -81,7 +81,7 @@ export default function BalanceCard({ periodLabel, totals, note, hidden, onToggl
           {negative && !hidden && <span className="sr-only">Negativo: </span>}
           <Amount value={totals?.balance} hidden={hidden} />
         </p>
-        <p className="relative mt-2 text-sm text-white/75">
+        <p className="relative mt-2 text-sm text-white/90">
           {totals === undefined
             ? (note ?? 'Calculando…')
             : negative

@@ -64,7 +64,7 @@ export default function Navbar() {
             <Link to="/login">Iniciar sesión</Link>
           </Button>
           <Button asChild variant="dark" className="border border-white/10">
-            <Link to="/registro">Empezar</Link>
+            <Link to="/registro">Crear cuenta</Link>
           </Button>
         </div>
 

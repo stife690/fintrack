@@ -51,7 +51,7 @@ export default function RecentTransactions({ transactions, names, hidden, error 
                 <CategoryIcon category={t.category} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t.description}</p>
-                  <p className="truncate text-sm text-ink/55">
+                  <p className="truncate text-sm text-ink/60">
                     {t.category ? (names[t.category] ?? t.category) : 'Sin clasificar'} · {formatRelativeDay(t.date)}
                   </p>
                 </div>

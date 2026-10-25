@@ -9,7 +9,7 @@ import {
 } from "@/lib/money";
 
 const HINT_STYLES = {
-  info: "text-ink/55",
+  info: "text-ink/60",
   warning: "text-amber-600 dark:text-amber-400",
   error: "text-negative",
 };

@@ -34,7 +34,7 @@ function Row({ transaction: t, categoryNames, syncStatus, onEdit, onDelete }) {
       <CategoryIcon category={t.category} />
       <div className="min-w-0 flex-1 basis-40">
         <p className="truncate font-medium">{t.description}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink/50">
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink/60">
           <span>{formatDate(t.date)}</span>
           <span aria-hidden="true">·</span>
           <span className={t.category ? '' : 'italic'}>
