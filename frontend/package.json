@@ -35,7 +35,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^4.3.4",
-    "lighthouse": "13.5.0",
+    "lighthouse": "12.8.2",
     "msw": "^2.15.0",
     "puppeteer-core": "^24.43.1",
     "tailwindcss": "^4.3.3",

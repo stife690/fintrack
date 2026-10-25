@@ -50,6 +50,8 @@ APP_URL=https://fintrack-seven-delta.vercel.app API_URL=https://fintrack-api-2z1
 | `/app/presupuestos` | 84 → **94** | 96 → **100** | 100 | 91 → **100** |
 
 Antes = `main` al 2026-10-24 (commit `01de0b0`). En escritorio la landing da 99.
+Medido con Lighthouse 13.5; el proyecto fija la 12.8 porque la 13 exige Node ≥ 22 y el CI usa Node 20
+(mismas 4 categorías; los puntajes pueden variar unos pocos puntos).
 Criterio acordado: la app (login, registro y `/app/*`) en móvil; la landing en escritorio si en
 producción quedara bajo 90 en móvil (es la página más pesada: 9 secciones animadas).
 
