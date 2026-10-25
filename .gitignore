@@ -16,3 +16,6 @@ dist/
 
 # Grafo de conocimiento local (graphify)
 graphify-out/
+
+# Reportes de Lighthouse (se generan con npm run lighthouse)
+lighthouse-reports/
