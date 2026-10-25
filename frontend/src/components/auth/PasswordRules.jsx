@@ -21,7 +21,7 @@ export default function PasswordRules({ password = '' }) {
         return (
           <li
             key={rule.label}
-            className={cn('inline-flex items-center gap-1 transition-colors', ok ? 'text-success' : 'text-white/40')}
+            className={cn('inline-flex items-center gap-1 transition-colors', ok ? 'text-success' : 'text-white/55')}
           >
             <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
             {rule.label}

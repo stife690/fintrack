@@ -65,7 +65,7 @@ function PhoneMock() {
             </span>
             <div className="flex-1">
               <p className="text-sm text-white">{label}</p>
-              <p className="flex items-center gap-1.5 text-[11px] text-white/45">
+              <p className="flex items-center gap-1.5 text-[11px] text-white/55">
                 {detail}
                 {ai && (
                   <span className="inline-flex items-center gap-0.5 rounded bg-violet/25 px-1 text-[10px] font-medium text-violet-light">
