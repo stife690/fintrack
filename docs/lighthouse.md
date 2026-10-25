@@ -55,6 +55,22 @@ Medido con Lighthouse 13.5; el proyecto fija la 12.8 porque la 13 exige Node ≥
 Criterio acordado: la app (login, registro y `/app/*`) en móvil; la landing en escritorio si en
 producción quedara bajo 90 en móvil (es la página más pesada: 9 secciones animadas).
 
+### Producción (Vercel, 2026-10-25, tras el merge de la PR #71)
+
+Móvil, mediana de 3 corridas, `https://fintrack-seven-delta.vercel.app`:
+
+| Página | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
+|---|---|---|---|---|
+| `/` | **94** | **100** | **100** | **100** |
+| `/login` | **95** | 96 → 100 * | **100** | **100** |
+| `/registro` | **99** | 96 → 100 * | **100** | **100** |
+| `/app` | **95** | **100** | **100** | **100** |
+| `/app/transacciones` | **95** | **100** | **100** | **100** |
+| `/app/presupuestos` | **95** | **100** | **100** | **100** |
+
+\* En producción aparece el botón de Google (necesita `GOOGLE_CLIENT_ID`, que en local no está) y su
+texto de ayuda tenía contraste 4.42:1. Se corrigió en la PR siguiente (`text-white/45` → `/55`).
+
 ## Qué se cambió y por qué
 
 | Problema que marcó Lighthouse | Cambio |

@@ -85,7 +85,7 @@ export default function SocialAuth() {
     <>
       <div className="flex items-center gap-4">
         <span className="h-px flex-1 bg-white/10" />
-        <span className="text-xs uppercase tracking-wide text-white/45">o</span>
+        <span className="text-xs uppercase tracking-wide text-white/55">o</span>
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
@@ -118,7 +118,7 @@ export default function SocialAuth() {
               Entrando con Google…
             </p>
           )}
-          <p className="text-center text-xs text-white/45">
+          <p className="text-center text-xs text-white/55">
             Al continuar con Google aceptas los términos de uso y la política de privacidad.
           </p>
         </div>
