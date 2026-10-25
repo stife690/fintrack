@@ -1,3 +1,4 @@
+import { MotionConfig } from 'framer-motion';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import Hero from '@/components/home/Hero';
@@ -11,11 +12,14 @@ import Faq from '@/components/home/Faq';
 import CallToAction from '@/components/home/CallToAction';
 import usePageTitle from '@/hooks/usePageTitle';
 
-/** Landing de FinTrack con la línea gráfica de la plantilla Revio. */
+/**
+ * Landing de FinTrack con la línea gráfica de la plantilla Revio.
+ * `MotionConfig` desactiva las animaciones si el sistema pide movimiento reducido.
+ */
 export default function Home() {
   usePageTitle('Controla tus gastos');
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-obsidian"
@@ -35,6 +39,6 @@ export default function Home() {
         <CallToAction />
       </main>
       <Footer />
-    </>
+    </MotionConfig>
   );
 }

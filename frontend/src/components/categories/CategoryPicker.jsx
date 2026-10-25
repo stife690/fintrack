@@ -76,6 +76,14 @@ export default function CategoryPicker({
             </label>
           );
         })}
+        {/*
+          Mientras llegan las categorías (11 de gasto en el catálogo) se reserva su espacio: sin saltos
+          de layout. Sin animación de carga: si la petición falla, la página ya muestra el error.
+        */}
+        {categories.length === 0 &&
+          Array.from({ length: 11 }, (_, i) => (
+            <div key={i} aria-hidden="true" className="min-h-[84px] rounded-xl bg-ink/5" />
+          ))}
       </div>
       {error && (
         <p id={errorId} className="mt-2 text-sm text-negative">

@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import Home from '@/pages/Home';
 import ErrorBoundary, { hasChunkFailed } from '@/components/common/ErrorBoundary';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import AppShell from '@/components/layout/AppShell';
 
-// Code splitting por ruta: login/registro/404 se descargan solo al visitarlas.
+// Code splitting por ruta: cada página (también la landing, con framer-motion) se descarga solo al visitarla.
+const Home = lazy(() => import('@/pages/Home'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));

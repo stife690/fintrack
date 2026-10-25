@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { MotionConfig } from 'framer-motion';
 import '@fontsource-variable/inter-tight';
 import App from './App.jsx';
 import { AuthProvider } from './auth/AuthContext.jsx';
@@ -43,8 +42,8 @@ async function enableMocking() {
 }
 
 /**
- * Punto de entrada del frontend: monta `<App />` en `#root` con el router
- * y desactiva las animaciones si el sistema pide movimiento reducido.
+ * Punto de entrada del frontend: monta `<App />` en `#root` con el router.
+ * framer-motion solo lo usa la landing (ver `pages/Home.jsx`), así no entra en el bundle inicial.
  * La fuente se sirve desde el propio bundle (no Google Fonts) para que
  * el futuro service worker pueda precachearla y funcione sin conexión.
  */
@@ -53,9 +52,7 @@ enableMocking().then(() =>
     <StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <MotionConfig reducedMotion="user">
-            <App />
-          </MotionConfig>
+          <App />
         </AuthProvider>
       </BrowserRouter>
     </StrictMode>,

@@ -78,7 +78,7 @@ function Sidebar({ user }) {
         <Avatar user={user} />
         <span className="min-w-0 max-lg:sr-only">
           <span className="block truncate text-sm font-medium">{getDisplayName(user) || 'Tu cuenta'}</span>
-          <span className="block truncate text-xs text-ink/50">{user.email}</span>
+          <span className="block truncate text-xs text-ink/60">{user.email}</span>
         </span>
       </Link>
     </aside>
@@ -101,7 +101,7 @@ function BottomNav() {
               className={({ isActive }) =>
                 cn(
                   'flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
-                  isActive ? 'text-brand' : 'text-ink/55 hover:text-ink',
+                  isActive ? 'text-brand' : 'text-ink/60 hover:text-ink',
                 )
               }
             >
@@ -138,7 +138,7 @@ function useSyncProfile() {
 /** Mientras descarga el código de una sección, el menú sigue visible. */
 function SectionFallback() {
   return (
-    <div className="grid min-h-[40vh] place-items-center text-ink/50" aria-busy="true">
+    <div className="grid min-h-[40vh] place-items-center text-ink/60" aria-busy="true">
       <Loader2 className="size-6 animate-spin" aria-hidden="true" />
       <span className="sr-only">Cargando…</span>
     </div>

@@ -64,7 +64,7 @@ export default function ChipGroup({ legend, hideLegend = false, options, value, 
               />
               {Icon && <Icon className="size-4" aria-hidden="true" />}
               {label}
-              {badge && <span className="text-xs font-normal text-ink/50">· {badge}</span>}
+              {badge && <span className="text-xs font-normal text-ink/60">· {badge}</span>}
             </label>
           );
         })}

@@ -34,12 +34,10 @@ export default function Hero() {
           ))}
         </motion.ul>
 
-        <motion.h1
-          {...fadeUp(0.1)}
-          className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl"
-        >
+        {/* Sin animación de entrada: es el elemento más grande (LCP) y debe pintarse de inmediato. */}
+        <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
           Todos tus ingresos y gastos en un solo lugar
-        </motion.h1>
+        </h1>
 
         <motion.p {...fadeUp(0.2)} className="mt-6 max-w-xl text-pretty text-lg text-white/60">
           Registra tus movimientos en segundos, mira reportes claros de a dónde va tu dinero y recibe recomendaciones

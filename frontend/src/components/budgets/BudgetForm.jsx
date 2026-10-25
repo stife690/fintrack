@@ -131,7 +131,7 @@ export default function BudgetForm({
         )}
       />
 
-      <p className="-mt-2 text-sm text-ink/50">
+      <p className="-mt-2 text-sm text-ink/60">
         {initial ? 'Aplica a ' : 'Se crea para '}
         {monthLabel}. Te avisamos al llegar al 80 % y al pasarte del 100 %.
       </p>

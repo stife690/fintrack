@@ -201,7 +201,7 @@ export default function NotificationSettings() {
               {hasDuplicates && (
                 <p className="text-sm text-ink/60">Hay horas repetidas; se guardará una sola vez.</p>
               )}
-              <p className="text-sm text-ink/50">Zona horaria: {timezone}</p>
+              <p className="text-sm text-ink/60">Zona horaria: {timezone}</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button
