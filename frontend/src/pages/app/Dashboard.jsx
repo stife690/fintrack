@@ -127,7 +127,14 @@ export default function Dashboard() {
                   </button>
                 </p>
               )}
-              <QuickActions />
+              <QuickActions
+                names={names}
+                onSaved={() => {
+                  reloadRecent();
+                  reloadSummary();
+                  budgets.reload();
+                }}
+              />
               {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
               <IncomeExpenseChart
                 period={selected.period}

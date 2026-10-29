@@ -17,14 +17,16 @@ const TILE =
 /**
  * Accesos rápidos del inicio: registrar un gasto o un ingreso, dictarlo por voz (FT-0013) o ir a
  * presupuestos. "Voz" solo aparece si el navegador sabe dictar (Firefox no).
+ * @param {{ onSaved?: () => void, names?: Record<string, string> }} props
+ *   `onSaved` recarga el inicio tras guardar por voz; `names`, el nombre de cada categoría.
  */
-export default function QuickActions() {
+export default function QuickActions({ onSaved, names }) {
   const navigate = useNavigate();
   const [voiceOpen, setVoiceOpen] = useState(false);
   const canDictate = getSpeechRecognition() !== null;
 
-  // Lo dictado viaja a Movimientos, donde el formulario de siempre lo muestra para revisar y guardar.
-  const useDictation = (draft) => {
+  // "Editar antes de guardar": lo dictado viaja a Movimientos y llena el formulario.
+  const editDictation = (draft) => {
     setVoiceOpen(false);
     if (draft) navigate('/app/transacciones', { state: { voiceDraft: draft } });
     else navigate('/app/transacciones?nuevo=gasto');
@@ -51,7 +53,13 @@ export default function QuickActions() {
         )}
         <ActionLink {...ACTIONS[2]} />
       </ul>
-      <VoiceEntry open={voiceOpen} onClose={() => setVoiceOpen(false)} onUse={useDictation} />
+      <VoiceEntry
+        open={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        onEdit={editDictation}
+        onSaved={onSaved}
+        names={names}
+      />
     </nav>
   );
 }

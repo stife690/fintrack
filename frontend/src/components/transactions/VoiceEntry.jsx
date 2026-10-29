@@ -1,12 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { Keyboard, Lock, Mic, MicOff, RotateCcw, Sparkles, WifiOff, X } from 'lucide-react';
+import { Check, Keyboard, Loader2, Lock, Mic, MicOff, RotateCcw, Sparkles, WifiOff, X } from 'lucide-react';
+import BudgetAlert from '@/components/transactions/BudgetAlert';
 import { formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
+import { today } from '@/lib/validation/transaction';
 import { parseSpokenTransaction } from '@/lib/voiceEntry';
+import { saveNewTransaction } from '@/offline/saveNewTransaction';
 
 const EXAMPLES = ['almuerzo 15 mil', 'taxi 12 mil', 'me pagaron 1,2 millones'];
 
@@ -49,36 +52,66 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /**
  * Registro por voz (FT-0013). En celular es una hoja que sube desde abajo; desde tablet, una
- * ventana centrada. La persona dice el movimiento, revisa lo que se entendió y con "Usar estos
- * datos" se llena el formulario de siempre, que es el que guarda (con o sin conexión).
+ * ventana centrada. La persona dice el movimiento, revisa lo que se entendió y al tocar "Guardar"
+ * se registra de una vez, igual que desde el formulario (con o sin conexión); la IA del servidor
+ * le pone la categoría. Para cambiar algo antes, "Editar antes de guardar" lleva al formulario.
  *
  * @param {object} props
  * @param {boolean} props.open
  * @param {() => void} props.onClose
- * @param {(draft: { type: 'gasto'|'ingreso', amount: number|null, description: string }|null) => void} props.onUse
- *   Recibe lo que se entendió, o `null` si la persona prefiere escribir.
+ * @param {(draft: { type: 'gasto'|'ingreso', amount: number|null, description: string }|null) => void} props.onEdit
+ *   Lleva lo entendido al formulario, o `null` si la persona prefiere escribir.
+ * @param {(result: Awaited<ReturnType<typeof saveNewTransaction>>) => void} [props.onSaved]
+ *   Tras guardar, para refrescar la pantalla de atrás.
+ * @param {Record<string, string>} [props.names] Nombre de cada categoría por su clave.
  */
-export default function VoiceEntry({ open, onClose, onUse }) {
+export default function VoiceEntry({ open, onClose, onEdit, onSaved, names = {} }) {
   // Se dibuja fuera de la página (portal): dentro de un panel `sticky` quedaría debajo de los
   // demás paneles. Va al contenedor con `data-theme` para conservar el tema claro u oscuro.
   return createPortal(
     <MotionConfig reducedMotion="user">
-      <AnimatePresence>{open && <VoiceDialog key="voz" onClose={onClose} onUse={onUse} />}</AnimatePresence>
+      <AnimatePresence>
+        {open && <VoiceDialog key="voz" onClose={onClose} onEdit={onEdit} onSaved={onSaved} names={names} />}
+      </AnimatePresence>
     </MotionConfig>,
     document.querySelector('[data-theme]') ?? document.body,
   );
 }
 
-function VoiceDialog({ onClose, onUse }) {
+function VoiceDialog({ onClose, onEdit, onSaved, names }) {
   const titleId = useId();
   const panelRef = useRef(null);
   const speech = useSpeechRecognition();
   // Se guarda al montar, antes de que `autoFocus` mueva el foco a la ventana.
   const [opener] = useState(() => document.activeElement);
 
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(null); // { draft, result } tras guardar
+
   // La última versión de onClose, para no reiniciar el efecto si el padre pasa otra función.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // Mismo camino que el formulario: al servidor o, sin conexión, a la cola (FT-0009).
+  const save = async (draft) => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const result = await saveNewTransaction({ ...draft, date: today(), category: null });
+      setSaved({ draft, result });
+      onSaved?.(result);
+    } catch (err) {
+      setSaveError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const dictateAgain = () => {
+    setSaved(null);
+    speech.start();
+  };
 
   // Mientras está abierta: la página no se desplaza, Escape cierra, Tab no sale de la ventana
   // y al cerrar el foco vuelve al botón que la abrió.
@@ -108,12 +141,25 @@ function VoiceDialog({ onClose, onUse }) {
   }, [opener]);
 
   let content;
-  if (speech.status === 'listening') {
+  if (saved) {
+    content = <Saved titleId={titleId} {...saved} names={names} onAgain={dictateAgain} onDone={onClose} />;
+  } else if (speech.status === 'listening') {
     content = <Listening titleId={titleId} transcript={speech.transcript} onStop={speech.stop} onCancel={speech.reset} />;
   } else if (speech.status === 'done') {
-    content = <Result key={speech.transcript} titleId={titleId} transcript={speech.transcript} onRetry={speech.start} onUse={onUse} />;
+    content = (
+      <Result
+        key={speech.transcript}
+        titleId={titleId}
+        transcript={speech.transcript}
+        saving={saving}
+        error={saveError}
+        onRetry={speech.start}
+        onSave={save}
+        onEdit={onEdit}
+      />
+    );
   } else if (speech.status === 'error') {
-    content = <Problem titleId={titleId} code={speech.error} onRetry={speech.start} onWrite={() => onUse(null)} />;
+    content = <Problem titleId={titleId} code={speech.error} onRetry={speech.start} onWrite={() => onEdit(null)} />;
   } else {
     content = <Ready titleId={titleId} onStart={speech.start} />;
   }
@@ -209,11 +255,14 @@ function Listening({ titleId, transcript, onStop, onCancel }) {
 }
 
 /** Lo que se entendió. Si se dijo una cantidad ("2 almuerzos de 12 mil"), la persona elige el monto. */
-function Result({ titleId, transcript, onRetry, onUse }) {
+function Result({ titleId, transcript, saving, error, onRetry, onSave, onEdit }) {
   const parsed = useMemo(() => parseSpokenTransaction(transcript), [transcript]);
   const mustChoose = parsed.options.length > 1;
   const [amount, setAmount] = useState(mustChoose ? null : parsed.amount);
   const income = parsed.type === 'ingreso';
+  const draft = { type: parsed.type, amount, description: parsed.description };
+  // Sin monto o sin descripción no se puede guardar directo: se completa en el formulario.
+  const complete = amount !== null && Boolean(parsed.description);
 
   let shownAmount = <span className="text-ink/35">¿Cuánto?</span>;
   if (amount !== null) shownAmount = formatMoney(amount);
@@ -275,18 +324,78 @@ function Result({ titleId, transcript, onRetry, onUse }) {
         <p className="mt-3 text-sm text-ink/60">No escuchamos el monto: repítelo o escríbelo en el formulario.</p>
       )}
 
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-negative">
+          No se pudo guardar: {error}
+        </p>
+      )}
+
       <div className="mt-6 grid grid-cols-[1fr_1.4fr] gap-3">
-        <Button variant="outline" size="lg" onClick={onRetry}>
+        <Button variant="outline" size="lg" onClick={onRetry} disabled={saving}>
           <RotateCcw aria-hidden="true" />
           Repetir
         </Button>
-        <Button
-          size="lg"
-          autoFocus={!mustChoose}
-          disabled={mustChoose && amount === null}
-          onClick={() => onUse({ type: parsed.type, amount, description: parsed.description })}
+        {mustChoose || complete ? (
+          <Button size="lg" autoFocus={!mustChoose} disabled={saving || amount === null} onClick={() => onSave(draft)}>
+            {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {saving ? 'Guardando…' : income ? 'Guardar ingreso' : 'Guardar gasto'}
+          </Button>
+        ) : (
+          <Button size="lg" autoFocus onClick={() => onEdit(draft)}>
+            Completar
+          </Button>
+        )}
+      </div>
+      {(mustChoose || complete) && (
+        <button
+          type="button"
+          onClick={() => onEdit(draft)}
+          disabled={saving}
+          className="mt-3 rounded-lg px-2 py-1 text-sm text-ink/60 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-violet disabled:opacity-50"
         >
-          Usar estos datos
+          Editar antes de guardar
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Ya quedó guardado: monto, categoría que puso la IA y, si aplica, la alerta del presupuesto. */
+function Saved({ titleId, draft, result, names, onAgain, onDone }) {
+  const { transaction, alert, offline } = result;
+  const categoryName = transaction ? (names[transaction.category] ?? transaction.category) : null;
+  let detail;
+  if (offline) detail = 'Sin conexión: se sincroniza y se clasifica cuando vuelva internet.';
+  else if (transaction.source === 'sin_clasificar') detail = 'Sin clasificar: puedes elegir la categoría editándolo.';
+  else detail = `${categoryName}${transaction.source === 'ia' ? ' · sugerida por IA' : ''}`;
+
+  return (
+    <>
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', duration: 0.45, bounce: 0.3 }}
+        className="mx-auto grid size-20 place-items-center rounded-full bg-positive/15 text-positive"
+      >
+        <Check className="size-9" strokeWidth={2.5} aria-hidden="true" />
+      </motion.div>
+      <h2 id={titleId} className="mt-5 text-lg font-semibold tracking-tight">
+        {offline ? 'Guardado en tu dispositivo' : draft.type === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado'}
+      </h2>
+      <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(draft.amount)}</p>
+      <p className="mt-1 text-[15px]">{draft.description}</p>
+      <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-ink/60">
+        {!offline && transaction.source === 'ia' && <Sparkles className="size-3.5 shrink-0 text-brand" aria-hidden="true" />}
+        {detail}
+      </p>
+      <BudgetAlert alert={alert} categoryName={categoryName} className="mt-4 text-left" />
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <Button variant="outline" size="lg" onClick={onAgain}>
+          <Mic aria-hidden="true" />
+          Dictar otro
+        </Button>
+        <Button size="lg" onClick={onDone} autoFocus>
+          Listo
         </Button>
       </div>
     </>

@@ -21,13 +21,12 @@ import {
   listCached,
   listConflicts,
   listPending,
-  queueCreate,
   queueDelete,
   queueUpdate,
   uncacheTransaction,
 } from '@/offline/sync';
+import { saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
-  createTransaction,
   deleteTransaction,
   getCategories,
   listTransactions,
@@ -219,7 +218,8 @@ export default function Transactions() {
     if (location.state?.voiceDraft) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location, navigate]);
 
-  const useDictation = (dictated) => {
+  // "Editar antes de guardar": lo dictado llena el formulario para revisarlo.
+  const editDictation = (dictated) => {
     setVoiceOpen(false);
     setEditing(null);
     if (dictated) setDraft({ ...dictated });
@@ -287,27 +287,22 @@ export default function Transactions() {
       setEditing(null);
       return;
     }
-    // El mismo `localId` en el envío directo y en la cola: si el POST llegó al servidor pero la
-    // respuesta se perdió, al sincronizar el servidor lo reconoce y no lo duplica (FT-0009).
-    const localId = crypto.randomUUID();
-    let created;
-    try {
-      if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
-      created = await createTransaction({ ...values, localId });
-    } catch (err) {
-      if (err.code !== 'NETWORK_ERROR') throw err;
-      await queueCreate(values, localId);
+    const { transaction: saved, alert, offline } = await saveNewTransaction(values);
+    showSaved({ saved, alert, offline });
+  };
+
+  /** Avisa el resultado de un movimiento nuevo (del formulario o dictado) y recarga la lista. */
+  const showSaved = ({ saved, alert, offline }) => {
+    if (offline) {
       // Sin conexión no hay alerta de presupuesto: se calcula en el servidor.
       setBudgetAlert({ alert: null, category: null });
       setNotice('Guardado sin conexión. Se sincronizará cuando vuelva internet.');
       return;
     }
-    const { transaction: saved, alert } = created;
     setBudgetAlert({ alert, category: saved.category });
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
-    cacheTransaction(saved).catch(() => {});
   };
 
   const handleDelete = async (transaction) => {
@@ -384,7 +379,16 @@ export default function Transactions() {
             }}
             onCancel={editing ? () => setEditing(null) : undefined}
           />
-          <VoiceEntry open={voiceOpen} onClose={() => setVoiceOpen(false)} onUse={useDictation} />
+          <VoiceEntry
+            open={voiceOpen}
+            onClose={() => setVoiceOpen(false)}
+            onEdit={editDictation}
+            onSaved={({ transaction, alert, offline }) => {
+              setDraft(null);
+              showSaved({ saved: transaction, alert, offline });
+            }}
+            names={categoryNames}
+          />
           <BudgetAlert
             className="mt-4"
             alert={budgetAlert.alert}
