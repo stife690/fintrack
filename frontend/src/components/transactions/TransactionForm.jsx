@@ -45,6 +45,9 @@ function toDefaults(initial, defaultType = 'gasto') {
  * @param {() => void} [props.onCancel] Si se pasa, se muestra el botón "Cancelar".
  * @param {'gasto'|'ingreso'} [props.defaultType] Tipo inicial de una transacción nueva.
  * @param {boolean} [props.autoFocus] Pone el cursor en el monto al abrir (p. ej. desde un acceso rápido).
+ * @param {{ type: 'gasto'|'ingreso', amount: number|null, description: string }|null} [props.draft]
+ *   Lo dictado por voz (FT-0013): llena una transacción nueva para revisarla antes de guardar.
+ *   Cada objeto nuevo vuelve a llenar el formulario.
  */
 export default function TransactionForm({
   categories,
@@ -53,6 +56,7 @@ export default function TransactionForm({
   onCancel,
   defaultType = 'gasto',
   autoFocus = false,
+  draft = null,
 }) {
   const [serverError, setServerError] = useState('');
   // Cambia en cada reinicio del formulario para que la fecha vuelva a "Hoy".
@@ -81,6 +85,20 @@ export default function TransactionForm({
   useEffect(() => {
     if (autoFocus) amountRef.current?.focus();
   }, [autoFocus, defaultType]);
+
+  // Va después del reinicio de arriba para que, al abrir, gane lo dictado. Si no se entendió
+  // el monto, el cursor queda ahí para escribirlo.
+  useEffect(() => {
+    if (!draft) return;
+    reset({
+      ...toDefaults(null, draft.type),
+      amount: draft.amount === null ? '' : String(draft.amount),
+      description: draft.description,
+    });
+    setServerError('');
+    setResetKey((k) => k + 1);
+    if (draft.amount === null) amountRef.current?.focus();
+  }, [draft, reset]);
 
   const type = watch('type');
   const options = type === 'gasto' ? categories.expense : categories.income;

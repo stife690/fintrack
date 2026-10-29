@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { CloudUpload, Download, Loader2, WifiOff } from 'lucide-react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { CloudUpload, Download, Loader2, Mic, WifiOff } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
@@ -8,9 +8,11 @@ import ConflictList from '@/components/transactions/ConflictList';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
+import VoiceEntry from '@/components/transactions/VoiceEntry';
 import { formatDate, formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
+import { getSpeechRecognition } from '@/lib/speech';
 import {
   SYNC_EVENT,
   cacheTransaction,
@@ -19,13 +21,12 @@ import {
   listCached,
   listConflicts,
   listPending,
-  queueCreate,
   queueDelete,
   queueUpdate,
   uncacheTransaction,
 } from '@/offline/sync';
+import { saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
-  createTransaction,
   deleteTransaction,
   getCategories,
   listTransactions,
@@ -139,6 +140,12 @@ export default function Transactions() {
   const [searchParams] = useSearchParams();
   const quickType = searchParams.get('nuevo');
   const defaultType = quickType === 'ingreso' ? 'ingreso' : 'gasto';
+  // Registro por voz (FT-0013). Lo dictado desde el inicio llega en el estado de la navegación.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const canDictate = getSpeechRecognition() !== null;
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [draft, setDraft] = useState(() => location.state?.voiceDraft ?? null);
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
@@ -206,6 +213,18 @@ export default function Transactions() {
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
+  // Lo dictado se usa una sola vez: se borra del historial para que recargar no lo repita.
+  useEffect(() => {
+    if (location.state?.voiceDraft) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location, navigate]);
+
+  // "Editar antes de guardar": lo dictado llena el formulario para revisarlo.
+  const editDictation = (dictated) => {
+    setVoiceOpen(false);
+    setEditing(null);
+    if (dictated) setDraft({ ...dictated });
+  };
+
   // Al volver la conexión, la lista se vuelve a pedir al servidor.
   useEffect(() => {
     window.addEventListener('online', reload);
@@ -268,27 +287,22 @@ export default function Transactions() {
       setEditing(null);
       return;
     }
-    // El mismo `localId` en el envío directo y en la cola: si el POST llegó al servidor pero la
-    // respuesta se perdió, al sincronizar el servidor lo reconoce y no lo duplica (FT-0009).
-    const localId = crypto.randomUUID();
-    let created;
-    try {
-      if (!navigator.onLine) throw Object.assign(new Error(), { code: 'NETWORK_ERROR' });
-      created = await createTransaction({ ...values, localId });
-    } catch (err) {
-      if (err.code !== 'NETWORK_ERROR') throw err;
-      await queueCreate(values, localId);
+    const { transaction: saved, alert, offline } = await saveNewTransaction(values);
+    showSaved({ saved, alert, offline });
+  };
+
+  /** Avisa el resultado de un movimiento nuevo (del formulario o dictado) y recarga la lista. */
+  const showSaved = ({ saved, alert, offline }) => {
+    if (offline) {
       // Sin conexión no hay alerta de presupuesto: se calcula en el servidor.
       setBudgetAlert({ alert: null, category: null });
       setNotice('Guardado sin conexión. Se sincronizará cuando vuelva internet.');
       return;
     }
-    const { transaction: saved, alert } = created;
     setBudgetAlert({ alert, category: saved.category });
     setNotice(savedMessage(saved, categoryNames));
     setPage(1);
     reload();
-    cacheTransaction(saved).catch(() => {});
   };
 
   const handleDelete = async (transaction) => {
@@ -337,16 +351,43 @@ export default function Transactions() {
           de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <Panel aria-labelledby="form-title" className="h-fit lg:sticky lg:top-8">
-          <h2 id="form-title" className="mb-5 text-lg font-semibold tracking-tight">
-            {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
-          </h2>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 id="form-title" className="text-lg font-semibold tracking-tight">
+              {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
+            </h2>
+            {canDictate && !editing && (
+              <Button variant="soft" size="sm" onClick={() => setVoiceOpen(true)}>
+                <Mic aria-hidden="true" />
+                Dictar
+              </Button>
+            )}
+          </div>
+          {draft && !editing && (
+            <p role="status" className="-mt-2 mb-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
+              Revisa lo que dictaste y toca Guardar.
+            </p>
+          )}
           <TransactionForm
             categories={categories}
             initial={editing}
             defaultType={defaultType}
             autoFocus={Boolean(quickType)}
-            onSubmit={handleSubmit}
+            draft={editing ? null : draft}
+            onSubmit={async (values) => {
+              await handleSubmit(values);
+              setDraft(null);
+            }}
             onCancel={editing ? () => setEditing(null) : undefined}
+          />
+          <VoiceEntry
+            open={voiceOpen}
+            onClose={() => setVoiceOpen(false)}
+            onEdit={editDictation}
+            onSaved={({ transaction, alert, offline }) => {
+              setDraft(null);
+              showSaved({ saved: transaction, alert, offline });
+            }}
+            names={categoryNames}
           />
           <BudgetAlert
             className="mt-4"
