@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { COLOR_OPTIONS, ICON_OPTIONS, customStyle } from '@/lib/categoryStyles';
 import { cn } from '@/lib/utils';
-import { createCategory, updateCategory } from '@/services/transactionService';
+import { createCategory, deleteCategory, updateCategory } from '@/services/transactionService';
 
 /** Largo máximo del nombre, igual que en la API. */
 export const NAME_MAX = 30;
@@ -14,8 +14,26 @@ export const NAME_MAX = 30;
 const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /**
+ * Categoría a la que pasan los movimientos de una propia que se elimina.
+ * @param {'gasto'|'ingreso'} type
+ */
+const fallbackName = (type) => (type === 'ingreso' ? 'Otros ingresos' : 'Otros');
+
+/**
+ * Mensaje tras eliminar: cuántos movimientos cambiaron de categoría y a cuál.
+ * @param {number} moved
+ * @param {'gasto'|'ingreso'} type
+ * @returns {string}
+ */
+export function deletedMessage(moved, type) {
+  if (moved === 0) return 'Categoría eliminada.';
+  return `Categoría eliminada. ${moved} ${moved === 1 ? 'movimiento pasó' : 'movimientos pasaron'} a ${fallbackName(type)}.`;
+}
+
+/**
  * Ventana para crear una categoría propia (hasta 20 por usuario) o editar una: nombre, ícono y
- * color, con una vista previa. En el celular sube desde abajo; en pantallas anchas va centrada.
+ * color, con una vista previa. Al editar también se puede eliminar, con confirmación.
+ * En el celular sube desde abajo; en pantallas anchas va centrada.
  *
  * @param {object} props
  * @param {boolean} props.open
@@ -24,14 +42,23 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
  * @param {() => void} props.onClose
  * @param {(category: import('@/services/transactionService').Category) => void} props.onCreated
  *   Al crear o guardar, con la categoría que devolvió el servidor.
+ * @param {(category: import('@/services/transactionService').Category & { type: 'gasto'|'ingreso' }, moved: number) => void} [props.onDeleted]
+ *   Al eliminar la categoría que se editaba, con cuántos movimientos pasaron a "Otros".
  */
-export default function NewCategoryDialog({ open, type, category, onClose, onCreated }) {
+export default function NewCategoryDialog({ open, type, category, onClose, onCreated, onDeleted }) {
   // Portal al contenedor con `data-theme`: queda encima de todo y conserva el tema.
   return createPortal(
     <MotionConfig reducedMotion="user">
       <AnimatePresence>
         {open && (
-          <Dialog key="categoria" type={type} category={category} onClose={onClose} onCreated={onCreated} />
+          <Dialog
+            key="categoria"
+            type={type}
+            category={category}
+            onClose={onClose}
+            onCreated={onCreated}
+            onDeleted={onDeleted}
+          />
         )}
       </AnimatePresence>
     </MotionConfig>,
@@ -39,7 +66,7 @@ export default function NewCategoryDialog({ open, type, category, onClose, onCre
   );
 }
 
-function Dialog({ type: fixedType, category, onClose, onCreated }) {
+function Dialog({ type: fixedType, category, onClose, onCreated, onDeleted }) {
   const titleId = useId();
   const nameId = useId();
   const panelRef = useRef(null);
@@ -48,12 +75,13 @@ function Dialog({ type: fixedType, category, onClose, onCreated }) {
   // Se guarda al montar, antes de que el efecto mueva el foco al nombre.
   const [opener] = useState(() => document.activeElement);
   const editing = Boolean(category);
-  const [type, setType] = useState(fixedType ?? 'gasto');
+  const [type, setType] = useState(category?.type ?? fixedType ?? 'gasto');
   const [name, setName] = useState(category?.name ?? '');
   const [icon, setIcon] = useState(category?.icon ?? ICON_OPTIONS[0].key);
   const [color, setColor] = useState(category?.color ?? COLOR_OPTIONS[0].key);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -109,6 +137,19 @@ function Dialog({ type: fixedType, category, onClose, onCreated }) {
         ? await updateCategory(category.key, { name: clean, icon, color })
         : await createCategory({ name: clean, type, icon, color });
       onCreated(saved);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { moved } = await deleteCategory(category.key);
+      onDeleted?.({ ...category, type }, moved);
       onClose();
     } catch (err) {
       setError(err.message);
@@ -265,22 +306,64 @@ function Dialog({ type: fixedType, category, onClose, onCreated }) {
 
         {(error || !online) && (
           <p role="alert" className="mt-4 text-sm text-negative">
-            {error || 'Necesitas internet para crear una categoría.'}
+            {error || `Necesitas internet para ${editing ? 'cambiar' : 'crear'} una categoría.`}
           </p>
         )}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={saving || !online}>
-            {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-            {editing ? 'Guardar' : 'Crear'}
-          </Button>
-        </div>
-        {!editing && (
-          <p className="mt-3 text-center text-xs text-ink/55">Puedes tener hasta 20 categorías propias.</p>
+        {confirmingDelete ? (
+          <div role="group" aria-label="Confirmar eliminación" className="mt-6 rounded-2xl bg-negative/10 p-4">
+            <p className="text-sm font-medium">¿Eliminar “{category.name}”?</p>
+            <p className="mt-1 text-sm text-ink/70">
+              Sus movimientos pasarán a {fallbackName(type)} y sus presupuestos se borrarán.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {/* Aparece al pulsar "Eliminar categoría", que desaparece: el foco pasa aquí. */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={saving}
+                autoFocus
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={remove}
+                disabled={saving || !online}
+                className="border-negative/40 text-negative hover:bg-negative/10"
+              >
+                {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+                Sí, eliminar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !online}>
+              {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {editing ? 'Guardar' : 'Crear'}
+            </Button>
+          </div>
         )}
+        {editing && !confirmingDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              setError('');
+              setConfirmingDelete(true);
+            }}
+            className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-negative transition-colors hover:bg-negative/10 focus-visible:outline-2 focus-visible:outline-violet"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+            Eliminar categoría
+          </button>
+        )}
+        {!editing && <p className="mt-3 text-center text-xs text-ink/55">Puedes tener hasta 20 categorías propias.</p>}
       </motion.form>
     </div>
   );

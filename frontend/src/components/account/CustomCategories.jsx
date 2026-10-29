@@ -1,25 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import CategoryIcon from '@/components/categories/CategoryIcon';
-import NewCategoryDialog from '@/components/categories/NewCategoryDialog';
+import NewCategoryDialog, { deletedMessage } from '@/components/categories/NewCategoryDialog';
 import Panel from '@/components/layout/Panel';
 import { Button } from '@/components/ui/button';
-import { CATEGORY_CREATED_EVENT, deleteCategory, getCategories } from '@/services/transactionService';
+import {
+  CATEGORIES_CHANGED_EVENT,
+  applyCategoryChange,
+  deleteCategory,
+  getCategories,
+} from '@/services/transactionService';
 
 /** Categorías propias que puede tener cada usuario (igual que en la API). */
 export const MAX_OWN = 20;
-
-/**
- * Mensaje tras eliminar: cuántos movimientos cambiaron de categoría y a cuál.
- * @param {number} moved
- * @param {'gasto'|'ingreso'} type
- * @returns {string}
- */
-export function deletedMessage(moved, type) {
-  const target = type === 'gasto' ? 'Otros' : 'Otros ingresos';
-  if (moved === 0) return 'Categoría eliminada.';
-  return `Categoría eliminada. ${moved} ${moved === 1 ? 'movimiento pasó' : 'movimientos pasaron'} a ${target}.`;
-}
 
 /**
  * Una categoría propia con sus acciones. Eliminar pide confirmación en la misma fila, como los
@@ -113,25 +106,16 @@ export default function CustomCategories() {
       .catch((err) => setError(err.message));
   }, []);
 
-  // Una creada aquí o desde Movimientos o Presupuestos se agrega a la lista.
+  // Lo creado, editado o eliminado aquí o desde Movimientos o Presupuestos se refleja en la lista.
   useEffect(() => {
-    const add = ({ detail }) =>
-      setCategories((current) => (current?.some((c) => c.key === detail.key) ? current : [...(current ?? []), detail]));
-    window.addEventListener(CATEGORY_CREATED_EVENT, add);
-    return () => window.removeEventListener(CATEGORY_CREATED_EVENT, add);
+    const apply = ({ detail }) =>
+      setCategories((current) => current && applyCategoryChange(current, detail).filter((c) => c.custom));
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, apply);
+    return () => window.removeEventListener(CATEGORIES_CHANGED_EVENT, apply);
   }, []);
 
-  const saved = (category) => {
-    setCategories((current) =>
-      current.map((c) => (c.key === category.key ? { ...c, ...category } : c)),
-    );
-    setStatus(dialog?.category ? 'Cambios guardados.' : 'Categoría creada.');
-  };
-
-  const deleted = (category, moved) => {
-    setCategories((current) => current.filter((c) => c.key !== category.key));
-    setStatus(deletedMessage(moved, category.type));
-  };
+  const saved = () => setStatus(dialog?.category ? 'Cambios guardados.' : 'Categoría creada.');
+  const deleted = (category, moved) => setStatus(deletedMessage(moved, category.type));
 
   const count = categories?.length ?? 0;
 
@@ -198,6 +182,7 @@ export default function CustomCategories() {
         category={dialog?.category}
         onClose={() => setDialog(null)}
         onCreated={saved}
+        onDeleted={deleted}
       />
     </Panel>
   );

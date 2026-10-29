@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
-import { Plus, Sparkles } from 'lucide-react';
-import NewCategoryDialog from '@/components/categories/NewCategoryDialog';
+import { Pencil, Plus, Sparkles } from 'lucide-react';
+import NewCategoryDialog, { deletedMessage } from '@/components/categories/NewCategoryDialog';
 import { getCategoryStyle } from '@/lib/categoryStyles';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +21,7 @@ export const AUTO_CATEGORY = '';
  * @param {boolean} [props.disabled]
  * @param {(el: HTMLInputElement|null) => void} [props.inputRef] Ref al primer radio (para enfocar al fallar la validación).
  * @param {'gasto'|'ingreso'} [props.createType] Muestra al final "Nueva" para crear una categoría propia
- *   de ese tipo; al crearla queda elegida.
+ *   de ese tipo (al crearla queda elegida) y un lápiz en las propias para editarlas o eliminarlas.
  */
 export default function CategoryPicker({
   legend,
@@ -35,12 +35,10 @@ export default function CategoryPicker({
   createType,
 }) {
   const name = useId();
-  const [creating, setCreating] = useState(false);
+  const [dialog, setDialog] = useState(null); // { category? } con la ventana abierta
+  const [status, setStatus] = useState('');
   const errorId = `${name}-error`;
-  const options = [
-    ...(allowAuto ? [{ key: AUTO_CATEGORY, name: 'Sugerir con IA', auto: true }] : []),
-    ...categories,
-  ];
+  const options = [...(allowAuto ? [{ key: AUTO_CATEGORY, name: 'Sugerir con IA', auto: true }] : []), ...categories];
 
   return (
     <fieldset disabled={disabled} aria-describedby={error ? errorId : undefined} className="min-w-0">
@@ -51,7 +49,7 @@ export default function CategoryPicker({
           const { icon: Icon, className: tone } = c.auto
             ? { icon: Sparkles, className: 'bg-brand-soft text-brand' }
             : getCategoryStyle(c.key);
-          return (
+          const tile = (
             <label
               key={c.key || 'auto'}
               className={cn(
@@ -80,6 +78,25 @@ export default function CategoryPicker({
               <span className="line-clamp-2">{c.name}</span>
             </label>
           );
+          if (!createType || !c.custom) return tile;
+          // Las propias llevan un lápiz en la esquina; va junto a la etiqueta y no dentro, porque
+          // un botón dentro de la etiqueta también elegiría la categoría.
+          return (
+            <div key={c.key} className="relative grid">
+              {tile}
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus('');
+                  setDialog({ category: c });
+                }}
+                aria-label={`Editar ${c.name}`}
+                className="absolute right-0 top-0 grid size-7 place-items-center rounded-lg text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-violet"
+              >
+                <Pencil className="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          );
         })}
         {/*
           Mientras llegan las categorías (11 de gasto en el catálogo) se reserva su espacio: sin saltos
@@ -88,7 +105,10 @@ export default function CategoryPicker({
         {createType && categories.length > 0 && (
           <button
             type="button"
-            onClick={() => setCreating(true)}
+            onClick={() => {
+              setStatus('');
+              setDialog({});
+            }}
             className="flex min-h-[84px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/25 px-1.5 py-2.5 text-center text-xs font-medium leading-tight text-ink/70 transition-colors hover:border-brand/50 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet"
           >
             <span aria-hidden="true" className="grid size-9 place-items-center rounded-lg bg-ink/5">
@@ -108,12 +128,27 @@ export default function CategoryPicker({
         </p>
       )}
       {createType && (
-        <NewCategoryDialog
-          open={creating}
-          type={createType}
-          onClose={() => setCreating(false)}
-          onCreated={(category) => onChange(category.key)}
-        />
+        <>
+          <p role="status" className="mt-2 text-sm text-positive empty:hidden">
+            {status}
+          </p>
+          <NewCategoryDialog
+            open={Boolean(dialog)}
+            type={createType}
+            category={dialog?.category && { ...dialog.category, type: createType }}
+            onClose={() => setDialog(null)}
+            onCreated={(category) => {
+              // Una nueva queda elegida; al editar se conserva la que estaba elegida.
+              if (dialog?.category) setStatus('Cambios guardados.');
+              else onChange(category.key);
+            }}
+            onDeleted={(category, moved) => {
+              // Si era la elegida, se vuelve a la opción por defecto.
+              if (value === category.key) onChange(allowAuto ? AUTO_CATEGORY : '');
+              setStatus(deletedMessage(moved, category.type));
+            }}
+          />
+        </>
       )}
     </fieldset>
   );

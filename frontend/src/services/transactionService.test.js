@@ -115,3 +115,38 @@ describe('transactionService: categorías propias', () => {
     });
   });
 });
+
+describe('transactionService: orden y cambios de categorías', () => {
+  const otros = { key: 'otros', name: 'Otros' };
+  const salud = { key: 'salud', name: 'Salud' };
+  const mascotas = { key: 'c_mascotas01', name: 'Mascotas', custom: true };
+
+  it('sortCategories deja "Otros" y "Otros ingresos" al final', async () => {
+    const { sortCategories } = await import('@/services/transactionService');
+    expect(sortCategories([otros, salud, mascotas]).map((c) => c.key)).toEqual(['salud', 'c_mascotas01', 'otros']);
+    expect(sortCategories([{ key: 'otros_ingresos' }, { key: 'salario' }]).map((c) => c.key)).toEqual([
+      'salario',
+      'otros_ingresos',
+    ]);
+  });
+
+  it('applyCategoryChange pone una creada antes de "Otros" y solo en su tipo', async () => {
+    const { applyCategoryChange } = await import('@/services/transactionService');
+    const created = { kind: 'created', category: { ...mascotas, type: 'gasto' } };
+    expect(applyCategoryChange([salud, otros], created, 'gasto').map((c) => c.key)).toEqual([
+      'salud',
+      'c_mascotas01',
+      'otros',
+    ]);
+    expect(applyCategoryChange([{ key: 'salario' }], created, 'ingreso')).toEqual([{ key: 'salario' }]);
+  });
+
+  it('applyCategoryChange cambia una editada y quita una eliminada', async () => {
+    const { applyCategoryChange } = await import('@/services/transactionService');
+    const list = [salud, mascotas, otros];
+    const renamed = applyCategoryChange(list, { kind: 'updated', category: { key: 'c_mascotas01', name: 'Mi perro' } });
+    expect(renamed[1]).toEqual({ ...mascotas, name: 'Mi perro' });
+    const removed = applyCategoryChange(list, { kind: 'deleted', category: { key: 'c_mascotas01' }, moved: 2 });
+    expect(removed.map((c) => c.key)).toEqual(['salud', 'otros']);
+  });
+});

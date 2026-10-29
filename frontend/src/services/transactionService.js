@@ -95,18 +95,56 @@ export async function getCategories() {
   }
 }
 
+/** Las categorías comodín, que van al final de su tipo (después de las propias). */
+const CATCH_ALL = new Set(['otros', 'otros_ingresos']);
+
 /**
- * Registra el ícono y el color de las categorías propias y devuelve la misma respuesta.
+ * Ordena una lista de categorías: "Otros" y "Otros ingresos" al final y el resto como venía
+ * (primero las de todos, luego las propias en el orden en que se crearon).
+ * @param {Category[]} list
+ * @returns {Category[]} Una lista nueva.
+ */
+export function sortCategories(list) {
+  return [...list.filter((c) => !CATCH_ALL.has(c.key)), ...list.filter((c) => CATCH_ALL.has(c.key))];
+}
+
+/**
+ * Registra el ícono y el color de las categorías propias y las ordena con `sortCategories`.
  * @param {{ expense: Category[], income: Category[] }} categories
  * @returns {{ expense: Category[], income: Category[] }}
  */
 function withStyles(categories) {
   registerCategories([...categories.expense, ...categories.income]);
-  return categories;
+  return { expense: sortCategories(categories.expense), income: sortCategories(categories.income) };
 }
 
-/** Evento de `window` al crear una categoría propia: las pantallas la agregan a su lista. */
-export const CATEGORY_CREATED_EVENT = 'fintrack:category-created';
+/**
+ * Evento de `window` cuando se crea, edita o elimina una categoría propia, para que todas las
+ * pantallas abiertas actualicen su lista. `detail` es un `CategoryChange`.
+ * @typedef {{ kind: 'created'|'updated'|'deleted', category: Category & { type?: 'gasto'|'ingreso' }, moved?: number }} CategoryChange
+ */
+export const CATEGORIES_CHANGED_EVENT = 'fintrack:categories-changed';
+
+/** @param {CategoryChange} change */
+function announce(change) {
+  if (typeof window !== 'undefined')
+    window.dispatchEvent(new CustomEvent(CATEGORIES_CHANGED_EVENT, { detail: change }));
+}
+
+/**
+ * Aplica un `CategoryChange` a una lista de categorías de un solo tipo. Una creada queda antes
+ * de "Otros"; una de otro tipo no se agrega.
+ * @param {Category[]} list
+ * @param {CategoryChange} change
+ * @param {'gasto'|'ingreso'} [type] Tipo de la lista; sin él se agrega cualquier categoría creada.
+ * @returns {Category[]} Una lista nueva.
+ */
+export function applyCategoryChange(list, { kind, category }, type) {
+  if (kind === 'deleted') return list.filter((c) => c.key !== category.key);
+  if (kind === 'updated') return list.map((c) => (c.key === category.key ? { ...c, ...category } : c));
+  if (type && category.type !== type) return list;
+  return sortCategories([...list.filter((c) => c.key !== category.key), category]);
+}
 
 /**
  * Crea una categoría propia (máximo 20 por usuario). Necesita conexión. Los errores traen
@@ -117,7 +155,7 @@ export const CATEGORY_CREATED_EVENT = 'fintrack:category-created';
 export async function createCategory(input) {
   const created = { ...(await request('/categories', { method: 'POST', body: input })), type: input.type };
   registerCategories([created]);
-  window.dispatchEvent(new CustomEvent(CATEGORY_CREATED_EVENT, { detail: created }));
+  announce({ kind: 'created', category: created });
   return created;
 }
 
@@ -130,6 +168,7 @@ export async function createCategory(input) {
 export async function updateCategory(key, changes) {
   const updated = await request(`/categories/${encodeURIComponent(key)}`, { method: 'PATCH', body: changes });
   registerCategories([updated]);
+  announce({ kind: 'updated', category: updated });
   return updated;
 }
 
@@ -139,8 +178,10 @@ export async function updateCategory(key, changes) {
  * @param {string} key
  * @returns {Promise<{ moved: number }>} Cuántos movimientos cambiaron de categoría.
  */
-export function deleteCategory(key) {
-  return request(`/categories/${encodeURIComponent(key)}`, { method: 'DELETE' });
+export async function deleteCategory(key) {
+  const result = await request(`/categories/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  announce({ kind: 'deleted', category: { key }, moved: result.moved });
+  return result;
 }
 
 /**
