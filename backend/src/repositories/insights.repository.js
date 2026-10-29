@@ -7,9 +7,9 @@ import { pool } from '../config/db.js';
  */
 
 /**
- * Insights guardados del usuario para un mes (tabla `insights`, uno por usuario y mes).
+ * Insights guardados del usuario para un periodo (tabla `insights`, uno por usuario y periodo).
  * @param {string} userId
- * @param {string} month AAAA-MM
+ * @param {string} month Periodo: el mes (AAAA-MM) o el lunes de la semana (AAAA-MM-DD).
  * @returns {Promise<CachedInsights|null>}
  */
 export async function findInsights(userId, month) {
@@ -22,10 +22,10 @@ export async function findInsights(userId, month) {
 }
 
 /**
- * Guarda (o reemplaza) los insights del usuario para un mes. Solo se persiste el resultado ya
- * validado, nunca el prompt ni la respuesta cruda del modelo.
+ * Guarda (o reemplaza) los insights del usuario para un periodo. Solo se persiste el resultado
+ * ya validado, nunca el prompt ni la respuesta cruda del modelo.
  * @param {string} userId
- * @param {string} month AAAA-MM
+ * @param {string} month Periodo: el mes (AAAA-MM) o el lunes de la semana (AAAA-MM-DD).
  * @param {Array<{ type: string, title: string, detail: string }>} insights
  * @returns {Promise<void>}
  */

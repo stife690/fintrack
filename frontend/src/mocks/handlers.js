@@ -426,21 +426,26 @@ export const handlers = [
       return error(
         422,
         'INSUFFICIENT_HISTORY',
-        'Aún no hay suficiente historial. Registra movimientos durante al menos un mes para recibir insights.',
+        'Aún no hay suficiente historial. Registra movimientos durante al menos una semana para recibir consejos.',
       );
     }
+    // Como la API con menos de un mes de historial: la semana actual, desde el lunes.
+    const today = new Date();
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
     return HttpResponse.json({
-      month: new Date().toISOString().slice(0, 7),
+      period: 'week',
+      month: today.toISOString().slice(0, 7),
+      from: `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`,
       insights: [
         {
           type: 'saving_opportunity',
           title: 'Gastas más en alimentación',
-          detail: 'Este mes llevas 18 % más que el anterior. Reducir los domicilios a 2 por semana podría ahorrarte $120.000.',
+          detail: 'Esta semana llevas 18 % más que la anterior. Reducir los domicilios a 2 por semana podría ahorrarte $30.000.',
         },
         {
           type: 'positive_trend',
           title: 'Transporte a la baja',
-          detail: 'Gastaste $45.000 menos que el mes pasado en transporte.',
+          detail: 'Gastaste $12.000 menos que la semana pasada en transporte.',
         },
       ],
     });

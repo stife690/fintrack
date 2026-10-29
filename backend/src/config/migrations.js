@@ -67,6 +67,18 @@ export const MIGRATIONS = [
          ON categorias(usuario_id) WHERE usuario_id IS NOT NULL`,
     ],
   },
+  {
+    id: '006_insights_por_semana',
+    statements: [
+      `DO $$
+       BEGIN
+         IF (SELECT data_type FROM information_schema.columns
+              WHERE table_name = 'insights' AND column_name = 'mes') = 'character' THEN
+           ALTER TABLE insights ALTER COLUMN mes TYPE VARCHAR(10);
+         END IF;
+       END $$`,
+    ],
+  },
 ];
 
 /**

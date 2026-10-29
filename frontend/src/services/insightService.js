@@ -12,9 +12,11 @@ import { apiRequest } from '@/lib/apiRequest';
  */
 
 /**
- * Insights del mes actual. Los errores traen `code`: `INSUFFICIENT_HISTORY` (menos de un mes de
- * historial), `AI_UNAVAILABLE` (la IA no respondió) o `RATE_LIMITED`.
- * @returns {Promise<{ month: string, insights: Insight[] }>}
+ * Consejos de la semana actual (con menos de un mes de historial) o del mes actual. Los errores
+ * traen `code`: `INSUFFICIENT_HISTORY` (menos de una semana de historial), `AI_UNAVAILABLE` (la IA
+ * no respondió) o `RATE_LIMITED`.
+ * @returns {Promise<{ period: 'week'|'month', month: string, from: string, insights: Insight[] }>}
+ *   `from` es el primer día del periodo (el lunes o el día 1 del mes).
  */
 export function getInsights() {
   return apiRequest('/insights');
