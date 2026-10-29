@@ -18,7 +18,8 @@ const MAX_INSIGHTS = 4;
 
 const SYSTEM_PROMPT =
   'Eres un asistente de finanzas personales para una app en pesos colombianos (COP). ' +
-  'Recibes únicamente totales agregados por categoría de dos meses y devuelves consejos breves, ' +
+  'Recibes únicamente totales agregados por categoría de dos periodos (dos semanas o dos meses) y ' +
+  'devuelves consejos breves, ' +
   'concretos y amables en español. No inventes datos que no estén en la entrada. ' +
   'Responde ÚNICAMENTE con un arreglo JSON, sin texto adicional ni bloques de código.';
 
@@ -30,6 +31,53 @@ const SYSTEM_PROMPT =
  */
 export function todayIso(now = new Date(), timeZone = 'America/Bogota') {
   return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
+}
+
+/** Días de historial que hacen falta para recibir consejos (REQ-021, cambio aprobado por el equipo). */
+export const MIN_HISTORY_DAYS = 7;
+
+/**
+ * Suma (o resta) días a una fecha.
+ * @param {string} date AAAA-MM-DD
+ * @param {number} days
+ * @returns {string} AAAA-MM-DD
+ */
+export function addDays(date, days) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * Qué periodos se comparan según el historial (REQ-021): con al menos un mes, el mes actual
+ * (hasta hoy) contra el anterior; con al menos una semana, la semana actual (de lunes a hoy)
+ * contra la anterior; con menos, ninguno.
+ * @param {string} today AAAA-MM-DD
+ * @param {string|null} first Fecha del primer movimiento, o `null` si no hay.
+ * @returns {{ period: 'week'|'month', key: string, current: { from: string, to: string }, previous: { from: string, to: string }, previousLabel: string }|null}
+ *   `key` identifica el periodo en la caché: el lunes de la semana (AAAA-MM-DD) o el mes (AAAA-MM).
+ */
+export function comparisonFor(today, first) {
+  if (!first || first > addDays(today, -MIN_HISTORY_DAYS)) return null;
+  if (first <= oneMonthBefore(today)) {
+    const month = today.slice(0, 7);
+    const previousMonth = oneMonthBefore(`${month}-01`).slice(0, 7);
+    return {
+      period: 'month',
+      key: month,
+      current: { from: `${month}-01`, to: today },
+      previous: periodRange('month', `${previousMonth}-01`),
+      previousLabel: previousMonth,
+    };
+  }
+  const monday = periodRange('week', today).from;
+  const previous = periodRange('week', addDays(monday, -1));
+  return {
+    period: 'week',
+    key: monday,
+    current: { from: monday, to: today },
+    previous,
+    previousLabel: previous.from,
+  };
 }
 
 /**
@@ -62,19 +110,21 @@ function describeMonth(rows, names) {
 
 /**
  * Arma el prompt con datos agregados (RN-05, RNF-09): ni descripciones, ni fechas sueltas, ni
- * identificadores del usuario. Solo totales por categoría del mes actual y del anterior.
- * @param {{ month: string, previousMonth: string, current: object, previous: object, names: Map<string, string> }} data
+ * identificadores del usuario. Solo totales por categoría del periodo actual y del anterior.
+ * @param {{ month: string, previousMonth: string, current: object, previous: object, names: Map<string, string>, period?: 'week'|'month' }} data
+ *   Con `period: 'week'`, `month` y `previousMonth` son los lunes de cada semana.
  * @returns {string}
  */
-export function buildPrompt({ month, previousMonth, current, previous, names }) {
+export function buildPrompt({ month, previousMonth, current, previous, names, period = 'month' }) {
+  const week = period === 'week';
   return [
-    `Mes actual (${month}, hasta hoy):`,
+    week ? `Semana actual (desde el lunes ${month}, hasta hoy):` : `Mes actual (${month}, hasta hoy):`,
     `Ingresos totales: ${current.income}`,
     `Gastos totales: ${current.expenseTotal}`,
     'Gastos por categoría:',
     describeMonth(current.expenses, names),
     '',
-    `Mes anterior (${previousMonth}):`,
+    week ? `Semana anterior (desde el lunes ${previousMonth}):` : `Mes anterior (${previousMonth}):`,
     `Ingresos totales: ${previous.income}`,
     `Gastos totales: ${previous.expenseTotal}`,
     'Gastos por categoría:',
@@ -156,53 +206,60 @@ export function createInsightsService(deps = {}) {
   }
 
   /**
-   * Insights del mes actual (REQ-020, REQ-021). Si hay un resultado guardado de hace menos de
-   * `CACHE_TTL_HOURS` lo devuelve sin llamar a la IA; si no, lo genera y lo guarda. Si la IA
-   * falla y hay un resultado anterior, devuelve ese en vez de un error.
+   * Consejos del periodo actual (REQ-020, REQ-021): desde la primera semana de historial compara
+   * semana contra semana y desde el primer mes, mes contra mes (`comparisonFor`). Si hay un
+   * resultado guardado de ese periodo de hace menos de `CACHE_TTL_HOURS` lo devuelve sin llamar a
+   * la IA; si no, lo genera y lo guarda. Si la IA falla y hay uno anterior, devuelve ese.
    *
    * @param {string} userId
-   * @returns {Promise<{ month: string, insights: Array<{ type: string, title: string, detail: string }> }>}
+   * @returns {Promise<{ period: 'week'|'month', month: string, from: string, insights: Array<{ type: string, title: string, detail: string }> }>}
+   *   `month` es el mes de hoy (AAAA-MM) y `from`, el primer día del periodo comparado.
    * @throws {AppError} 422 `INSUFFICIENT_HISTORY`, 503 `AI_UNAVAILABLE`.
    */
   async function getInsights(userId) {
     const today = todayIso(now());
-    const month = today.slice(0, 7);
-
-    const cached = await repo.findInsights(userId, month);
-    const ageHours = cached ? (now() - cached.generatedAt) / 3_600_000 : Infinity;
-    if (cached && ageHours < CACHE_TTL_HOURS) return { month, insights: cached.insights };
-
-    // Regla de negocio (REQ-021): hace falta al menos un mes de historial.
-    const first = await repo.findFirstTransactionDate(userId);
-    if (!first || first > oneMonthBefore(today)) {
+    const comparison = comparisonFor(today, await repo.findFirstTransactionDate(userId));
+    if (!comparison) {
       throw new AppError(
         422,
         'INSUFFICIENT_HISTORY',
-        'Aún no hay suficiente historial. Registra movimientos durante al menos un mes para recibir insights.',
+        'Aún no hay suficiente historial. Registra movimientos durante al menos una semana para recibir consejos.',
       );
     }
+    const { period, key } = comparison;
+    const result = (insights) => ({
+      period,
+      month: today.slice(0, 7),
+      from: comparison.current.from,
+      insights,
+    });
 
-    const currentRange = { from: periodRange('month', today).from, to: today };
-    const previousMonth = oneMonthBefore(`${month}-01`).slice(0, 7);
+    const cached = await repo.findInsights(userId, key);
+    const ageHours = cached ? (now() - cached.generatedAt) / 3_600_000 : Infinity;
+    if (cached && ageHours < CACHE_TTL_HOURS) return result(cached.insights);
+
     const [current, previous, categories] = await Promise.all([
-      totalsFor(userId, currentRange),
-      totalsFor(userId, periodRange('month', `${previousMonth}-01`)),
+      totalsFor(userId, comparison.current),
+      totalsFor(userId, comparison.previous),
       getCategories(userId),
     ]);
     if (current.expenseTotal === 0 && previous.expenseTotal === 0) {
       throw new AppError(
         422,
         'INSUFFICIENT_HISTORY',
-        'No hay gastos suficientes en los últimos dos meses para generar insights.',
+        period === 'week'
+          ? 'No hay gastos en estas dos semanas para generar consejos.'
+          : 'No hay gastos suficientes en los últimos dos meses para generar insights.',
       );
     }
 
     const prompt = buildPrompt({
-      month,
-      previousMonth,
+      month: period === 'week' ? key : today.slice(0, 7),
+      previousMonth: comparison.previousLabel,
       current,
       previous,
       names: new Map(categories.map((c) => [c.key, c.name])),
+      period,
     });
 
     try {
@@ -210,12 +267,12 @@ export function createInsightsService(deps = {}) {
       const insights = parseInsights(text);
       if (!insights)
         throw new AppError(503, 'AI_UNAVAILABLE', 'El servicio de IA no está disponible');
-      await repo.saveInsights(userId, month, insights);
-      return { month, insights };
+      await repo.saveInsights(userId, key, insights);
+      return result(insights);
     } catch (err) {
       // Mejor un consejo de hace unas horas que ninguno.
       if (cached && err instanceof AppError && err.code === 'AI_UNAVAILABLE') {
-        return { month, insights: cached.insights };
+        return result(cached.insights);
       }
       throw err;
     }

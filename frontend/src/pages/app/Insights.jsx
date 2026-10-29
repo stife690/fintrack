@@ -11,10 +11,22 @@ import usePageTitle from '@/hooks/usePageTitle';
 import { getInsights } from '@/services/insightService';
 
 /**
- * Página privada `/app/insights`: consejos del mes generados por IA a partir de los totales por
- * categoría (FT-0007, REQ-020 y REQ-021) y un chat con el asistente financiero. Sin un mes de
- * historial muestra un aviso en vez de consejos, pero el chat funciona desde el primer día; si la
- * IA no responde, deja reintentar. En pantallas anchas el chat va a la derecha.
+ * Título del panel de consejos según el periodo que comparó la API.
+ * @param {{ period: 'week'|'month', month: string, from: string }} data
+ * @returns {string} "Esta semana, desde el lunes 19 de octubre" u "octubre de 2026".
+ */
+export function insightsTitle({ period, month, from }) {
+  if (period !== 'week') return formatMonth(month);
+  const monday = new Date(`${from}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
+  return `Esta semana, desde el lunes ${monday}`;
+}
+
+/**
+ * Página privada `/app/insights`: consejos generados por IA a partir de los totales por
+ * categoría (FT-0007, REQ-020 y REQ-021) y un chat con el asistente financiero. Desde la primera
+ * semana compara semana contra semana y desde el primer mes, mes contra mes. Sin una semana de
+ * historial muestra el mes hasta hoy en vez de consejos, pero el chat funciona desde el primer día;
+ * si la IA no responde, deja reintentar. En pantallas anchas el chat va a la derecha.
  */
 export default function Insights() {
   usePageTitle('Insights');
@@ -41,14 +53,14 @@ export default function Insights() {
   }, [version]);
 
   const retry = useCallback(() => setVersion((v) => v + 1), []);
-  // Sin un mes de historial no hay consejos con IA: se muestra el mes hasta hoy, calculado aquí.
+  // Sin una semana de historial no hay consejos con IA: se muestra el mes hasta hoy, calculado aquí.
   const noHistory = error?.code === 'INSUFFICIENT_HISTORY';
 
   return (
     <>
       <PageHeader
         title="Insights"
-        description="Consejos del mes y un asistente para tus preguntas. Solo usa totales por categoría, nunca tus descripciones."
+        description="Consejos de la semana o del mes y un asistente para tus preguntas. Solo usa totales por categoría, nunca tus descripciones."
       />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
@@ -56,7 +68,7 @@ export default function Insights() {
           <h2 id="insights-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
             <span className="first-letter:uppercase">
-              {data ? formatMonth(data.month) : noHistory ? `${new Date().toLocaleDateString('es-CO', { month: 'long' })}, hasta hoy` : 'Este mes'}
+              {data ? insightsTitle(data) : noHistory ? `${new Date().toLocaleDateString('es-CO', { month: 'long' })}, hasta hoy` : 'Este mes'}
             </span>
           </h2>
 
