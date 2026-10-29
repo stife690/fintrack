@@ -1,10 +1,19 @@
-import { Bug, CalendarClock, HeartPulse, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Bug, CalendarClock, ChevronDown, CircleCheck, HeartPulse, Lightbulb, Loader2 } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
 import { formatMoney } from '@/components/transactions/format';
 import useAsync from '@/hooks/useAsync';
 import { cn } from '@/lib/utils';
 import { getAnalytics } from '@/services/analyticsService';
-import { LEVELS, describePart, formatNumber, projectionMessage, smallExpensesMessage } from './analytics';
+import {
+  LEVELS,
+  PART_FORMULAS,
+  describePart,
+  formatNumber,
+  nextAction,
+  projectionMessage,
+  smallExpensesMessage,
+} from './analytics';
 
 const TEXT = { positive: 'text-positive', caution: 'text-caution', negative: 'text-negative' };
 const BAR = { positive: 'bg-positive', caution: 'bg-caution', negative: 'bg-negative' };
@@ -22,66 +31,127 @@ function BlockTitle({ icon: Icon, children }) {
   );
 }
 
-/** Puntaje de 0 a 100 en un anillo, con el nivel y las cuatro partes. */
-function HealthBlock({ health }) {
+/** Puntaje de 0 a 100 en un anillo, con su nivel. */
+function ScoreBlock({ health }) {
   const { label, tone } = LEVELS[health.level];
   const circumference = 2 * Math.PI * 42;
   return (
-    <div>
-      <BlockTitle icon={HeartPulse}>Salud financiera</BlockTitle>
-      <div className="mt-3 flex items-center gap-4">
-        <div className="relative size-24 shrink-0">
-          <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden="true">
-            <circle cx="50" cy="50" r="42" fill="none" strokeWidth="10" className="stroke-ink/10" />
-            <circle
-              cx="50"
-              cy="50"
-              r="42"
-              fill="none"
-              strokeWidth="10"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={circumference * (1 - health.score / 100)}
-              className={cn('transition-[stroke-dashoffset] duration-700', {
-                'stroke-positive': tone === 'positive',
-                'stroke-caution': tone === 'caution',
-                'stroke-negative': tone === 'negative',
-              })}
-            />
-          </svg>
-          <p className="absolute inset-0 grid place-items-center text-2xl font-semibold tabular-nums">
-            <span>
-              {health.score}
-              <span className="sr-only"> de 100</span>
-            </span>
-          </p>
-        </div>
-        <p className={cn('text-lg font-semibold', TEXT[tone])}>{label}</p>
+    <div className="flex items-center gap-4 rounded-2xl border border-ink/10 p-4">
+      <div className="relative size-24 shrink-0">
+        <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden="true">
+          <circle cx="50" cy="50" r="42" fill="none" strokeWidth="10" className="stroke-ink/10" />
+          <circle
+            cx="50"
+            cy="50"
+            r="42"
+            fill="none"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - health.score / 100)}
+            className={cn('transition-[stroke-dashoffset] duration-700', {
+              'stroke-positive': tone === 'positive',
+              'stroke-caution': tone === 'caution',
+              'stroke-negative': tone === 'negative',
+            })}
+          />
+        </svg>
+        <p className="absolute inset-0 grid place-items-center text-2xl font-semibold tabular-nums">
+          <span>
+            {health.score}
+            <span className="sr-only"> de 100</span>
+          </span>
+        </p>
       </div>
-      <ul className="mt-4 space-y-2.5">
-        {health.parts.map((part) => {
+      <div>
+        <BlockTitle icon={HeartPulse}>Salud financiera</BlockTitle>
+        <p className={cn('mt-1 text-xl font-semibold', TEXT[tone])}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/** La acción que más sube el puntaje, con a dónde ir para hacerla. */
+function ActionBlock({ action }) {
+  if (!action) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl bg-positive/10 p-4">
+        <CircleCheck className="mt-0.5 size-5 shrink-0 text-positive" aria-hidden="true" />
+        <div>
+          <p className="font-semibold">Vas muy bien</p>
+          <p className="mt-1 text-sm text-ink/75">Todas las partes de tu puntaje están en buen nivel. Sigue así.</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-brand-soft/60 p-4 sm:flex-row sm:items-start">
+      <Lightbulb className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand">Lo que más te sube el puntaje</p>
+        <p className="mt-1 font-semibold">{action.title}</p>
+        <p className="mt-1 text-sm text-ink/75">{action.detail}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-brand">
+            Hasta +{action.gain} puntos
+          </span>
+          {action.to && (
+            <Link
+              to={action.to}
+              className="inline-flex items-center gap-1 text-sm font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-violet"
+            >
+              {action.cta}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Las cuatro partes del puntaje; cada una se abre para mostrar cómo se calcula. */
+function PartsBlock({ parts }) {
+  return (
+    <div>
+      <BlockTitle icon={HeartPulse}>Cómo se arma tu puntaje</BlockTitle>
+      <ul className="mt-3 space-y-2">
+        {parts.map((part) => {
           const { label: name, detail } = describePart(part);
-          const partColor = partTone(part.points);
           return (
             <li key={part.key}>
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="font-medium">{name}</span>
-                <span className="tabular-nums text-ink/60">
-                  {formatNumber(part.points)} <span className="sr-only">de</span>
-                  <span aria-hidden="true">/</span> 25
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
-                <div
-                  className={cn('h-full rounded-full', BAR[partColor])}
-                  style={{ width: `${(part.points / 25) * 100}%` }}
-                />
-              </div>
-              <p className="mt-1 text-xs text-ink/60">{detail}</p>
+              <details className="group [&_summary::-webkit-details-marker]:hidden">
+                <summary className="cursor-pointer list-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet">
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="flex items-center gap-1 font-medium">
+                      {name}
+                      <ChevronDown
+                        className="size-3.5 text-ink/50 transition-transform group-open:rotate-180"
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="tabular-nums text-ink/60">
+                      {formatNumber(part.points)} <span className="sr-only">de</span>
+                      <span aria-hidden="true">/</span> 25
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
+                    <div
+                      className={cn('h-full rounded-full', BAR[partTone(part.points)])}
+                      style={{ width: `${(part.points / 25) * 100}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-ink/60">{detail}</p>
+                </summary>
+                <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-xs leading-relaxed text-ink/75">
+                  {PART_FORMULAS[part.key]}
+                </p>
+              </details>
             </li>
           );
         })}
       </ul>
+      <p className="mt-2 text-xs text-ink/55">Cada parte vale 25 puntos. Toca una para ver la fórmula.</p>
     </div>
   );
 }
@@ -139,8 +209,9 @@ function SmallExpensesBlock({ small }) {
 }
 
 /**
- * Insights → "Tu mes en números" (FT-0019): puntaje de salud financiera, proyección de fin de
- * mes y gastos hormiga. Los calcula el servidor con fórmulas fijas, sin IA.
+ * Insights → "Tu mes en números" (FT-0019): puntaje de salud financiera con la acción que más lo
+ * sube, proyección de fin de mes, gastos hormiga y cómo se arma el puntaje. Los calcula el
+ * servidor con fórmulas fijas, sin IA; la acción recomendada sale de `nextAction`.
  */
 export default function MonthAnalytics() {
   const { data, error, loading, reload } = useAsync(getAnalytics, []);
@@ -165,10 +236,16 @@ export default function MonthAnalytics() {
         ) : data.empty ? (
           <p className="text-sm text-ink/70">Registra movimientos este mes para ver tu puntaje y tu proyección.</p>
         ) : (
-          <div className="grid gap-8 md:grid-cols-3 md:gap-6">
-            <HealthBlock health={data.health} />
-            <ProjectionBlock projection={data.projection} day={data.day} daysInMonth={data.daysInMonth} />
-            <SmallExpensesBlock small={data.smallExpenses} />
+          <div className="space-y-8">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+              <ScoreBlock health={data.health} />
+              <ActionBlock action={nextAction(data)} />
+            </div>
+            <div className="grid gap-8 md:grid-cols-3 md:gap-6">
+              <ProjectionBlock projection={data.projection} day={data.day} daysInMonth={data.daysInMonth} />
+              <SmallExpensesBlock small={data.smallExpenses} />
+              <PartsBlock parts={data.health.parts} />
+            </div>
           </div>
         )}
       </div>
