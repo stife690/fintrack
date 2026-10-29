@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { createBudget, deleteBudget, listBudgets, updateBudget } from '@/services/budgetService';
-import { getCategories } from '@/services/transactionService';
+import { CATEGORY_CREATED_EVENT, getCategories } from '@/services/transactionService';
 
 /**
  * Página privada `/app/presupuestos`: crear, editar y eliminar presupuestos por categoría y
@@ -38,6 +38,13 @@ export default function Budgets() {
     getCategories()
       .then((all) => setCategories(all.expense))
       .catch((err) => setError(err.message));
+  }, []);
+
+  // Una categoría creada desde el formulario se agrega a la lista, sin volver a pedirlas.
+  useEffect(() => {
+    const add = ({ detail }) => setCategories((current) => [...current, detail]);
+    window.addEventListener(CATEGORY_CREATED_EVENT, add);
+    return () => window.removeEventListener(CATEGORY_CREATED_EVENT, add);
   }, []);
 
   useEffect(() => {

@@ -25,6 +25,7 @@ import {
 } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT, saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
+  CATEGORY_CREATED_EVENT,
   deleteTransaction,
   getCategories,
   listTransactions,
@@ -177,6 +178,16 @@ export default function Transactions() {
     getCategories()
       .then(setCategories)
       .catch((err) => setError(err.message));
+  }, []);
+
+  // Una categoría creada desde el formulario se agrega al final de su tipo, sin volver a pedirlas.
+  useEffect(() => {
+    const add = ({ detail }) => {
+      const list = detail.type === 'gasto' ? 'expense' : 'income';
+      setCategories((current) => ({ ...current, [list]: [...current[list], detail] }));
+    };
+    window.addEventListener(CATEGORY_CREATED_EVENT, add);
+    return () => window.removeEventListener(CATEGORY_CREATED_EVENT, add);
   }, []);
 
   useEffect(() => {

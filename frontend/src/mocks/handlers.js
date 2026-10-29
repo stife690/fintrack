@@ -227,8 +227,43 @@ export const handlers = [
 
   http.get(`${API_V1}/categories`, ({ request }) => {
     if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
-    const pick = (type) => CATALOG.filter((c) => c.type === type).map(({ key, name }) => ({ key, name }));
+    const pick = (type) =>
+      CATALOG.filter((c) => c.type === type).map(({ key, name, icon = null, color = null, custom = false }) => ({
+        key,
+        name,
+        icon,
+        color,
+        custom,
+      }));
     return HttpResponse.json({ expense: pick('gasto'), income: pick('ingreso') });
+  }),
+
+  // Categorías propias: en los mocks se agregan al mismo catálogo (no se separan por usuario).
+  http.post(`${API_V1}/categories`, async ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await readJson(request);
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    if (!name || name.length > 30 || !['gasto', 'ingreso'].includes(body?.type)) {
+      return error(422, 'VALIDATION_ERROR', 'Datos inválidos', [{ field: 'name', problem: 'Debe tener entre 1 y 30 caracteres' }]);
+    }
+    if (CATALOG.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      return error(409, 'CATEGORY_EXISTS', 'Ya tienes una categoría con ese nombre');
+    }
+    if (CATALOG.filter((c) => c.custom).length >= 20) {
+      return error(409, 'CATEGORY_LIMIT', 'Puedes tener hasta 20 categorías propias');
+    }
+    await delay(400);
+    const category = {
+      key: `c_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`,
+      name,
+      type: body.type,
+      icon: body.icon,
+      color: body.color,
+      custom: true,
+    };
+    CATALOG.push(category);
+    const { key, icon, color, custom } = category;
+    return HttpResponse.json({ key, name, icon, color, custom }, { status: 201 });
   }),
 
   http.get(`${API_V1}/transactions`, ({ request }) => {
