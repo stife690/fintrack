@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import AssistantChat, { SUGGESTIONS } from '@/components/insights/AssistantChat';
 
 describe('AssistantChat', () => {
-  const html = renderToStaticMarkup(<AssistantChat />);
+  let html;
+  // `useOnlineStatus` lee `navigator.onLine`; Node 20 (el del CI) no trae `navigator`.
+  beforeAll(() => {
+    vi.stubGlobal('navigator', { onLine: true });
+    html = renderToStaticMarkup(<AssistantChat />);
+  });
+  afterAll(() => vi.unstubAllGlobals());
 
   it('sin conversación muestra las preguntas sugeridas', () => {
     for (const suggestion of SUGGESTIONS) expect(html).toContain(suggestion);
