@@ -5,13 +5,20 @@ vi.mock('./sync', () => ({ cacheTransaction: vi.fn(() => Promise.resolve()), que
 
 const { createTransaction } = await import('@/services/transactionService');
 const { cacheTransaction, queueCreate } = await import('./sync');
-const { saveNewTransaction } = await import('./saveNewTransaction');
+const { TRANSACTION_SAVED_EVENT, saveNewTransaction } = await import('./saveNewTransaction');
 
 const values = { type: 'gasto', amount: 15000, description: 'Almuerzo', date: '2026-10-28', category: null };
 const saved = { id: 't1', ...values, category: 'alimentacion', source: 'ia' };
 
 describe('saveNewTransaction', () => {
-  beforeEach(() => vi.stubGlobal('navigator', { onLine: true }));
+  let announced;
+  beforeEach(() => {
+    vi.stubGlobal('navigator', { onLine: true });
+    const win = new EventTarget();
+    announced = [];
+    win.addEventListener(TRANSACTION_SAVED_EVENT, (event) => announced.push(event.detail));
+    vi.stubGlobal('window', win);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
@@ -23,6 +30,7 @@ describe('saveNewTransaction', () => {
     expect(createTransaction).toHaveBeenCalledWith({ ...values, localId: expect.any(String) });
     expect(cacheTransaction).toHaveBeenCalledWith(saved);
     expect(queueCreate).not.toHaveBeenCalled();
+    expect(announced).toEqual([{ transaction: saved, alert: null, offline: false }]);
   });
 
   it('si la red falla lo deja en la cola con el mismo localId', async () => {
@@ -30,6 +38,7 @@ describe('saveNewTransaction', () => {
     await expect(saveNewTransaction(values)).resolves.toEqual({ transaction: null, alert: null, offline: true });
     const { localId } = createTransaction.mock.calls[0][0];
     expect(queueCreate).toHaveBeenCalledWith(values, localId);
+    expect(announced).toEqual([{ transaction: null, alert: null, offline: true }]);
   });
 
   it('sin conexión ni lo intenta: va directo a la cola', async () => {
@@ -43,5 +52,6 @@ describe('saveNewTransaction', () => {
     createTransaction.mockRejectedValue(Object.assign(new Error('Monto inválido'), { code: 'VALIDATION_ERROR' }));
     await expect(saveNewTransaction(values)).rejects.toThrow('Monto inválido');
     expect(queueCreate).not.toHaveBeenCalled();
+    expect(announced).toEqual([]);
   });
 });
