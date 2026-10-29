@@ -48,6 +48,30 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('3 empanadas a 2 mil').options).toEqual([2000, 6000]);
   });
 
+  it('si el dictado se come el "mil", un número pequeño al final se toma como miles', () => {
+    expect(parseSpokenTransaction('3 almuerzos de 15')).toMatchObject({
+      amount: 15000,
+      options: [15000, 45000],
+      description: '3 almuerzos',
+    });
+    expect(parseSpokenTransaction('almuerzo 15').amount).toBe(15000);
+    // Un número pequeño que no está al final es una cantidad, no un precio.
+    expect(parseSpokenTransaction('2 almuerzos').amount).toBe(2);
+    // Desde 100 sí puede ser un precio real en pesos.
+    expect(parseSpokenTransaction('propina 500').amount).toBe(500);
+  });
+
+  it('entiende la cantidad dicha con palabras ("tres almuerzos")', () => {
+    expect(parseSpokenTransaction('tres almuerzos de 15')).toMatchObject({
+      amount: 15000,
+      options: [15000, 45000],
+      description: 'Tres almuerzos',
+    });
+    expect(parseSpokenTransaction('dos empanadas a 2 mil').options).toEqual([2000, 4000]);
+    // "dos mil" es parte del monto, no una cantidad.
+    expect(parseSpokenTransaction('pasaje dos mil 500').options).toEqual([500]);
+  });
+
   it('no ofrece total si la cantidad es mayor que 20', () => {
     expect(parseSpokenTransaction('50 almuerzos de 12 mil')).toMatchObject({ options: [12000], ambiguous: true });
   });

@@ -24,6 +24,10 @@ const UNITS = { mil: 1e3, k: 1e3, luca: 1e3, lucas: 1e3, palo: 1e6, palos: 1e6, 
 /** Un número (con puntos o comas) y, opcionalmente, su unidad: "15 mil", "26.900", "1,2 millones". */
 const NUMBER = /\$?\s?(\d+(?:[.,]\d+)*)\s*(mil|k|lucas?|palos?|mill[oó]n|millones)?(?!\p{L})/gu;
 
+/** Cantidades dichas con palabras ("tres almuerzos"); el dictado suele escribirlas así. */
+const QUANTITY_WORDS = ['dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez'];
+const QUANTITY_WORD = new RegExp(`(?<!\\p{L})(${QUANTITY_WORDS.join('|')})(?!\\p{L})(?!\\s+(mil|mill))`, 'u');
+
 /** Palabras que sobran en la descripción. */
 const FILLER =
   /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
@@ -44,13 +48,21 @@ export function parseSpokenTransaction(text) {
     text: match[0].trim(),
     value: toNumber(match[1]) * (UNITS[match[2]] ?? 1),
     plain: !match[2], // sin unidad: puede ser una cantidad ("2 almuerzos")
+    atEnd: lower.slice(match.index + match[0].length).trim() === '',
   }));
   for (const [pattern, value] of SPOKEN_AMOUNTS) {
     const match = lower.match(pattern);
-    if (match) found.push({ text: match[0], value, plain: false });
+    if (match) found.push({ text: match[0], value, plain: false, atEnd: false });
   }
+  // "tres almuerzos de 15 mil": la cantidad en palabras cuenta como un número más. No se toma si
+  // va antes de "mil" o "millones" ("dos mil"), porque ahí es parte del monto.
+  const word = found.length === 1 && lower.match(QUANTITY_WORD);
+  if (word) found.push({ text: word[0], value: QUANTITY_WORDS.indexOf(word[1]) + 2, plain: true, atEnd: false });
 
   const biggest = found.reduce((best, item) => (item.value > (best?.value ?? 0) ? item : best), null);
+  // El dictado a veces se come el "mil" ("3 almuerzos de 15"). Nadie paga $15 pesos: un número
+  // sin unidad, menor que 100 y al final de la frase, es un precio en miles.
+  if (biggest?.plain && biggest.atEnd && biggest.value < 100) biggest.value *= 1000;
   const amount = biggest && biggest.value > 0 && biggest.value <= MAX_AMOUNT ? biggest.value : null;
 
   // "2 almuerzos de 12 mil": se ofrece el precio dicho y el total; la persona elige.
