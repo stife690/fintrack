@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Loader2, Sparkles } from 'lucide-react';
 import AssistantChat from '@/components/insights/AssistantChat';
 import InsightCard from '@/components/insights/InsightCard';
+import MonthHighlights from '@/components/insights/MonthHighlights';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import { formatMonth } from '@/components/budgets/month';
-import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getInsights } from '@/services/insightService';
@@ -42,6 +41,8 @@ export default function Insights() {
   }, [version]);
 
   const retry = useCallback(() => setVersion((v) => v + 1), []);
+  // Sin un mes de historial no hay consejos con IA: se muestra el mes hasta hoy, calculado aquí.
+  const noHistory = error?.code === 'INSUFFICIENT_HISTORY';
 
   return (
     <>
@@ -50,11 +51,13 @@ export default function Insights() {
         description="Consejos del mes y un asistente para tus preguntas. Solo usa totales por categoría, nunca tus descripciones."
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <Panel aria-labelledby="insights-title">
           <h2 id="insights-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
-            <span className="first-letter:uppercase">{data ? formatMonth(data.month) : 'Este mes'}</span>
+            <span className="first-letter:uppercase">
+              {data ? formatMonth(data.month) : noHistory ? `${new Date().toLocaleDateString('es-CO', { month: 'long' })}, hasta hoy` : 'Este mes'}
+            </span>
           </h2>
 
           <div className="mt-5" aria-busy={loading}>
@@ -62,14 +65,8 @@ export default function Insights() {
               <p className="flex items-center gap-2 py-10 text-ink/60">
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Analizando tus movimientos…
               </p>
-            ) : error?.code === 'INSUFFICIENT_HISTORY' ? (
-              <div className="py-6 text-center">
-                <p className="font-medium">Todavía no hay suficiente historial</p>
-                <p className="mx-auto mt-1 max-w-md text-sm text-ink/70">{error.message}</p>
-                <Button asChild className="mt-4">
-                  <Link to="/app/transacciones">Registrar un movimiento</Link>
-                </Button>
-              </div>
+            ) : noHistory ? (
+              <MonthHighlights message={error.message} />
             ) : error ? (
               <p role="alert" className="py-4 text-sm text-negative">
                 {!online
@@ -82,7 +79,7 @@ export default function Insights() {
                 </button>
               </p>
             ) : (
-              <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 {data.insights.map((insight) => (
                   <li key={`${insight.type}-${insight.title}`}>
                     <InsightCard insight={insight} className="h-full" />
@@ -93,7 +90,7 @@ export default function Insights() {
           </div>
         </Panel>
 
-        <AssistantChat className="lg:sticky lg:top-6" />
+        <AssistantChat className="xl:sticky xl:top-6" />
       </div>
     </>
   );
