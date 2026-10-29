@@ -125,7 +125,7 @@ export function createAssistantService(deps = {}) {
       totalsFor(userId, { from: `${month}-01`, to: today }),
       totalsFor(userId, periodRange('month', `${previousMonth}-01`)),
       budgetsOf(userId, month),
-      getCategories(),
+      getCategories(userId),
     ]);
 
     const context = buildContext({

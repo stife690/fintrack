@@ -1,4 +1,4 @@
--- Catálogo cerrado de categorías (RN-02). Las claves (key) coinciden con las del
+-- Categorías de todos los usuarios (RN-02); cada usuario puede crear las suyas (parche 005). Las claves (key) coinciden con las del
 -- contrato de API v2.0 (GET /categories). 'sin_clasificar' NO es una categoría:
 -- es un valor de transacciones.origen cuando categoria_id queda en NULL.
 

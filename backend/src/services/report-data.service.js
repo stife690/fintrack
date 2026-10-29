@@ -142,7 +142,10 @@ export async function buildReport(userId, { from, to }) {
 
   let monthBudgets = [];
   if (isWholeMonth(from, to)) {
-    const [list, categories] = await Promise.all([budgets.list(userId, from.slice(0, 7)), listCategories()]);
+    const [list, categories] = await Promise.all([
+      budgets.list(userId, from.slice(0, 7)),
+      listCategories(userId),
+    ]);
     const names = new Map(categories.map((c) => [c.key, c.name]));
     monthBudgets = list.map((b) => ({
       category: names.get(b.category) ?? b.category,
