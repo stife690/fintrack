@@ -87,6 +87,15 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('propina mil pesos').amount).toBe(1000);
   });
 
+  it('con "10 mil pesos" y "cada uno" también ofrece el total', () => {
+    expect(parseSpokenTransaction('Compré 15 almuerzos y cada uno me costó 10 mil pesos.')).toMatchObject({
+      amount: 10000,
+      options: [10000, 150000],
+      description: '15 almuerzos',
+    });
+    expect(parseSpokenTransaction('3 empanadas, cada una a 2 mil pesos').options).toEqual([2000, 6000]);
+  });
+
   it('no ofrece total si la cantidad es mayor que 20', () => {
     expect(parseSpokenTransaction('50 almuerzos de 12 mil')).toMatchObject({ options: [12000], ambiguous: true });
   });

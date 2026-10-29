@@ -12,11 +12,11 @@ const INCOME_WORDS =
 
 /** Montos dichos solo con palabras, como se habla en Colombia. */
 const SPOKEN_AMOUNTS = [
-  // Sin una cifra pegada antes: en "30.000mil pesos", "mil pesos" no es otro monto.
-  [/(?<![\p{L}\d])medio palo(?!\p{L})/u, 500_000],
-  [/(?<![\p{L}\d])(un palo|un mill[oó]n)(?!\p{L})/u, 1_000_000],
-  [/(?<![\p{L}\d])una luca(?!\p{L})/u, 1_000],
-  [/(?<![\p{L}\d])mil pesos(?!\p{L})/u, 1_000],
+  // Sin una cifra antes, pegada o no: en "30.000mil pesos" o "10 mil pesos", "mil pesos" no es otro monto.
+  [/(?<!\p{L})(?<!\d\s*)medio palo(?!\p{L})/u, 500_000],
+  [/(?<!\p{L})(?<!\d\s*)(un palo|un mill[oó]n)(?!\p{L})/u, 1_000_000],
+  [/(?<!\p{L})(?<!\d\s*)una luca(?!\p{L})/u, 1_000],
+  [/(?<!\p{L})(?<!\d\s*)mil pesos(?!\p{L})/u, 1_000],
 ];
 
 /** Cuánto vale cada unidad que puede ir después del número. */
@@ -82,7 +82,7 @@ const EDGE_PUNCTUATION = /^[\s.,;:!?¡¿"“”']+|[\s.,;:!?¡¿"“”']+$/g;
 
 /** Palabras que sobran en la descripción. */
 const FILLER =
-  /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
+  /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|y cada un[oa]|cada un[oa]|me cost[oó]|cost[oó]|me sali[oó]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
 
 /**
  * @param {string} text Lo que entendió el reconocimiento de voz.
