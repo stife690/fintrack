@@ -446,6 +446,52 @@ export const handlers = [
     });
   }),
 
+  // Analítica (FT-0019): valores de ejemplo; el cálculo real está en el backend.
+  http.get(`${API_V1}/analytics`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    await delay(400);
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return HttpResponse.json({
+      month: today.toISOString().slice(0, 7),
+      day: today.getDate(),
+      daysInMonth,
+      empty: (transactions.get(user.id) ?? []).length === 0,
+      projection: {
+        available: today.getDate() >= 3,
+        spent: 1840000,
+        projected: 2310000,
+        pendingFixed: 0,
+        expectedIncome: 2800000,
+        balance: 490000,
+      },
+      smallExpenses: {
+        threshold: 20000,
+        count: 14,
+        total: 142000,
+        share: 7.7,
+        yearly: 1704000,
+        flagged: true,
+        top: [
+          { description: 'Café', count: 6, total: 33000 },
+          { description: 'Snacks', count: 4, total: 26000 },
+          { description: 'Bus', count: 3, total: 9000 },
+        ],
+      },
+      health: {
+        score: 68,
+        level: 'good',
+        parts: [
+          { key: 'savings', points: 21.9, value: 17.5 },
+          { key: 'budgets', points: 16.7, value: 2 },
+          { key: 'stability', points: 13.3, value: 14 },
+          { key: 'small_expenses', points: 15.5, value: 7.7 },
+        ],
+      },
+    });
+  }),
+
   http.post(`${API_V1}/assistant/chat`, async ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
