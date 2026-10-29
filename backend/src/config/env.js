@@ -32,7 +32,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
 
 /**
  * Configuración del backend.
- * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined, emailApiKey: string|undefined, emailFrom: string|undefined, appUrl: string }}
+ * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined, emailApiKey: string|undefined, emailFrom: string|undefined, appUrl: string, groqApiKey: string|undefined, sttModel: string, sttTimeoutMs: number }}
  * @property {'gemini'|'anthropic'} aiProvider Proveedor de IA (`AI_PROVIDER`, por defecto "gemini").
  * @property {string|undefined} aiApiKey Clave del proveedor de IA (`AI_API_KEY`). Sin ella la IA queda desactivada y todo cae en "Sin clasificar".
  * @property {string|undefined} aiApiUrl Endpoint personalizado (`AI_API_URL`); si falta se usa el oficial del proveedor.
@@ -59,6 +59,8 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string|undefined} emailApiKey Clave de la API de Brevo (`EMAIL_API_KEY`). Sin ella no se envían correos: en desarrollo el enlace sale en la consola.
  * @property {string|undefined} emailFrom Remitente de los correos (`EMAIL_FROM`); debe estar verificado en Brevo.
  * @property {string} appUrl Dirección del frontend para armar los enlaces de los correos (`APP_URL`, por defecto http://localhost:5173, sin barra final).
+ * @property {string|undefined} groqApiKey Clave de Groq para convertir voz en texto (`GROQ_API_KEY`); sin ella, el registro por voz usa el dictado del navegador.
+ * @property {string} sttModel Modelo de Whisper en Groq (`STT_MODEL`, por defecto whisper-large-v3-turbo).
  */
 export const env = {
   aiProvider,
@@ -87,4 +89,7 @@ export const env = {
   emailApiKey: process.env.EMAIL_API_KEY?.trim() || undefined,
   emailFrom: process.env.EMAIL_FROM?.trim() || undefined,
   appUrl: (process.env.APP_URL || 'http://localhost:5173').trim().replace(/\/$/, ''),
+  groqApiKey: process.env.GROQ_API_KEY?.trim() || undefined,
+  sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo',
+  sttTimeoutMs: Number(process.env.STT_TIMEOUT_MS) || 15_000,
 };
