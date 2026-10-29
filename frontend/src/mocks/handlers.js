@@ -266,6 +266,37 @@ export const handlers = [
     return HttpResponse.json({ key, name, icon, color, custom }, { status: 201 });
   }),
 
+  http.patch(`${API_V1}/categories/:key`, async ({ request, params }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const category = CATALOG.find((c) => c.key === params.key && c.custom);
+    if (!category) return error(404, 'NOT_FOUND', 'Categoría no encontrada');
+    const body = (await readJson(request)) ?? {};
+    const name = typeof body.name === 'string' ? body.name.trim() : category.name;
+    if (CATALOG.some((c) => c !== category && c.name.toLowerCase() === name.toLowerCase())) {
+      return error(409, 'CATEGORY_EXISTS', 'Ya tienes una categoría con ese nombre');
+    }
+    Object.assign(category, { name, icon: body.icon ?? category.icon, color: body.color ?? category.color });
+    const { key, icon, color, custom } = category;
+    return HttpResponse.json({ key, name, icon, color, custom });
+  }),
+
+  http.delete(`${API_V1}/categories/:key`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const index = CATALOG.findIndex((c) => c.key === params.key && c.custom);
+    if (index === -1) return error(404, 'NOT_FOUND', 'Categoría no encontrada');
+    const [category] = CATALOG.splice(index, 1);
+    const fallback = category.type === 'gasto' ? 'otros' : 'otros_ingresos';
+    let moved = 0;
+    for (const t of transactions.get(user.id) ?? []) {
+      if (t.category === category.key) {
+        t.category = fallback;
+        moved += 1;
+      }
+    }
+    return HttpResponse.json({ moved });
+  }),
+
   http.get(`${API_V1}/transactions`, ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');

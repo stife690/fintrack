@@ -80,3 +80,38 @@ describe('transactionService: alerta de presupuesto (FT-0006)', () => {
     expect(error.code).toBe('REFRESH_FAILED');
   });
 });
+
+describe('transactionService: categorías propias', () => {
+  beforeEach(() => {
+    authFetch.mockReset();
+  });
+
+  it('updateCategory envía los cambios por PATCH y devuelve la categoría', async () => {
+    const { updateCategory } = await import('@/services/transactionService');
+    const updated = { key: 'c_prueba0001', name: 'Mi perro', icon: 'heart', color: 'teal', custom: true };
+    authFetch.mockResolvedValue(respond(200, updated));
+    expect(await updateCategory('c_prueba0001', { name: 'Mi perro', icon: 'heart' })).toEqual(updated);
+    expect(authFetch).toHaveBeenCalledWith('/categories/c_prueba0001', {
+      method: 'PATCH',
+      body: { name: 'Mi perro', icon: 'heart' },
+    });
+  });
+
+  it('deleteCategory devuelve cuántos movimientos se movieron', async () => {
+    const { deleteCategory } = await import('@/services/transactionService');
+    authFetch.mockResolvedValue(respond(200, { moved: 2 }));
+    expect(await deleteCategory('c_prueba0001')).toEqual({ moved: 2 });
+    expect(authFetch).toHaveBeenCalledWith('/categories/c_prueba0001', { method: 'DELETE', body: undefined });
+  });
+
+  it('un nombre repetido llega como error con su código', async () => {
+    const { updateCategory } = await import('@/services/transactionService');
+    authFetch.mockResolvedValue(
+      respond(409, { error: { code: 'CATEGORY_EXISTS', message: 'Ya tienes una categoría con ese nombre' } }),
+    );
+    await expect(updateCategory('c_x', { name: 'Salud' })).rejects.toMatchObject({
+      code: 'CATEGORY_EXISTS',
+      message: 'Ya tienes una categoría con ese nombre',
+    });
+  });
+});
