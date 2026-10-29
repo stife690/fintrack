@@ -49,6 +49,8 @@ tags:
     description: Presupuestos y alertas (F5, F6 — REQ-016 a REQ-019)
   - name: Insights
     description: Insights financieros por IA (F7 — REQ-020, REQ-021)
+  - name: Analytics
+    description: Analítica del mes sin IA — proyección, gastos hormiga y puntaje de salud financiera (FT-0019)
   - name: Sync
     description: Sincronización offline (F8, F9 — REQ-022 a REQ-025)
   - name: Push
@@ -719,6 +721,105 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  # ---------------------------------------------------------------- Analytics
+  /analytics:
+    get:
+      tags: [Analytics]
+      summary: Proyección de fin de mes, gastos hormiga y puntaje de salud financiera
+      description: |
+        Se calcula en el servidor con fórmulas fijas (`backend/src/services/analytics.service.js`),
+        sin IA, con los movimientos del mes actual y de los 3 meses anteriores.
+        - **Proyección**: `fijos + fijos pendientes + (variables ÷ días transcurridos) × días del mes`.
+          Fijos = Vivienda y Servicios públicos; un fijo del mes pasado que aún no aparece se suma
+          como pendiente. Ingresos esperados = el mayor entre los de este mes y los del anterior.
+          `available` es `false` los dos primeros días del mes.
+        - **Gastos hormiga**: gastos de $20.000 o menos; `flagged` desde 5 en el mes; `top`, las 3
+          descripciones que más se repiten (sin tildes ni mayúsculas).
+        - **Puntaje** (0 a 100): cuatro partes de 25 puntos, lineales entre sus extremos. Ahorro
+          (20 % o más = 25, 0 % = 0), presupuestos sin pasarse (sin presupuestos = 12,5),
+          gasto frente al promedio de los meses anteriores (igual o menor = 25, +30 % = 0; sin
+          historial = 12,5) y gastos hormiga (5 % o menos = 25, 20 % o más = 0). Niveles:
+          `excellent` ≥ 80, `good` ≥ 60, `attention` ≥ 40 y `risk`.
+      responses:
+        "200":
+          description: Analítica del mes actual
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [month, day, daysInMonth, empty, projection, smallExpenses, health]
+                properties:
+                  month: { $ref: "#/components/schemas/Month" }
+                  day: { type: integer, example: 29 }
+                  daysInMonth: { type: integer, example: 31 }
+                  empty:
+                    type: boolean
+                    description: "`true` si el mes aún no tiene movimientos."
+                  projection:
+                    type: object
+                    required: [available, spent, projected, pendingFixed, expectedIncome, balance]
+                    properties:
+                      available: { type: boolean }
+                      spent: { type: number, example: 1840000 }
+                      projected: { type: number, example: 2310000 }
+                      pendingFixed: { type: number, example: 0 }
+                      expectedIncome: { type: number, example: 2800000 }
+                      balance:
+                        type: number
+                        description: Ingresos esperados menos gasto proyectado (negativo si faltaría).
+                        example: 490000
+                  smallExpenses:
+                    type: object
+                    required: [threshold, count, total, share, yearly, flagged, top]
+                    properties:
+                      threshold: { type: number, example: 20000 }
+                      count: { type: integer, example: 14 }
+                      total: { type: number, example: 142000 }
+                      share:
+                        type: number
+                        description: Porcentaje del gasto del mes.
+                        example: 7.7
+                      yearly:
+                        type: number
+                        description: Lo que sumarían en un año a este ritmo.
+                        example: 1704000
+                      flagged: { type: boolean }
+                      top:
+                        type: array
+                        maxItems: 3
+                        items:
+                          type: object
+                          required: [description, count, total]
+                          properties:
+                            description: { type: string, example: Café }
+                            count: { type: integer, example: 6 }
+                            total: { type: number, example: 33000 }
+                  health:
+                    type: object
+                    required: [score, level, parts]
+                    properties:
+                      score: { type: integer, minimum: 0, maximum: 100, example: 68 }
+                      level:
+                        type: string
+                        enum: [excellent, good, attention, risk]
+                      parts:
+                        type: array
+                        items:
+                          type: object
+                          required: [key, points, value]
+                          properties:
+                            key:
+                              type: string
+                              enum: [savings, budgets, stability, small_expenses]
+                            points: { type: number, minimum: 0, maximum: 25, example: 21.9 }
+                            value:
+                              type: number
+                              nullable: true
+                              description: |
+                                El dato de la parte: % de ahorro, presupuestos cumplidos, % de
+                                variación del gasto o % de gastos hormiga; `null` si no hay datos.
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ---------------------------------------------------------------- Sync
   /sync/batch:

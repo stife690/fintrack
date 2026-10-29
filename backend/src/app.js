@@ -9,6 +9,7 @@ import transactionsRoutes from './routes/transactions.routes.js';
 import budgetsRoutes from './routes/budgets.routes.js';
 import syncRoutes from './routes/sync.routes.js';
 import pushRoutes from './routes/push.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import insightsRoutes from './routes/insights.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
@@ -73,6 +74,7 @@ export function createApp() {
   app.use('/api/v1/budgets', budgetsRoutes);
   app.use('/api/v1/push', pushRoutes);
   app.use('/api/v1/insights', insightsRoutes);
+  app.use('/api/v1/analytics', analyticsRoutes);
   app.use('/api/v1/reports', reportsRoutes);
   app.use('/api/v1/voice', voiceRoutes);
   app.use('/api/v1/assistant', assistantRoutes);

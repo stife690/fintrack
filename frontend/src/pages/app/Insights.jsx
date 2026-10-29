@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import AssistantChat from '@/components/insights/AssistantChat';
 import InsightCard from '@/components/insights/InsightCard';
+import MonthAnalytics from '@/components/insights/MonthAnalytics';
 import MonthHighlights from '@/components/insights/MonthHighlights';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -63,7 +64,9 @@ export default function Insights() {
         description="Consejos de la semana o del mes y un asistente para tus preguntas. Solo usa totales por categoría, nunca tus descripciones."
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      <MonthAnalytics />
+
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <Panel aria-labelledby="insights-title">
           <h2 id="insights-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
