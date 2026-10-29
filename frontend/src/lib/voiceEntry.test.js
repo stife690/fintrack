@@ -43,6 +43,7 @@ describe('parseSpokenTransaction', () => {
       amount: 12000,
       options: [12000, 24000],
       description: '2 almuerzos',
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       ambiguous: true,
     });
     expect(parseSpokenTransaction('3 empanadas a 2 mil').options).toEqual([2000, 6000]);
@@ -88,5 +89,41 @@ describe('parseSpokenTransaction', () => {
 
   it('descarta montos por encima del máximo que acepta la API en vez de recortarlos', () => {
     expect(parseSpokenTransaction('casa 20000000000').amount).toBeNull();
+  });
+
+  describe('fecha dicha', () => {
+    // Miércoles 28 de octubre de 2026.
+    const now = new Date(2026, 9, 28, 15, 30);
+    const parse = (text) => parseSpokenTransaction(text, now);
+
+    it('sin fecha es hoy', () => {
+      expect(parse('almuerzo 15 mil').date).toBe('2026-10-28');
+    });
+
+    it('"el 12 de octubre" es la fecha y su número no se toma como cantidad', () => {
+      expect(parse('el 12 de octubre gaste 15.000 en el almuerzo')).toMatchObject({
+        date: '2026-10-12',
+        amount: 15000,
+        options: [15000],
+        description: 'Almuerzo',
+        ambiguous: false,
+      });
+    });
+
+    it('entiende ayer, antier, "hace tres días" y el día de la semana', () => {
+      expect(parse('ayer taxi 12 mil')).toMatchObject({ date: '2026-10-27', description: 'Taxi' });
+      expect(parse('antier almuerzo 15 mil').date).toBe('2026-10-26');
+      expect(parse('hace tres días gasolina 50 mil').date).toBe('2026-10-25');
+      expect(parse('el lunes mercado 80 mil')).toMatchObject({ date: '2026-10-26', description: 'Mercado' });
+    });
+
+    it('nunca da una fecha futura', () => {
+      expect(parse('el 20 de diciembre regalos 100 mil').date).toBe('2025-12-20');
+      expect(parse('el 30 cine 20 mil')).toMatchObject({ date: '2026-09-30', amount: 20000 });
+    });
+
+    it('"el 15 mil" es un monto, no un día', () => {
+      expect(parse('almuerzo el 15 mil')).toMatchObject({ date: '2026-10-28', amount: 15000 });
+    });
   });
 });

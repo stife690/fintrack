@@ -28,19 +28,67 @@ const NUMBER = /\$?\s?(\d+(?:[.,]\d+)*)\s*(mil|k|lucas?|palos?|mill[oó]n|millon
 const QUANTITY_WORDS = ['dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez'];
 const QUANTITY_WORD = new RegExp(`(?<!\\p{L})(${QUANTITY_WORDS.join('|')})(?!\\p{L})(?!\\s+(mil|mill))`, 'u');
 
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']; // como Date#getDay
+const DAYS_AGO = { un: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+
+/**
+ * Formas de decir cuándo fue, de la más precisa a la más general. Cada una da la fecha a partir
+ * de "hoy" (medianoche local), o `null` si no existe ("31 de febrero"). Nunca da una fecha futura:
+ * "el 20 de diciembre" dicho en octubre es el del año pasado; "el 30", el del mes pasado.
+ */
+const DATE_PATTERNS = [
+  {
+    re: /(?<!\p{L})(?:el\s+)?(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+(?:de|del)\s+(\d{4}))?(?!\p{L})/iu,
+    date: (m, today) => {
+      const month = m[2].toLowerCase() === 'setiembre' ? 8 : MONTHS.indexOf(m[2].toLowerCase());
+      const year = m[3] ? Number(m[3]) : today.getFullYear();
+      const date = validDate(year, month, Number(m[1]));
+      if (!date || m[3] || date <= today) return date;
+      return validDate(year - 1, month, Number(m[1]));
+    },
+  },
+  { re: /(?<!\p{L})(antier|anteayer|antes de ayer)(?!\p{L})/iu, date: (m, today) => addDays(today, -2) },
+  { re: /(?<!\p{L})ayer(?!\p{L})/iu, date: (m, today) => addDays(today, -1) },
+  { re: /(?<!\p{L})hoy(?!\p{L})/iu, date: (m, today) => today },
+  {
+    re: /(?<!\p{L})hace\s+(\d{1,2}|una?|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+d[ií]as?(?!\p{L})/iu,
+    date: (m, today) => addDays(today, -(DAYS_AGO[m[1].toLowerCase()] ?? Number(m[1]))),
+  },
+  {
+    re: /(?<!\p{L})(?:el\s+)?(?:pasado\s+)?(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)(?:\s+pasado)?(?!\p{L})/iu,
+    date: (m, today) => {
+      const weekday = WEEKDAYS.indexOf(m[1].toLowerCase().normalize('NFD').replace(/\p{M}/gu, ''));
+      return addDays(today, -((today.getDay() - weekday + 7) % 7));
+    },
+  },
+  {
+    // "el 12 gasté…": día de este mes. No si sigue una unidad ("el 15 mil" es un monto).
+    re: /(?<!\p{L})el\s+(\d{1,2})(?![\d.,])(?!\s*(?:mil|k|lucas?|palos?|mill))(?!\p{L})/iu,
+    date: (m, today) => {
+      const day = Number(m[1]);
+      const date = validDate(today.getFullYear(), today.getMonth(), day);
+      return date && date <= today ? date : validDate(today.getFullYear(), today.getMonth() - 1, day);
+    },
+  },
+];
+
 /** Palabras que sobran en la descripción. */
 const FILLER =
   /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
 
 /**
  * @param {string} text Lo que entendió el reconocimiento de voz.
- * @returns {{ type: 'gasto'|'ingreso', amount: number|null, options: number[], description: string, ambiguous: boolean }}
+ * @param {Date} [now] Para las pruebas: "hoy" desde el que se cuentan "ayer", "el lunes"…
+ * @returns {{ type: 'gasto'|'ingreso', amount: number|null, options: number[], description: string, date: string, ambiguous: boolean }}
  *   `amount` es el número mayor que se dijo (`null` si no hubo un monto válido). `ambiguous` es
  *   `true` si se dijo más de un número; en ese caso la pantalla pide revisar el monto y, si uno era
  *   una cantidad ("2 almuerzos de 12 mil"), `options` trae el precio y el total: `[12000, 24000]`.
+ *   `date` es AAAA-MM-DD: la que se dijo ("ayer", "el 12 de octubre") u hoy si no se dijo ninguna.
  */
-export function parseSpokenTransaction(text) {
-  const said = String(text ?? '').trim();
+export function parseSpokenTransaction(text, now = new Date()) {
+  // La fecha se quita primero para que su número ("el 12 de octubre") no se tome como monto.
+  const { date, rest: said } = extractDate(String(text ?? '').trim(), now);
   const lower = said.toLowerCase();
   const type = INCOME_WORDS.test(lower) ? 'ingreso' : 'gasto';
 
@@ -76,7 +124,41 @@ export function parseSpokenTransaction(text) {
   if (description) description = description[0].toUpperCase() + description.slice(1);
   else if (type === 'ingreso') description = 'Pago recibido';
 
-  return { type, amount, options, description, ambiguous: found.length > 1 };
+  return { type, amount, options, description, date, ambiguous: found.length > 1 };
+}
+
+/**
+ * Busca la primera forma de decir la fecha y la quita del texto.
+ * @param {string} text
+ * @param {Date} now
+ * @returns {{ date: string, rest: string }} Fecha AAAA-MM-DD (hoy si no se dijo) y el texto sin ella.
+ */
+function extractDate(text, now) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (const pattern of DATE_PATTERNS) {
+    const match = pattern.re.exec(text);
+    const date = match && pattern.date(match, today);
+    if (date) {
+      const rest = `${text.slice(0, match.index)} ${text.slice(match.index + match[0].length)}`;
+      return { date: toIsoDate(date), rest: rest.replace(/\s+/g, ' ').trim() };
+    }
+  }
+  return { date: toIsoDate(today), rest: text };
+}
+
+/** Fecha local, o `null` si el día no existe en ese mes ("31 de febrero"). */
+function validDate(year, month, day) {
+  const date = new Date(year, month, day);
+  return date.getDate() === day ? date : null;
+}
+
+function addDays(date, days) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** AAAA-MM-DD en la zona del dispositivo (como `today()` del formulario). */
+function toIsoDate(date) {
+  return date.toLocaleDateString('en-CA');
 }
 
 /**

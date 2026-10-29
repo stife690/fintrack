@@ -3,11 +3,10 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { Check, Keyboard, Loader2, Lock, Mic, MicOff, RotateCcw, Sparkles, WifiOff, X } from 'lucide-react';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
-import { formatMoney } from '@/components/transactions/format';
+import { formatMoney, formatRelativeDay } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
-import { today } from '@/lib/validation/transaction';
 import { parseSpokenTransaction } from '@/lib/voiceEntry';
 import { saveNewTransaction } from '@/offline/saveNewTransaction';
 
@@ -59,7 +58,7 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
  * @param {object} props
  * @param {boolean} props.open
  * @param {() => void} props.onClose
- * @param {(draft: { type: 'gasto'|'ingreso', amount: number|null, description: string }|null) => void} props.onEdit
+ * @param {(draft: { type: 'gasto'|'ingreso', amount: number|null, description: string, date: string }|null) => void} props.onEdit
  *   Lleva lo entendido al formulario, o `null` si la persona prefiere escribir.
  * @param {(result: Awaited<ReturnType<typeof saveNewTransaction>>) => void} [props.onSaved]
  *   Tras guardar, para refrescar la pantalla de atrás.
@@ -98,7 +97,7 @@ function VoiceDialog({ onClose, onEdit, onSaved, names }) {
     setSaving(true);
     setSaveError('');
     try {
-      const result = await saveNewTransaction({ ...draft, date: today(), category: null });
+      const result = await saveNewTransaction({ ...draft, category: null });
       setSaved({ draft, result });
       onSaved?.(result);
     } catch (err) {
@@ -260,7 +259,7 @@ function Result({ titleId, transcript, saving, error, onRetry, onSave, onEdit })
   const mustChoose = parsed.options.length > 1;
   const [amount, setAmount] = useState(mustChoose ? null : parsed.amount);
   const income = parsed.type === 'ingreso';
-  const draft = { type: parsed.type, amount, description: parsed.description };
+  const draft = { type: parsed.type, amount, description: parsed.description, date: parsed.date };
   // Sin monto o sin descripción no se puede guardar directo: se completa en el formulario.
   const complete = amount !== null && Boolean(parsed.description);
 
@@ -286,7 +285,7 @@ function Result({ titleId, transcript, saving, error, onRetry, onSave, onEdit })
           <span className="text-3xl font-semibold tabular-nums tracking-tight">{shownAmount}</span>
         </div>
         <p className="mt-2 text-[15px]">
-          {parsed.description || <span className="text-ink/45">Sin descripción</span>} · hoy
+          {parsed.description || <span className="text-ink/45">Sin descripción</span>} · {dayLabel(parsed.date)}
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-ink/55">
           <Sparkles className="size-3.5 shrink-0 text-brand" aria-hidden="true" />
@@ -383,7 +382,9 @@ function Saved({ titleId, draft, result, names, onAgain, onDone }) {
         {offline ? 'Guardado en tu dispositivo' : draft.type === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado'}
       </h2>
       <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(draft.amount)}</p>
-      <p className="mt-1 text-[15px]">{draft.description}</p>
+      <p className="mt-1 text-[15px]">
+        {draft.description} · {dayLabel(draft.date)}
+      </p>
       <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-ink/60">
         {!offline && transaction.source === 'ia' && <Sparkles className="size-3.5 shrink-0 text-brand" aria-hidden="true" />}
         {detail}
@@ -465,4 +466,10 @@ function Wave() {
       ))}
     </div>
   );
+}
+
+/** "hoy", "ayer" o "12 oct", para leerlo dentro de una frase. */
+function dayLabel(iso) {
+  const label = formatRelativeDay(iso);
+  return label === 'Hoy' || label === 'Ayer' ? label.toLowerCase() : label;
 }
