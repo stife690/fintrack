@@ -380,6 +380,19 @@ export const handlers = [
     });
   }),
 
+  http.post(`${API_V1}/assistant/chat`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const question = (await readJson(request))?.messages?.at(-1)?.text?.toLowerCase() ?? '';
+    await delay(900);
+    const reply = question.includes('ahorr')
+      ? 'Este mes llevas $1.500.000 de ingresos y $765.000 de gastos: te quedan unos $735.000. Si apartas el 20 % de tus ingresos, serían $300.000 de ahorro.'
+      : question.includes('presupuesto')
+        ? 'Vas bien en Transporte (52 %), pero Alimentación ya va en el 85 %: te quedan $75.000 para lo que resta del mes.'
+        : 'Tu mayor gasto del mes es Alimentación, con $425.000. Le siguen Transporte ($210.000) y Ocio ($130.000).';
+    return HttpResponse.json({ reply });
+  }),
+
   http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
     if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     return HttpResponse.json({ key: MOCK_VAPID_PUBLIC_KEY });
