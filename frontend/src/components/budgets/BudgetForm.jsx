@@ -108,6 +108,7 @@ export default function BudgetForm({
               inputRef={field.ref}
               error={errors.category?.message}
               disabled={disabled}
+              createType="gasto"
             />
           )}
         />

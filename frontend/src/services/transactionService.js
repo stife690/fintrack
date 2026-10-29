@@ -6,6 +6,7 @@
  * `Error` con mensaje para el usuario; en los 422, `err.fields` trae el problema por campo.
  */
 import { authFetch } from '@/lib/authFetch';
+import { registerCategories } from '@/lib/categoryStyles';
 import { db } from '@/offline/db';
 
 /**
@@ -35,6 +36,9 @@ import { db } from '@/offline/db';
  * @typedef {object} Category
  * @property {string} key
  * @property {string} name
+ * @property {string|null} [icon] Ícono elegido (solo las propias).
+ * @property {string|null} [color] Color elegido (solo las propias).
+ * @property {boolean} [custom] `true` si la creó el usuario.
  */
 
 const SESSION_EXPIRED = 'Tu sesión venció. Inicia sesión de nuevo.';
@@ -83,12 +87,38 @@ export async function getCategories() {
   try {
     const categories = await request('/categories');
     await db.meta.put({ key: 'categories', value: categories }).catch(() => {});
-    return categories;
+    return withStyles(categories);
   } catch (err) {
     const cached = err.code === 'NETWORK_ERROR' && (await db.meta.get('categories').catch(() => null));
-    if (cached) return cached.value;
+    if (cached) return withStyles(cached.value);
     throw err;
   }
+}
+
+/**
+ * Registra el ícono y el color de las categorías propias y devuelve la misma respuesta.
+ * @param {{ expense: Category[], income: Category[] }} categories
+ * @returns {{ expense: Category[], income: Category[] }}
+ */
+function withStyles(categories) {
+  registerCategories([...categories.expense, ...categories.income]);
+  return categories;
+}
+
+/** Evento de `window` al crear una categoría propia: las pantallas la agregan a su lista. */
+export const CATEGORY_CREATED_EVENT = 'fintrack:category-created';
+
+/**
+ * Crea una categoría propia (máximo 20 por usuario). Necesita conexión. Los errores traen
+ * `code`: `CATEGORY_EXISTS` (nombre repetido) o `CATEGORY_LIMIT`.
+ * @param {{ name: string, type: 'gasto'|'ingreso', icon: string, color: string }} input
+ * @returns {Promise<Category & { type: 'gasto'|'ingreso' }>} La categoría creada, con su tipo.
+ */
+export async function createCategory(input) {
+  const created = { ...(await request('/categories', { method: 'POST', body: input })), type: input.type };
+  registerCategories([created]);
+  window.dispatchEvent(new CustomEvent(CATEGORY_CREATED_EVENT, { detail: created }));
+  return created;
 }
 
 /**

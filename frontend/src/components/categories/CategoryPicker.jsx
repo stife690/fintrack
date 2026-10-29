@@ -1,5 +1,6 @@
-import { useId } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Plus, Sparkles } from 'lucide-react';
+import NewCategoryDialog from '@/components/categories/NewCategoryDialog';
 import { getCategoryStyle } from '@/lib/categoryStyles';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,8 @@ export const AUTO_CATEGORY = '';
  * @param {string} [props.error] Mensaje de validación.
  * @param {boolean} [props.disabled]
  * @param {(el: HTMLInputElement|null) => void} [props.inputRef] Ref al primer radio (para enfocar al fallar la validación).
+ * @param {'gasto'|'ingreso'} [props.createType] Muestra al final "Nueva" para crear una categoría propia
+ *   de ese tipo; al crearla queda elegida.
  */
 export default function CategoryPicker({
   legend,
@@ -29,8 +32,10 @@ export default function CategoryPicker({
   error,
   disabled,
   inputRef,
+  createType,
 }) {
   const name = useId();
+  const [creating, setCreating] = useState(false);
   const errorId = `${name}-error`;
   const options = [
     ...(allowAuto ? [{ key: AUTO_CATEGORY, name: 'Sugerir con IA', auto: true }] : []),
@@ -80,6 +85,18 @@ export default function CategoryPicker({
           Mientras llegan las categorías (11 de gasto en el catálogo) se reserva su espacio: sin saltos
           de layout. Sin animación de carga: si la petición falla, la página ya muestra el error.
         */}
+        {createType && categories.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex min-h-[84px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/25 px-1.5 py-2.5 text-center text-xs font-medium leading-tight text-ink/70 transition-colors hover:border-brand/50 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet"
+          >
+            <span aria-hidden="true" className="grid size-9 place-items-center rounded-lg bg-ink/5">
+              <Plus className="size-[18px]" />
+            </span>
+            Nueva
+          </button>
+        )}
         {categories.length === 0 &&
           Array.from({ length: 11 }, (_, i) => (
             <div key={i} aria-hidden="true" className="min-h-[84px] rounded-xl bg-ink/5" />
@@ -89,6 +106,14 @@ export default function CategoryPicker({
         <p id={errorId} className="mt-2 text-sm text-negative">
           {error}
         </p>
+      )}
+      {createType && (
+        <NewCategoryDialog
+          open={creating}
+          type={createType}
+          onClose={() => setCreating(false)}
+          onCreated={(category) => onChange(category.key)}
+        />
       )}
     </fieldset>
   );
