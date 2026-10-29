@@ -45,7 +45,7 @@ function toDefaults(initial, defaultType = 'gasto') {
  * @param {() => void} [props.onCancel] Si se pasa, se muestra el botón "Cancelar".
  * @param {'gasto'|'ingreso'} [props.defaultType] Tipo inicial de una transacción nueva.
  * @param {boolean} [props.autoFocus] Pone el cursor en el monto al abrir (p. ej. desde un acceso rápido).
- * @param {{ type: 'gasto'|'ingreso', amount: number|null, description: string }|null} [props.draft]
+ * @param {{ type: 'gasto'|'ingreso', amount: number|null, description: string, date?: string }|null} [props.draft]
  *   Lo dictado por voz (FT-0013): llena una transacción nueva para revisarla antes de guardar.
  *   Cada objeto nuevo vuelve a llenar el formulario.
  */
@@ -94,6 +94,7 @@ export default function TransactionForm({
       ...toDefaults(null, draft.type),
       amount: draft.amount === null ? '' : String(draft.amount),
       description: draft.description,
+      date: draft.date ?? today(),
     });
     setServerError('');
     setResetKey((k) => k + 1);
