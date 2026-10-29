@@ -16,6 +16,7 @@ import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
 import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
+import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
 import { getSummary } from '@/services/summaryService';
@@ -78,6 +79,19 @@ export default function Dashboard() {
   const [pending, setPending] = useState(0);
   const { reload: reloadRecent } = recent;
   const { reload: reloadSummary } = summary;
+  const { reload: reloadBudgets } = budgets;
+
+  // Un movimiento nuevo desde la barra rápida (FT-0013): se recargan balance, últimos y presupuestos.
+  useEffect(() => {
+    const onSaved = () => {
+      reloadRecent();
+      reloadSummary();
+      reloadBudgets();
+    };
+    window.addEventListener(TRANSACTION_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(TRANSACTION_SAVED_EVENT, onSaved);
+  }, [reloadRecent, reloadSummary, reloadBudgets]);
+
   useEffect(() => {
     const onSync = ({ detail }) => {
       setPending(detail.pending);
@@ -127,14 +141,7 @@ export default function Dashboard() {
                   </button>
                 </p>
               )}
-              <QuickActions
-                names={names}
-                onSaved={() => {
-                  reloadRecent();
-                  reloadSummary();
-                  budgets.reload();
-                }}
-              />
+              <QuickActions />
               {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
               <IncomeExpenseChart
                 period={selected.period}

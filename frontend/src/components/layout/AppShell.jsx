@@ -1,8 +1,9 @@
 import { Suspense, useEffect } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ArrowLeftRight, CircleUserRound, House, Loader2, Sparkles, Target } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import SyncStatus from '@/components/layout/SyncStatus';
+import QuickEntryBar from '@/components/transactions/QuickEntryBar';
 import { useAuth } from '@/auth/AuthContext';
 import useOfflineSync from '@/hooks/useOfflineSync';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
@@ -115,6 +116,9 @@ function BottomNav() {
   );
 }
 
+/** Pantallas con la barra rápida para anotar (FT-0013): donde se registra y se ven los movimientos. */
+const QUICK_ENTRY_PATHS = ['/app', '/app/transacciones'];
+
 /** Se trae el perfil una vez por carga de la app (el marco se vuelve a montar al cambiar de ruta). */
 let profileSynced = false;
 
@@ -150,6 +154,8 @@ function Shell() {
   const { user } = useAuth();
   const online = useOnlineStatus();
   const { pending, rejected, conflicts, conflictsLost, syncing } = useOfflineSync();
+  const { pathname } = useLocation();
+  const quickEntry = QUICK_ENTRY_PATHS.includes(pathname);
   useSyncProfile();
 
   return (
@@ -183,9 +189,15 @@ function Shell() {
           syncing={syncing}
         />
 
+        {/* Con la barra rápida abajo, más espacio al final para que no tape el último elemento. */}
         <main
           id="contenido"
-          className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pb-12 md:pt-8"
+          className={cn(
+            'flex-1 px-4 pt-4 md:px-8 md:pt-8',
+            quickEntry
+              ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-28'
+              : 'pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-12',
+          )}
         >
           <div className="mx-auto w-full max-w-6xl">
             <Suspense fallback={<SectionFallback />}>
@@ -196,6 +208,7 @@ function Shell() {
       </div>
 
       <BottomNav />
+      {quickEntry && <QuickEntryBar />}
     </div>
   );
 }

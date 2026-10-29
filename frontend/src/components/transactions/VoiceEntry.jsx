@@ -69,21 +69,34 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
  * @param {(result: Awaited<ReturnType<typeof saveNewTransaction>>) => void} [props.onSaved]
  *   Tras guardar, para refrescar la pantalla de atrás.
  * @param {Record<string, string>} [props.names] Nombre de cada categoría por su clave.
+ * @param {string} [props.text] Frase ya escrita (barra rápida): se abre directo en la tarjeta.
+ * @param {boolean} [props.autoStart] Empieza a escuchar al abrir (botón del micrófono de la barra).
+ * @param {() => void} [props.onClosed] Cuando termina de cerrarse (ya devolvió el foco al botón que la abrió).
  */
-export default function VoiceEntry({ open, onClose, onEdit, onSaved, names = {} }) {
+export default function VoiceEntry({ open, onClose, onEdit, onSaved, names = {}, text, autoStart = false, onClosed }) {
   // Se dibuja fuera de la página (portal): dentro de un panel `sticky` quedaría debajo de los
   // demás paneles. Va al contenedor con `data-theme` para conservar el tema claro u oscuro.
   return createPortal(
     <MotionConfig reducedMotion="user">
-      <AnimatePresence>
-        {open && <VoiceDialog key="voz" onClose={onClose} onEdit={onEdit} onSaved={onSaved} names={names} />}
+      <AnimatePresence onExitComplete={onClosed}>
+        {open && (
+          <VoiceDialog
+            key="voz"
+            onClose={onClose}
+            onEdit={onEdit}
+            onSaved={onSaved}
+            names={names}
+            text={text}
+            autoStart={autoStart}
+          />
+        )}
       </AnimatePresence>
     </MotionConfig>,
     document.querySelector('[data-theme]') ?? document.body,
   );
 }
 
-function VoiceDialog({ onClose, onEdit, onSaved, names }) {
+function VoiceDialog({ onClose, onEdit, onSaved, names, text, autoStart }) {
   const titleId = useId();
   const panelRef = useRef(null);
   const speech = useSpeechRecognition();
@@ -93,6 +106,14 @@ function VoiceDialog({ onClose, onEdit, onSaved, names }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(null); // { draft, result } tras guardar
+  // Frase escrita en la barra rápida: se muestra igual que una dictada.
+  const [typed, setTyped] = useState(text?.trim() || null);
+
+  // El micrófono de la barra abre la ventana ya escuchando: un toque menos.
+  const { start: startSpeech } = speech;
+  useEffect(() => {
+    if (autoStart) startSpeech();
+  }, [autoStart, startSpeech]);
 
   // La última versión de onClose, para no reiniciar el efecto si el padre pasa otra función.
   const onCloseRef = useRef(onClose);
@@ -115,6 +136,7 @@ function VoiceDialog({ onClose, onEdit, onSaved, names }) {
 
   const dictateAgain = () => {
     setSaved(null);
+    setTyped(null);
     speech.start();
   };
 
@@ -148,6 +170,20 @@ function VoiceDialog({ onClose, onEdit, onSaved, names }) {
   let content;
   if (saved) {
     content = <Saved titleId={titleId} {...saved} names={names} onAgain={dictateAgain} onDone={onClose} />;
+  } else if (typed && speech.status === 'idle') {
+    content = (
+      <Result
+        key={typed}
+        titleId={titleId}
+        transcript={typed}
+        retryLabel="Dictar"
+        saving={saving}
+        error={saveError}
+        onRetry={dictateAgain}
+        onSave={save}
+        onEdit={onEdit}
+      />
+    );
   } else if (speech.status === 'listening') {
     content = (
       <Listening
@@ -270,7 +306,7 @@ function Listening({ titleId, transcript, level, onStop, onCancel }) {
 }
 
 /** Lo que se entendió. Si se dijo una cantidad ("2 almuerzos de 12 mil"), la persona elige el monto. */
-function Result({ titleId, transcript, saving, error, onRetry, onSave, onEdit }) {
+function Result({ titleId, transcript, retryLabel = 'Repetir', saving, error, onRetry, onSave, onEdit }) {
   const parsed = useMemo(() => parseSpokenTransaction(transcript), [transcript]);
   const mustChoose = parsed.options.length > 1;
   const [amount, setAmount] = useState(mustChoose ? null : parsed.amount);
@@ -347,8 +383,8 @@ function Result({ titleId, transcript, saving, error, onRetry, onSave, onEdit })
 
       <div className="mt-6 grid grid-cols-[1fr_1.4fr] gap-3">
         <Button variant="outline" size="lg" onClick={onRetry} disabled={saving}>
-          <RotateCcw aria-hidden="true" />
-          Repetir
+          {retryLabel === 'Dictar' ? <Mic aria-hidden="true" /> : <RotateCcw aria-hidden="true" />}
+          {retryLabel}
         </Button>
         {mustChoose || complete ? (
           <Button size="lg" autoFocus={!mustChoose} disabled={saving || amount === null} onClick={() => onSave(draft)}>

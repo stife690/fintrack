@@ -2,6 +2,12 @@ import { cacheTransaction, queueCreate } from './sync';
 import { createTransaction } from '@/services/transactionService';
 
 /**
+ * Evento de `window` tras registrar un movimiento nuevo, venga de donde venga (formulario o barra
+ * rápida). Inicio y Movimientos lo escuchan para recargar sus datos.
+ */
+export const TRANSACTION_SAVED_EVENT = 'fintrack:transaction-saved';
+
+/**
  * Registra un movimiento nuevo: lo envía al servidor y, sin conexión, lo deja en la cola para
  * sincronizarlo después (FT-0009). Lo usan el formulario de Movimientos y el registro por voz
  * (FT-0013), así los dos guardan igual.
@@ -23,9 +29,15 @@ export async function saveNewTransaction(values) {
   } catch (err) {
     if (err.code !== 'NETWORK_ERROR') throw err;
     await queueCreate(values, localId);
-    return { transaction: null, alert: null, offline: true };
+    return announce({ transaction: null, alert: null, offline: true });
   }
   // La copia local es un respaldo: si falla, se corrige en la próxima sincronización.
   cacheTransaction(created.transaction).catch(() => {});
-  return { transaction: created.transaction, alert: created.alert, offline: false };
+  return announce({ transaction: created.transaction, alert: created.alert, offline: false });
+}
+
+/** Avisa a las pantallas abiertas y devuelve el mismo resultado. */
+function announce(result) {
+  window.dispatchEvent(new CustomEvent(TRANSACTION_SAVED_EVENT, { detail: result }));
+  return result;
 }
