@@ -29,6 +29,17 @@ export function errorHandler(err, _req, res, _next) {
     return;
   }
 
+  // express.raw() recibió más bytes de los permitidos (audio del registro por voz).
+  if (err.type === 'entity.too.large') {
+    res.status(413).json({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'El audio es demasiado largo. Di una frase más corta.',
+      },
+    });
+    return;
+  }
+
   // Error inesperado: se registra completo en el log, pero al cliente
   // no se le envían detalles internos (stack, SQL, rutas de archivos).
   console.error('Error no controlado:', err);

@@ -11,6 +11,7 @@ import syncRoutes from './routes/sync.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import insightsRoutes from './routes/insights.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
+import voiceRoutes from './routes/voice.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -59,6 +60,8 @@ export function createApp() {
     req.body?.operations?.length ? aiRateLimit(req, res, next) : next(),
   );
   app.get('/api/v1/insights', aiRateLimit);
+  // Cada frase dictada consume la cuota de Groq (registro por voz, FT-0013).
+  app.post('/api/v1/voice/transcribe', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
@@ -68,6 +71,7 @@ export function createApp() {
   app.use('/api/v1/push', pushRoutes);
   app.use('/api/v1/insights', insightsRoutes);
   app.use('/api/v1/reports', reportsRoutes);
+  app.use('/api/v1/voice', voiceRoutes);
   app.use(notFound);
   app.use(errorHandler);
 

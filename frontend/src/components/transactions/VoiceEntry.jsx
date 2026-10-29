@@ -38,6 +38,12 @@ const PROBLEMS = {
     text: 'Conecta uno o escribe el movimiento.',
     retry: false,
   },
+  busy: {
+    icon: Mic,
+    title: 'El dictado está muy ocupado',
+    text: 'Se usó mucho en poco tiempo. Espera un momento o escribe el movimiento.',
+    retry: true,
+  },
   unavailable: {
     icon: MicOff,
     title: 'No se pudo usar el dictado',
@@ -143,7 +149,17 @@ function VoiceDialog({ onClose, onEdit, onSaved, names }) {
   if (saved) {
     content = <Saved titleId={titleId} {...saved} names={names} onAgain={dictateAgain} onDone={onClose} />;
   } else if (speech.status === 'listening') {
-    content = <Listening titleId={titleId} transcript={speech.transcript} onStop={speech.stop} onCancel={speech.reset} />;
+    content = (
+      <Listening
+        titleId={titleId}
+        transcript={speech.transcript}
+        level={speech.mode === 'server' ? speech.level : null}
+        onStop={speech.stop}
+        onCancel={speech.reset}
+      />
+    );
+  } else if (speech.status === 'transcribing') {
+    content = <Transcribing titleId={titleId} />;
   } else if (speech.status === 'done') {
     content = (
       <Result
@@ -222,23 +238,23 @@ function Ready({ titleId, onStart }) {
       </Button>
       <p className="mt-4 flex items-start justify-center gap-1.5 text-xs text-ink/50">
         <Lock className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-        Tu navegador convierte la voz en texto. FinTrack no guarda el audio.
+        Tu voz se convierte en texto y no se guarda.
       </p>
     </>
   );
 }
 
 /** Mientras escucha: el texto aparece a medida que se habla. */
-function Listening({ titleId, transcript, onStop, onCancel }) {
+function Listening({ titleId, transcript, level, onStop, onCancel }) {
   return (
     <>
       <MicOrb listening />
-      <Wave />
+      <Wave level={level} />
       <h2 id={titleId} className="sr-only">
         Escuchando
       </h2>
       <p className="mt-4 min-h-10 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
-        {transcript || <span className="text-ink/35">Te escucho…</span>}
+        {transcript || <span className="text-ink/35">{level === null ? 'Te escucho…' : 'Habla ahora…'}</span>}
       </p>
       <p className="mt-1 text-sm text-ink/55">Se detiene sola cuando dejas de hablar.</p>
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -453,17 +469,44 @@ function MicOrb({ listening = false }) {
   );
 }
 
-/** Barras de onda decorativas mientras se escucha (solo se mueven con transform). */
-function Wave() {
+/** Forma de la onda: las barras del centro suben más que las de los bordes. */
+const WAVE_SHAPE = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
+
+/**
+ * Barras de onda mientras se escucha (solo se mueven con transform). Con `level` (grabando para
+ * Whisper) siguen el volumen real de la voz; sin él (dictado del navegador), una animación fija.
+ * @param {{ level: number|null }} props
+ */
+function Wave({ level }) {
   return (
     <div aria-hidden="true" className="mt-5 flex h-6 items-center justify-center gap-1">
-      {[0, 0.15, 0.3, 0.1, 0.25, 0.05, 0.2].map((delay) => (
-        <span
-          key={delay}
-          className="h-6 w-1 origin-center scale-y-[0.3] rounded-full bg-brand motion-safe:animate-voice-wave"
-          style={{ animationDelay: `${delay}s` }}
-        />
-      ))}
+      {WAVE_SHAPE.map((weight, index) =>
+        level === null ? (
+          <span
+            key={index}
+            className="h-6 w-1 origin-center scale-y-[0.3] rounded-full bg-brand motion-safe:animate-voice-wave"
+            style={{ animationDelay: `${index * 0.12}s` }}
+          />
+        ) : (
+          <span
+            key={index}
+            className="h-6 w-1 origin-center rounded-full bg-brand transition-transform duration-75"
+            style={{ transform: `scaleY(${Math.max(0.15, Math.min(1, level * 2.2 * weight))})` }}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** Mientras el servidor convierte el audio en texto (casi siempre menos de un segundo). */
+function Transcribing({ titleId }) {
+  return (
+    <div role="status" className="py-6">
+      <Loader2 className="mx-auto size-10 animate-spin text-brand" aria-hidden="true" />
+      <h2 id={titleId} className="mt-5 text-lg font-semibold tracking-tight">
+        Entendiendo lo que dijiste…
+      </h2>
     </div>
   );
 }

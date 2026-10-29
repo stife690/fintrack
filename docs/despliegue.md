@@ -50,6 +50,7 @@ Variables de entorno en producción:
 | Render | `VAPID_SUBJECT` | `mailto:` del equipo, p. ej. `mailto:equipo@ejemplo.com` |
 | Render | `EMAIL_API_KEY` | Clave de la API de Brevo para el correo de recuperar contraseña (secreto: solo en el panel de Render) |
 | Render | `EMAIL_FROM` | Remitente verificado en Brevo |
+| Render | `GROQ_API_KEY` | Clave de Groq para el registro por voz con Whisper (secreto: solo en el panel de Render). Sin ella la app usa el dictado del navegador |
 | Render | `APP_URL` | URL del frontend en Vercel, sin barra final (arma el enlace del correo) |
 
 ## Base de datos (Supabase)

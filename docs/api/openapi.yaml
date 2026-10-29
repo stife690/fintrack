@@ -55,6 +55,8 @@ tags:
     description: Notificaciones push y recordatorio diario (F11 — REQ-029, REQ-030)
   - name: Reports
     description: Exportación de reportes (F12 — REQ-031 a REQ-033)
+  - name: Voice
+    description: Registro de movimientos por voz (FT-0013)
 
 security:
   - bearerAuth: []
@@ -747,6 +749,56 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  # ---------------------------------------------------------------- Voice
+  /voice/transcribe:
+    post:
+      tags: [Voice]
+      summary: Convierte en texto el audio de una frase (registro por voz)
+      description: |
+        El cuerpo es el audio crudo de la frase (no JSON), de hasta 2 MB, y `Content-Type` dice su formato
+        (Chrome graba `audio/webm`, Safari `audio/mp4`). El servidor lo envía a Whisper en Groq en español,
+        con una pista de vocabulario de montos en pesos colombianos, y no lo guarda. Solo viaja el audio:
+        ningún dato del usuario. El cliente interpreta el texto (monto, tipo, fecha) en el dispositivo.
+        Sin `GROQ_API_KEY` responde 503 y el cliente usa el dictado del navegador.
+      requestBody:
+        required: true
+        content:
+          audio/webm: { schema: { type: string, format: binary } }
+          audio/mp4: { schema: { type: string, format: binary } }
+          audio/ogg: { schema: { type: string, format: binary } }
+          audio/mpeg: { schema: { type: string, format: binary } }
+          audio/wav: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Texto dicho; vacío si solo hubo silencio
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text]
+                properties:
+                  text: { type: string }
+              example:
+                text: Ayer gasté 15 mil pesos en el almuerzo.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413":
+          description: "PAYLOAD_TOO_LARGE — el audio supera los 2 MB"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "415":
+          description: "UNSUPPORTED_MEDIA_TYPE — el formato no es de audio aceptado"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503":
+          description: "TRANSCRIPTION_UNAVAILABLE — sin `GROQ_API_KEY` o Groq no respondió"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -833,6 +885,9 @@ components:
                 - RATE_LIMITED
                 - INTERNAL_ERROR
                 - AI_UNAVAILABLE
+                - TRANSCRIPTION_UNAVAILABLE
+                - PAYLOAD_TOO_LARGE
+                - UNSUPPORTED_MEDIA_TYPE
             message: { type: string }
             details:
               type: array
