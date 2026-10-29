@@ -1,0 +1,68 @@
+import { describe, expect, it } from 'vitest';
+import { parseSpokenTransaction } from '@/lib/voiceEntry';
+
+describe('parseSpokenTransaction', () => {
+  it('entiende el monto con "mil", "k" o separadores de miles', () => {
+    expect(parseSpokenTransaction('almuerzo 15 mil')).toMatchObject({ amount: 15000, description: 'Almuerzo' });
+    expect(parseSpokenTransaction('taxi 12k')).toMatchObject({ amount: 12000, description: 'Taxi' });
+    expect(parseSpokenTransaction('netflix 26.900')).toMatchObject({ amount: 26900, description: 'Netflix' });
+    expect(parseSpokenTransaction('$45.900 en Éxito')).toMatchObject({ amount: 45900, description: 'Éxito' });
+  });
+
+  it('acepta millones con coma o punto decimal', () => {
+    expect(parseSpokenTransaction('me pagaron 1,2 millones').amount).toBe(1_200_000);
+    expect(parseSpokenTransaction('me pagaron 1.2 millones').amount).toBe(1_200_000);
+  });
+
+  it('entiende las formas colombianas de decir plata', () => {
+    expect(parseSpokenTransaction('medio palo de arriendo')).toMatchObject({ amount: 500_000, description: 'Arriendo' });
+    expect(parseSpokenTransaction('15 lucas el corrientazo')).toMatchObject({ amount: 15000, description: 'Corrientazo' });
+    expect(parseSpokenTransaction('una luca de chicle').amount).toBe(1000);
+  });
+
+  it('marca como ingreso lo que entró y como gasto lo demás', () => {
+    expect(parseSpokenTransaction('me pagaron 1,2 millones').type).toBe('ingreso');
+    expect(parseSpokenTransaction('almuerzo 15 mil').type).toBe('gasto');
+  });
+
+  it('reconoce las palabras con tilde ("recibí")', () => {
+    expect(parseSpokenTransaction('recibí 300 mil de mi mamá')).toMatchObject({
+      type: 'ingreso',
+      amount: 300_000,
+      description: 'Mi mamá',
+    });
+  });
+
+  it('pone una descripción al ingreso que solo dice el monto', () => {
+    expect(parseSpokenTransaction('me pagaron 1,2 millones').description).toBe('Pago recibido');
+  });
+
+  it('con una cantidad ofrece el precio y el total, y conserva la cantidad en la descripción', () => {
+    expect(parseSpokenTransaction('2 almuerzos de 12 mil')).toEqual({
+      type: 'gasto',
+      amount: 12000,
+      options: [12000, 24000],
+      description: '2 almuerzos',
+      ambiguous: true,
+    });
+    expect(parseSpokenTransaction('3 empanadas a 2 mil').options).toEqual([2000, 6000]);
+  });
+
+  it('no ofrece total si la cantidad es mayor que 20', () => {
+    expect(parseSpokenTransaction('50 almuerzos de 12 mil')).toMatchObject({ options: [12000], ambiguous: true });
+  });
+
+  it('sin monto devuelve null y deja la descripción', () => {
+    expect(parseSpokenTransaction('almuerzo')).toMatchObject({ amount: null, options: [], description: 'Almuerzo' });
+    expect(parseSpokenTransaction('')).toMatchObject({ amount: null, options: [], description: '' });
+  });
+
+  it('acepta miles con coma y decimales con punto', () => {
+    expect(parseSpokenTransaction('carro 1,500,000').amount).toBe(1_500_000);
+    expect(parseSpokenTransaction('uber 1500.50').amount).toBe(1500.5);
+  });
+
+  it('descarta montos por encima del máximo que acepta la API en vez de recortarlos', () => {
+    expect(parseSpokenTransaction('casa 20000000000').amount).toBeNull();
+  });
+});
