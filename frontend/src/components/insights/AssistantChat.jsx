@@ -1,16 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowUp, Database, RotateCcw, Sparkles } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { cn } from '@/lib/utils';
-import { askAssistant, MAX_QUESTION_CHARS } from '@/services/assistantService';
+import { askAssistant, MAX_QUESTION_CHARS, sourceLabels } from '@/services/assistantService';
 
 /** Preguntas para empezar: se tocan y se envían. */
 export const SUGGESTIONS = [
   '¿En qué gasto más?',
-  '¿Cuánto puedo ahorrar este mes?',
-  '¿Voy bien con mis presupuestos?',
-  '¿Cómo armo un fondo de emergencia?',
+  '¿A cómo está el dólar hoy?',
+  '¿Cuánto paga un CDT a un año?',
+  'Si invierto lo que me sobra al mes, ¿cuánto gano?',
 ];
 
 /**
@@ -53,8 +53,8 @@ export default function AssistantChat({ className }) {
     setPending(true);
     setError(null);
     try {
-      const reply = await askAssistant(conversation);
-      setMessages([...conversation, { role: 'assistant', text: reply }]);
+      const { reply, toolsUsed } = await askAssistant(conversation);
+      setMessages([...conversation, { role: 'assistant', text: reply, sources: sourceLabels(toolsUsed) }]);
     } catch (err) {
       setError(errorText(err, online));
     } finally {
@@ -137,6 +137,12 @@ export default function AssistantChat({ className }) {
             >
               <span className="sr-only">{message.role === 'user' ? 'Tú: ' : 'FinTrack: '}</span>
               {message.text}
+              {message.sources?.length > 0 && (
+                <span className="mt-2 flex items-center gap-1.5 border-t border-ink/10 pt-2 text-xs text-ink/60">
+                  <Database className="size-3.5 shrink-0" aria-hidden="true" />
+                  Consultó: {message.sources.join(' · ')}
+                </span>
+              )}
             </p>
           ))
         )}

@@ -106,21 +106,129 @@ export function chatText({ system, messages, maxTokens = 1024, temperature = 0.4
 }
 
 /**
- * Hace la petición al proveedor con un reintento ante fallos transitorios.
+ * @typedef {object} AiTool
+ * @property {string} name Nombre que el modelo usa para pedirla.
+ * @property {string} description Para qué sirve; el modelo decide con esto cuándo usarla.
+ * @property {object} parameters Esquema JSON de sus argumentos.
+ * @property {(args: object) => Promise<object>} run La ejecuta el servidor y devuelve datos.
+ */
+
+/** Vueltas máximas de herramientas por pregunta: evita bucles si el modelo pide sin parar. */
+export const MAX_TOOL_STEPS = 4;
+
+/**
+ * Conversación con herramientas (Gemini): el modelo puede pedir datos que el servidor busca
+ * (movimientos del usuario, TRM, tasas de CDT...) antes de responder, en vez de inventarlos.
+ * El servidor ejecuta cada herramienta pedida, le devuelve el resultado y repite hasta que el
+ * modelo responde con texto o se llega a `MAX_TOOL_STEPS`. Con Anthropic responde sin herramientas.
+ *
+ * @param {{ system: string, messages: ChatTurn[], tools: AiTool[], maxTokens?: number, temperature?: number }} request
+ * @returns {Promise<{ text: string, toolsUsed: string[] }>} Respuesta final y herramientas usadas, en orden.
+ * @throws {AppError} 503 `AI_UNAVAILABLE`.
+ */
+export async function chatWithTools({
+  system,
+  messages,
+  tools,
+  maxTokens = 1024,
+  temperature = 0.4,
+}) {
+  const base = { system, messages, maxTokens, temperature, model: env.assistantModel };
+  if (env.aiProvider !== 'gemini') return { text: await generate(base), toolsUsed: [] };
+
+  const { url, headers, body } = buildGeminiRequest(base);
+  body.tools = [
+    {
+      functionDeclarations: tools.map(({ name, description, parameters }) => ({
+        name,
+        description,
+        parameters,
+      })),
+    },
+  ];
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  const toolsUsed = [];
+
+  for (let step = 0; step <= MAX_TOOL_STEPS; step += 1) {
+    // En la última vuelta ya no se ofrecen herramientas: el modelo debe responder con lo que tiene.
+    if (step === MAX_TOOL_STEPS) delete body.tools;
+    const data = await send(url, headers, body);
+    const content = data.candidates?.[0]?.content;
+    const calls = (content?.parts ?? []).filter((part) => part.functionCall);
+    if (calls.length === 0) {
+      const text = content?.parts
+        ?.filter((part) => part.text)
+        .map((part) => part.text)
+        .join('');
+      if (typeof text !== 'string' || !text) {
+        console.error('Respuesta del proveedor de IA con formato inesperado');
+        throw aiUnavailable();
+      }
+      return { text, toolsUsed };
+    }
+    // El turno del modelo va tal cual: Gemini exige recibir de vuelta su `thoughtSignature`.
+    body.contents.push(content);
+    const responses = [];
+    for (const { functionCall } of calls) {
+      toolsUsed.push(functionCall.name);
+      const tool = byName.get(functionCall.name);
+      let response;
+      try {
+        response = tool
+          ? await tool.run(functionCall.args ?? {})
+          : { error: 'Esa herramienta no existe' };
+      } catch (err) {
+        console.error('Falló la herramienta', functionCall.name, err.message);
+        response = { error: 'El dato no está disponible en este momento' };
+      }
+      responses.push({
+        functionResponse: {
+          name: functionCall.name,
+          ...(functionCall.id && { id: functionCall.id }),
+          response,
+        },
+      });
+    }
+    body.contents.push({ role: 'user', parts: responses });
+  }
+  throw aiUnavailable();
+}
+
+/**
+ * Hace la petición al proveedor con un reintento ante fallos transitorios y devuelve el texto.
  * @param {AiRequest} request
  * @returns {Promise<string>}
  * @throws {AppError} 503 `AI_UNAVAILABLE`.
  */
 async function generate(request) {
+  const build = env.aiProvider === 'anthropic' ? buildAnthropicRequest : buildGeminiRequest;
+  const { url, headers, body, readText } = build(request);
+  const data = await send(url, headers, body);
+  try {
+    const text = readText(data);
+    if (typeof text !== 'string') throw new Error('sin texto');
+    return text;
+  } catch {
+    console.error('Respuesta del proveedor de IA con formato inesperado');
+    throw aiUnavailable();
+  }
+}
+
+/**
+ * Envía el cuerpo al proveedor y devuelve su JSON. Arquitectura de IA §4: un (1) reintento
+ * automático ante un fallo transitorio (error de red, tiempo agotado o 5xx del proveedor).
+ * @param {string} url
+ * @param {Record<string, string>} headers
+ * @param {object} body
+ * @returns {Promise<object>}
+ * @throws {AppError} 503 `AI_UNAVAILABLE`.
+ */
+async function send(url, headers, body) {
   if (!env.aiApiKey) {
     console.error('IA desactivada: falta AI_API_KEY en backend/.env');
     throw aiUnavailable();
   }
-
-  const build = env.aiProvider === 'anthropic' ? buildAnthropicRequest : buildGeminiRequest;
-  const { url, headers, body, readText } = build(request);
-
-  const send = () =>
+  const post = () =>
     fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
@@ -128,12 +236,10 @@ async function generate(request) {
       signal: AbortSignal.timeout(env.aiTimeoutMs),
     });
 
-  // Arquitectura de IA §4: un (1) reintento automático ante un fallo transitorio (error de red,
-  // tiempo agotado o 5xx del proveedor) antes de aplicar el fallback.
   let response;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
-      response = await send();
+      response = await post();
     } catch (err) {
       if (attempt === MAX_ATTEMPTS) {
         console.error('Fallo al contactar al proveedor de IA:', err.name);
@@ -156,9 +262,7 @@ async function generate(request) {
   }
 
   try {
-    const text = readText(await response.json());
-    if (typeof text !== 'string') throw new Error('sin texto');
-    return text;
+    return await response.json();
   } catch {
     console.error('Respuesta del proveedor de IA con formato inesperado');
     throw aiUnavailable();

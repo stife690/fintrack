@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_MESSAGES, toConversation } from '@/services/assistantService';
+import { MAX_MESSAGES, sourceLabels, toConversation } from '@/services/assistantService';
 
 const user = (text) => ({ role: 'user', text });
 const assistant = (text) => ({ role: 'assistant', text });
@@ -27,5 +27,15 @@ describe('toConversation', () => {
 
   it('no envía campos de más', () => {
     expect(toConversation([{ role: 'user', text: 'hola', id: 7 }])).toEqual([user('hola')]);
+  });
+});
+
+describe('sourceLabels', () => {
+  it('nombra las fuentes consultadas sin repetir y sin las desconocidas', () => {
+    expect(sourceLabels(['ahorro_promedio', 'tasas_cdt', 'simular_cdt', 'tasas_cdt', 'otra'])).toEqual([
+      'Tu ahorro promedio',
+      'Tasas de CDT · Superfinanciera',
+      'Simulador de CDT',
+    ]);
   });
 });

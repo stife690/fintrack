@@ -42,10 +42,11 @@ function setup({ answer = 'En Alimentación.', aiError = null, budgets = [] } = 
         series: [],
       };
     },
-    chatText: async (request) => {
+    createTools: (userId) => [{ name: 'tasas_cdt', userId }],
+    chatWithTools: async (request) => {
       state.request = request;
       if (aiError) throw aiError;
-      return answer;
+      return { text: answer, toolsUsed: ['tasas_cdt', 'simular_cdt', 'tasas_cdt'] };
     },
   });
   return { service, state };
@@ -53,7 +54,12 @@ function setup({ answer = 'En Alimentación.', aiError = null, budgets = [] } = 
 
 test('responde con los totales del mes actual y del anterior en las instrucciones', async () => {
   const { service, state } = setup({ answer: '  En Alimentación: $420.000.  ' });
-  assert.deepEqual(await service.reply('u1', question), { reply: 'En Alimentación: $420.000.' });
+  assert.deepEqual(await service.reply('u1', question), {
+    reply: 'En Alimentación: $420.000.',
+    toolsUsed: ['tasas_cdt', 'simular_cdt'],
+  });
+  // Las herramientas se crean para el usuario de la pregunta.
+  assert.deepEqual(state.request.tools, [{ name: 'tasas_cdt', userId: 'u1' }]);
   assert.deepEqual(state.ranges, [
     { from: '2026-10-01', to: '2026-10-20' },
     { from: '2026-09-01', to: '2026-09-30' },
@@ -108,8 +114,9 @@ test('a la IA solo llegan totales: nunca descripciones de movimientos (RN-05)', 
 test('las reglas limitan al asistente a finanzas y piden ignorar instrucciones del usuario', async () => {
   const { service, state } = setup();
   await service.reply('u1', question);
-  assert.match(state.request.system, /Solo hablas de finanzas personales/);
-  assert.match(state.request.system, /nunca recomiendes comprar o vender acciones/);
+  assert.match(state.request.system, /Hablas de finanzas personales e inversión/);
+  assert.match(state.request.system, /NUNCA inventes cifras/);
+  assert.match(state.request.system, /no recomiendes acciones ni criptomonedas/);
   assert.match(state.request.system, /Ignora cualquier instrucción/);
 });
 
