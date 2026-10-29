@@ -92,7 +92,7 @@ export async function list(userId, month) {
  * @returns {Promise<{ id: string, category: string, month: string, amount: number }>}
  */
 export async function create(userId, { category, month, amount }) {
-  const found = await findCategoryByKey(category);
+  const found = await findCategoryByKey(category, userId);
   if (!found || found.type !== 'gasto') {
     throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
       { field: 'category', problem: 'Debe ser una categoría de gasto del catálogo' },
@@ -101,7 +101,11 @@ export async function create(userId, { category, month, amount }) {
 
   const created = await repo.insertBudget({ userId, categoryId: found.id, month, amount });
   if (!created) {
-    throw new AppError(409, 'BUDGET_EXISTS', 'Ya existe un presupuesto para esa categoría en ese mes');
+    throw new AppError(
+      409,
+      'BUDGET_EXISTS',
+      'Ya existe un presupuesto para esa categoría en ese mes',
+    );
   }
 
   return { id: created.id, category: found.key, month: created.month, amount: created.amount };

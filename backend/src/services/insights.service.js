@@ -187,7 +187,7 @@ export function createInsightsService(deps = {}) {
     const [current, previous, categories] = await Promise.all([
       totalsFor(userId, currentRange),
       totalsFor(userId, periodRange('month', `${previousMonth}-01`)),
-      getCategories(),
+      getCategories(userId),
     ]);
     if (current.expenseTotal === 0 && previous.expenseTotal === 0) {
       throw new AppError(

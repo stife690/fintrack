@@ -58,6 +58,7 @@ Variables de entorno en producción:
 - Usar la cadena del **Session pooler** (host `...pooler.supabase.com`, usuario `postgres.<ref>`). La conexión directa es solo IPv6 y Render falla con `ENETUNREACH`.
 - Añadir `?sslmode=no-verify` al final: `pg` trata `sslmode=require` como `verify-full` y rechaza el certificado.
 - El esquema está en `db/init/01_schema.sql` y las categorías en `db/init/02_seed_categorias.sql`; se ejecutan una vez en el *SQL Editor* de Supabase.
+- Los cambios de esquema posteriores están en `db/patches/` y **el backend los aplica solo al arrancar** (`backend/src/config/migrations.js`); son idempotentes. El 005 (categorías propias) cambia `categorias.id` a INTEGER y agrega `usuario_id`, `icono` y `color`.
 - Activar RLS en las tablas del esquema `public`.
 - Los proyectos gratuitos de Supabase se pausan tras ~1 semana sin actividad; hay que reanudarlos desde el dashboard.
 

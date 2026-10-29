@@ -44,7 +44,7 @@ tags:
   - name: Transactions
     description: Registro, consulta y resumen de transacciones (F2, F3, F4 — REQ-006 a REQ-015)
   - name: Categories
-    description: Catálogo fijo de categorías (RN-02)
+    description: Las 15 categorías de todos y las propias de cada usuario (RN-02)
   - name: Budgets
     description: Presupuestos y alertas (F5, F6 — REQ-016 a REQ-019)
   - name: Insights
@@ -470,10 +470,13 @@ paths:
   /categories:
     get:
       tags: [Categories]
-      summary: Catálogo fijo de categorías, separado por tipo (RN-02)
+      summary: Las 15 categorías de todos y las propias del usuario, separadas por tipo (RN-02)
+      description: |
+        Primero las 15 de todos (`custom: false`), luego las que creó el usuario (`custom: true`).
+        Nunca aparecen las de otro usuario (RN-01).
       responses:
         "200":
-          description: Catálogo
+          description: Categorías que puede usar el usuario
           content:
             application/json:
               schema:
@@ -488,11 +491,97 @@ paths:
                     items: { $ref: "#/components/schemas/Category" }
               example:
                 expense:
-                  - { key: alimentacion, name: Alimentación }
-                  - { key: transporte, name: Transporte }
+                  - { key: alimentacion, name: Alimentación, icon: null, color: null, custom: false }
+                  - { key: c_k3x9m2qa7b, name: Mascotas, icon: paw-print, color: amber, custom: true }
                 income:
-                  - { key: salario, name: Salario }
+                  - { key: salario, name: Salario, icon: null, color: null, custom: false }
         "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Categories]
+      summary: Crea una categoría propia (máximo 20 por usuario)
+      description: |
+        El nombre (1 a 30 caracteres) no puede repetir el de otra categoría que vea el usuario,
+        incluidas las de todos, sin importar mayúsculas. La clave la genera el servidor (`c_` y 10
+        caracteres). La IA también la tiene en cuenta al categorizar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, icon, color]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 30 }
+                type: { type: string, enum: [ingreso, gasto] }
+                icon: { $ref: "#/components/schemas/CategoryIcon" }
+                color: { $ref: "#/components/schemas/CategoryColor" }
+            example: { name: Mascotas, type: gasto, icon: paw-print, color: amber }
+      responses:
+        "201":
+          description: Categoría creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Category" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: "CATEGORY_EXISTS — ya hay una con ese nombre; CATEGORY_LIMIT — ya tiene 20 propias"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /categories/{key}:
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [Categories]
+      summary: Cambia nombre, ícono o color de una categoría propia
+      description: El tipo no cambia. Las 15 de todos no se pueden editar (404).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 30 }
+                icon: { $ref: "#/components/schemas/CategoryIcon" }
+                color: { $ref: "#/components/schemas/CategoryColor" }
+      responses:
+        "200":
+          description: Categoría actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Category" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "CATEGORY_EXISTS — ya hay una con ese nombre"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Categories]
+      summary: Elimina una categoría propia sin perder movimientos
+      description: |
+        En una sola transacción: sus movimientos pasan a `otros` (gastos) u `otros_ingresos`
+        (ingresos), sus presupuestos se borran y la categoría se elimina. Las 15 de todos no se
+        pueden eliminar (404).
+      responses:
+        "200":
+          description: Eliminada; `moved` dice cuántos movimientos cambiaron de categoría
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [moved]
+                properties:
+                  moved: { type: integer, minimum: 0 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ---------------------------------------------------------------- Budgets
   /budgets:
@@ -1101,10 +1190,23 @@ components:
     # ---------- Transacciones
     Category:
       type: object
-      required: [key, name]
+      required: [key, name, icon, color, custom]
       properties:
         key: { type: string, example: alimentacion }
         name: { type: string, example: Alimentación }
+        icon:
+          description: Ícono elegido; `null` en las 15 de todos (el frontend tiene el suyo)
+          oneOf: [{ $ref: "#/components/schemas/CategoryIcon" }, { type: "null" }]
+        color:
+          description: Color elegido; `null` en las 15 de todos
+          oneOf: [{ $ref: "#/components/schemas/CategoryColor" }, { type: "null" }]
+        custom: { type: boolean, description: "`true` si la creó el usuario" }
+    CategoryIcon:
+      type: string
+      enum: [paw-print, dumbbell, gift, plane, baby, car, fuel, coffee, pizza, beer, gamepad, music, book, shopping-cart, heart, smartphone, scissors, briefcase, piggy-bank, sparkles]
+    CategoryColor:
+      type: string
+      enum: [orange, sky, amber, rose, teal, fuchsia, indigo, emerald]
     Transaction:
       type: object
       required: [id, userId, amount, description, type, category, source, date, createdAt, updatedAt, deletedAt]

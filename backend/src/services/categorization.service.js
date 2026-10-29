@@ -25,8 +25,8 @@ function normalizeKey(text) {
  *
  * @param {{ listCategories?: typeof listCategories, completeText?: typeof completeText }} [deps]
  * @returns {{
- *   suggestCategory: (input: { description: string, type: 'ingreso'|'gasto' }) => Promise<{ category: string|null, source: 'ia'|'sin_clasificar' }>,
- *   resolveCategory: (input: { category?: string|null, description: string, type: 'ingreso'|'gasto' }) => Promise<{ category: string|null, source: 'manual'|'ia'|'sin_clasificar' }>
+ *   suggestCategory: (input: { description: string, type: 'ingreso'|'gasto', userId?: string }) => Promise<{ category: string|null, source: 'ia'|'sin_clasificar' }>,
+ *   resolveCategory: (input: { category?: string|null, description: string, type: 'ingreso'|'gasto', userId?: string }) => Promise<{ category: string|null, source: 'manual'|'ia'|'sin_clasificar' }>
  * }}
  */
 export function createCategorizer(deps = {}) {
@@ -34,16 +34,17 @@ export function createCategorizer(deps = {}) {
   const ask = deps.completeText ?? completeText;
 
   /**
-   * Pide a la IA una categoría del catálogo cerrado (REQ-010). Solo se envían la
-   * descripción y las claves de las categorías: nunca monto, fecha ni datos del usuario.
+   * Pide a la IA una categoría de las que puede usar el usuario (REQ-010): las de todos y las
+   * suyas. Solo se envían la descripción y las claves y nombres de las categorías: nunca monto,
+   * fecha ni datos del usuario.
    * La respuesta se valida contra el catálogo (RN-02); si no es válida, o la IA no
    * está disponible, devuelve `sin_clasificar` en vez de fallar (REQ-011).
    *
-   * @param {{ description: string, type: 'ingreso'|'gasto' }} input
+   * @param {{ description: string, type: 'ingreso'|'gasto', userId?: string }} input
    * @returns {Promise<{ category: string|null, source: 'ia'|'sin_clasificar' }>}
    */
-  async function suggestCategory({ description, type }) {
-    const catalog = (await getCategories()).filter((c) => c.type === type);
+  async function suggestCategory({ description, type, userId }) {
+    const catalog = (await getCategories(userId)).filter((c) => c.type === type);
     const keys = new Set(catalog.map((c) => c.key));
     const list = catalog.map((c) => `- ${c.key}: ${c.name}`).join('\n');
 
@@ -76,14 +77,14 @@ export function createCategorizer(deps = {}) {
    * si el usuario eligió categoría se respeta (`manual`); si no, se pide a la IA.
    * Nunca lanza por fallos de la IA: la transacción siempre se puede guardar.
    *
-   * @param {{ category?: string|null, description: string, type: 'ingreso'|'gasto' }} input
+   * @param {{ category?: string|null, description: string, type: 'ingreso'|'gasto', userId?: string }} input
    * @returns {Promise<{ category: string|null, source: 'manual'|'ia'|'sin_clasificar' }>}
    */
-  async function resolveCategory({ category, description, type }) {
+  async function resolveCategory({ category, description, type, userId }) {
     if (category) {
       return { category, source: 'manual' };
     }
-    return suggestCategory({ description, type });
+    return suggestCategory({ description, type, userId });
   }
 
   return { suggestCategory, resolveCategory };

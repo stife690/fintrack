@@ -140,7 +140,7 @@ export function createAssistantTools(userId, deps = {}) {
   }
 
   async function categoryNames() {
-    const categories = await getCategories();
+    const categories = await getCategories(userId);
     return new Map(categories.map((c) => [c.key, c.name]));
   }
 

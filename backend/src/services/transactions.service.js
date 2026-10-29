@@ -114,10 +114,11 @@ export function createTransactionService(deps = {}) {
    * Comprueba que la categoría elegida por el usuario exista y sea del tipo de la transacción (RN-02).
    * @param {string} key
    * @param {'ingreso'|'gasto'} type
+   * @param {string} userId Solo valen las categorías de todos y las suyas.
    * @returns {Promise<void>}
    */
-  async function assertCategory(key, type) {
-    const match = (await getCategories()).find((c) => c.key === key);
+  async function assertCategory(key, type, userId) {
+    const match = (await getCategories(userId)).find((c) => c.key === key);
     if (!match || match.type !== type) {
       throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
         { field: 'category', problem: `No es una categoría de ${type} del catálogo` },
@@ -127,12 +128,12 @@ export function createTransactionService(deps = {}) {
 
   /**
    * Decide la categoría final: la del usuario (`manual`) o la sugerida por la IA (REQ-010/011).
-   * @param {{ category?: string|null, description: string, type: 'ingreso'|'gasto' }} input
+   * @param {{ category?: string|null, description: string, type: 'ingreso'|'gasto', userId: string }} input
    * @returns {Promise<{ category: string|null, source: 'manual'|'ia'|'sin_clasificar' }>}
    */
-  async function decideCategory({ category, description, type }) {
-    if (category) await assertCategory(category, type);
-    return resolve({ category, description, type });
+  async function decideCategory({ category, description, type, userId }) {
+    if (category) await assertCategory(category, type, userId);
+    return resolve({ category, description, type, userId });
   }
 
   /**
@@ -147,7 +148,7 @@ export function createTransactionService(deps = {}) {
     const existing = input.localId && (await repo.findByLocalId(userId, input.localId));
     // Si ya se había borrado, se devuelve tal cual (con `deletedAt`) en vez de revivirla.
     if (existing) return existing.deletedAt ? existing : present(existing);
-    const { category, source } = await decideCategory(input);
+    const { category, source } = await decideCategory({ ...input, userId });
     const record = await repo.insertTransaction({ ...input, userId, category, source });
     return present(record ?? (await repo.findByLocalId(userId, input.localId)));
   }
@@ -204,6 +205,7 @@ export function createTransactionService(deps = {}) {
         category: 'category' in changes ? changes.category : null,
         description: changes.description ?? current.description,
         type,
+        userId,
       });
       patch.category = decided.category;
       patch.source = decided.source;

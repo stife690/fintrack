@@ -23,13 +23,14 @@ import * as transactions from './transactions.service.js';
 /**
  * Fase 1: comprueba que cada categoría elegida exista y sea del tipo de su transacción (RN-02),
  * antes de aplicar nada. En `update` sin `type`, el tipo es el que ya tiene en el servidor.
+ * @param {string} userId Solo valen las categorías de todos y las suyas.
  * @param {SyncOperation[]} operations
  * @param {Map<string, TransactionRecord|null>} current Versión del servidor de cada `serverId`.
  * @returns {Promise<void>}
  * @throws {AppError} 422 con el detalle de cada categoría inválida.
  */
-async function assertCategories(operations, current) {
-  const typeByKey = new Map((await listCategories()).map((c) => [c.key, c.type]));
+async function assertCategories(userId, operations, current) {
+  const typeByKey = new Map((await listCategories(userId)).map((c) => [c.key, c.type]));
   const details = [];
   operations.forEach((operation, index) => {
     const category = operation.transaction?.category;
@@ -64,7 +65,7 @@ async function applyCreate(userId, { localId, transaction }, aiQuota) {
     decided = { category: transaction.category, source: 'manual' };
   } else if (aiQuota.left > 0) {
     aiQuota.left -= 1;
-    decided = await resolveCategory(transaction);
+    decided = await resolveCategory({ ...transaction, userId });
   }
 
   const inserted = await repo.insertFromDevice({ ...transaction, ...decided, userId, localId });
@@ -145,7 +146,7 @@ export async function syncBatch(userId, { lastSyncedAt, operations }) {
       current.set(operation.serverId, await repo.findForSync(operation.serverId, userId));
     }
   }
-  await assertCategories(operations, current);
+  await assertCategories(userId, operations, current);
 
   // Fase 2: aplicar en orden.
   const synced = [];

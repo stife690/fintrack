@@ -36,17 +36,28 @@ CREATE TABLE password_reset_tokens (
 );
 CREATE INDEX idx_password_reset_tokens_usuario ON password_reset_tokens(usuario_id);
 
+-- Las 15 de db/init/02 son de todos (usuario_id NULL, ids 1-15). Cada usuario puede crear las
+-- suyas (usuario_id, icono y color); su id sale de la secuencia, desde 1000.
+CREATE SEQUENCE categorias_id_seq START 1000;
 CREATE TABLE categorias (
-  id SMALLINT PRIMARY KEY,
+  id INTEGER PRIMARY KEY DEFAULT nextval('categorias_id_seq'),
   key VARCHAR(30) UNIQUE NOT NULL,
-  nombre VARCHAR(50) UNIQUE NOT NULL,
-  tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('ingreso','gasto'))
+  nombre VARCHAR(50) NOT NULL,
+  tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('ingreso','gasto')),
+  usuario_id UUID NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  icono VARCHAR(30) NULL,
+  color VARCHAR(20) NULL
 );
+ALTER SEQUENCE categorias_id_seq OWNED BY categorias.id;
+-- El nombre es único entre las globales y entre las de cada usuario.
+CREATE UNIQUE INDEX ux_categorias_usuario_nombre
+  ON categorias (COALESCE(usuario_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(nombre));
+CREATE INDEX idx_categorias_usuario ON categorias(usuario_id) WHERE usuario_id IS NOT NULL;
 
 CREATE TABLE transacciones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  categoria_id SMALLINT REFERENCES categorias(id),
+  categoria_id INTEGER REFERENCES categorias(id),
   monto NUMERIC(12,2) NOT NULL CHECK (monto > 0),
   descripcion TEXT NOT NULL,
   tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('ingreso','gasto')),
@@ -70,7 +81,7 @@ CREATE INDEX idx_transacciones_usuario_updated
 CREATE TABLE presupuestos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  categoria_id SMALLINT NOT NULL REFERENCES categorias(id),
+  categoria_id INTEGER NOT NULL REFERENCES categorias(id),
   mes CHAR(7) NOT NULL,
   monto_limite NUMERIC(12,2) NOT NULL CHECK (monto_limite > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

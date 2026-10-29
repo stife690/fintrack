@@ -245,6 +245,7 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Límite de intentos en login y registro
 - [x] Recuperar contraseña por correo (Brevo): enlace de un solo uso que vence en 30 minutos
 - [x] Registro por voz (FT-0013): `POST /voice/transcribe` con Whisper en Groq
+- [x] Categorías propias: hasta 20 por usuario, además de las 15 de todos (`POST/PATCH/DELETE /categories`)
 - [x] Asistente financiero: `POST /assistant/chat` con Gemini, solo datos agregados y herramientas (movimientos, ahorro, TRM y tasas de CDT oficiales de datos.gov.co, simulador de CDT)
 - [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) , PDF con gráficos y CSV (FT-0012)
