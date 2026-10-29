@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { CloudUpload, Download, Loader2, WifiOff } from 'lucide-react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { CloudUpload, Download, Loader2, Mic, WifiOff } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
@@ -8,9 +8,11 @@ import ConflictList from '@/components/transactions/ConflictList';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
+import VoiceEntry from '@/components/transactions/VoiceEntry';
 import { formatDate, formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
+import { getSpeechRecognition } from '@/lib/speech';
 import {
   SYNC_EVENT,
   cacheTransaction,
@@ -139,6 +141,12 @@ export default function Transactions() {
   const [searchParams] = useSearchParams();
   const quickType = searchParams.get('nuevo');
   const defaultType = quickType === 'ingreso' ? 'ingreso' : 'gasto';
+  // Registro por voz (FT-0013). Lo dictado desde el inicio llega en el estado de la navegación.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const canDictate = getSpeechRecognition() !== null;
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [draft, setDraft] = useState(() => location.state?.voiceDraft ?? null);
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
@@ -205,6 +213,17 @@ export default function Transactions() {
   }, [filters, page, version]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Lo dictado se usa una sola vez: se borra del historial para que recargar no lo repita.
+  useEffect(() => {
+    if (location.state?.voiceDraft) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location, navigate]);
+
+  const useDictation = (dictated) => {
+    setVoiceOpen(false);
+    setEditing(null);
+    if (dictated) setDraft({ ...dictated });
+  };
 
   // Al volver la conexión, la lista se vuelve a pedir al servidor.
   useEffect(() => {
@@ -337,17 +356,35 @@ export default function Transactions() {
           de Android son anchos y, sin esto, ensanchaban la página más que la pantalla). */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <Panel aria-labelledby="form-title" className="h-fit lg:sticky lg:top-8">
-          <h2 id="form-title" className="mb-5 text-lg font-semibold tracking-tight">
-            {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
-          </h2>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 id="form-title" className="text-lg font-semibold tracking-tight">
+              {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
+            </h2>
+            {canDictate && !editing && (
+              <Button variant="soft" size="sm" onClick={() => setVoiceOpen(true)}>
+                <Mic aria-hidden="true" />
+                Dictar
+              </Button>
+            )}
+          </div>
+          {draft && !editing && (
+            <p role="status" className="-mt-2 mb-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
+              Revisa lo que dictaste y toca Guardar.
+            </p>
+          )}
           <TransactionForm
             categories={categories}
             initial={editing}
             defaultType={defaultType}
             autoFocus={Boolean(quickType)}
-            onSubmit={handleSubmit}
+            draft={editing ? null : draft}
+            onSubmit={async (values) => {
+              await handleSubmit(values);
+              setDraft(null);
+            }}
             onCancel={editing ? () => setEditing(null) : undefined}
           />
+          <VoiceEntry open={voiceOpen} onClose={() => setVoiceOpen(false)} onUse={useDictation} />
           <BudgetAlert
             className="mt-4"
             alert={budgetAlert.alert}
