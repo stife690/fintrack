@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, LogOut } from 'lucide-react';
+import CustomCategories from '@/components/account/CustomCategories';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import PageHeader from '@/components/layout/PageHeader';
@@ -24,8 +25,8 @@ function Section({ id, title, description, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`: perfil (nombre editable), tema de la app, notificaciones
- * (REQ-029 y REQ-030) y cierre de sesión.
+ * Página privada `/app/cuenta`: perfil (nombre editable), categorías propias, tema de la app,
+ * notificaciones (REQ-029 y REQ-030) y cierre de sesión.
  */
 export default function Account() {
   usePageTitle('Cuenta');
@@ -45,6 +46,8 @@ export default function Account() {
 
       <div className="flex flex-col gap-5">
         <ProfileCard />
+
+        <CustomCategories />
 
         <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
           <ThemeSelector />

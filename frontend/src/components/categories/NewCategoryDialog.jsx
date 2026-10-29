@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { COLOR_OPTIONS, ICON_OPTIONS, customStyle } from '@/lib/categoryStyles';
 import { cn } from '@/lib/utils';
-import { createCategory } from '@/services/transactionService';
+import { createCategory, updateCategory } from '@/services/transactionService';
 
 /** Largo máximo del nombre, igual que en la API. */
 export const NAME_MAX = 30;
@@ -14,46 +14,56 @@ export const NAME_MAX = 30;
 const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /**
- * Ventana para crear una categoría propia (hasta 20 por usuario): nombre, ícono y color, con una
- * vista previa. En el celular sube desde abajo; en pantallas anchas va centrada.
+ * Ventana para crear una categoría propia (hasta 20 por usuario) o editar una: nombre, ícono y
+ * color, con una vista previa. En el celular sube desde abajo; en pantallas anchas va centrada.
  *
  * @param {object} props
  * @param {boolean} props.open
- * @param {'gasto'|'ingreso'} props.type Tipo de la categoría nueva.
+ * @param {'gasto'|'ingreso'} [props.type] Tipo de la categoría nueva. Sin él, la persona lo elige.
+ * @param {import('@/services/transactionService').Category} [props.category] Si llega, se edita esa.
  * @param {() => void} props.onClose
  * @param {(category: import('@/services/transactionService').Category) => void} props.onCreated
+ *   Al crear o guardar, con la categoría que devolvió el servidor.
  */
-export default function NewCategoryDialog({ open, type, onClose, onCreated }) {
+export default function NewCategoryDialog({ open, type, category, onClose, onCreated }) {
   // Portal al contenedor con `data-theme`: queda encima de todo y conserva el tema.
   return createPortal(
     <MotionConfig reducedMotion="user">
       <AnimatePresence>
-        {open && <Dialog key="nueva-categoria" type={type} onClose={onClose} onCreated={onCreated} />}
+        {open && (
+          <Dialog key="categoria" type={type} category={category} onClose={onClose} onCreated={onCreated} />
+        )}
       </AnimatePresence>
     </MotionConfig>,
     document.querySelector('[data-theme]') ?? document.body,
   );
 }
 
-function Dialog({ type, onClose, onCreated }) {
+function Dialog({ type: fixedType, category, onClose, onCreated }) {
   const titleId = useId();
   const nameId = useId();
   const panelRef = useRef(null);
+  const nameRef = useRef(null);
   const online = useOnlineStatus();
-  // Se guarda al montar, antes de que `autoFocus` mueva el foco a la ventana.
+  // Se guarda al montar, antes de que el efecto mueva el foco al nombre.
   const [opener] = useState(() => document.activeElement);
-  const [name, setName] = useState('');
-  const [icon, setIcon] = useState(ICON_OPTIONS[0].key);
-  const [color, setColor] = useState(COLOR_OPTIONS[0].key);
+  const editing = Boolean(category);
+  const [type, setType] = useState(fixedType ?? 'gasto');
+  const [name, setName] = useState(category?.name ?? '');
+  const [icon, setIcon] = useState(category?.icon ?? ICON_OPTIONS[0].key);
+  const [color, setColor] = useState(category?.color ?? COLOR_OPTIONS[0].key);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // Mientras está abierta: la página no se desplaza, Escape cierra, Tab no sale de la ventana
-  // y al cerrar el foco vuelve al botón que la abrió.
+  // Mientras está abierta: el foco va al nombre, la página no se desplaza, Escape cierra, Tab no
+  // sale de la ventana y al cerrar el foco vuelve al botón que la abrió. El foco se pone aquí y no
+  // con el atributo autofocus: en desarrollo React (StrictMode) repite el efecto, y su limpieza,
+  // que devuelve el foco al botón, se lo quitaba al campo.
   useEffect(() => {
+    nameRef.current?.focus();
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event) => {
@@ -95,8 +105,10 @@ function Dialog({ type, onClose, onCreated }) {
     setSaving(true);
     setError('');
     try {
-      const created = await createCategory({ name: clean, type, icon, color });
-      onCreated(created);
+      const saved = editing
+        ? await updateCategory(category.key, { name: clean, icon, color })
+        : await createCategory({ name: clean, type, icon, color });
+      onCreated(saved);
       onClose();
     } catch (err) {
       setError(err.message);
@@ -142,8 +154,31 @@ function Dialog({ type, onClose, onCreated }) {
         </button>
 
         <h2 id={titleId} className="pr-10 text-lg font-semibold tracking-tight">
-          Nueva categoría de {typeLabel}
+          {editing ? 'Editar categoría' : `Nueva categoría de ${typeLabel}`}
         </h2>
+
+        {!editing && !fixedType && (
+          <div role="radiogroup" aria-label="Tipo" className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-ink/5 p-1">
+            {[
+              ['gasto', 'Gasto'],
+              ['ingreso', 'Ingreso'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={type === value}
+                onClick={() => setType(value)}
+                className={cn(
+                  'rounded-lg py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet',
+                  type === value ? 'bg-surface text-ink shadow-sm' : 'text-ink/60 hover:text-ink',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 flex items-center gap-3 rounded-2xl border border-ink/10 px-4 py-3">
           <span aria-hidden="true" className={cn('grid size-11 shrink-0 place-items-center rounded-xl', previewTone)}>
@@ -156,6 +191,7 @@ function Dialog({ type, onClose, onCreated }) {
           Nombre
         </label>
         <input
+          ref={nameRef}
           id={nameId}
           value={name}
           onChange={(event) => {
@@ -163,7 +199,6 @@ function Dialog({ type, onClose, onCreated }) {
             setError('');
           }}
           maxLength={NAME_MAX}
-          autoFocus
           autoComplete="off"
           placeholder={type === 'gasto' ? 'Mascotas, Gimnasio, Universidad…' : 'Ventas, Arriendo recibido…'}
           aria-invalid={Boolean(error) || undefined}
@@ -240,10 +275,12 @@ function Dialog({ type, onClose, onCreated }) {
           </Button>
           <Button type="submit" disabled={saving || !online}>
             {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-            Crear
+            {editing ? 'Guardar' : 'Crear'}
           </Button>
         </div>
-        <p className="mt-3 text-center text-xs text-ink/55">Puedes tener hasta 20 categorías propias.</p>
+        {!editing && (
+          <p className="mt-3 text-center text-xs text-ink/55">Puedes tener hasta 20 categorías propias.</p>
+        )}
       </motion.form>
     </div>
   );

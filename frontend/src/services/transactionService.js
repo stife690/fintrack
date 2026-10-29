@@ -122,6 +122,28 @@ export async function createCategory(input) {
 }
 
 /**
+ * Cambia nombre, ícono o color de una categoría propia. Necesita conexión.
+ * @param {string} key
+ * @param {{ name?: string, icon?: string, color?: string }} changes
+ * @returns {Promise<Category>} La categoría actualizada.
+ */
+export async function updateCategory(key, changes) {
+  const updated = await request(`/categories/${encodeURIComponent(key)}`, { method: 'PATCH', body: changes });
+  registerCategories([updated]);
+  return updated;
+}
+
+/**
+ * Elimina una categoría propia: sus movimientos pasan a "Otros" (u "Otros ingresos") y sus
+ * presupuestos se borran. Necesita conexión.
+ * @param {string} key
+ * @returns {Promise<{ moved: number }>} Cuántos movimientos cambiaron de categoría.
+ */
+export function deleteCategory(key) {
+  return request(`/categories/${encodeURIComponent(key)}`, { method: 'DELETE' });
+}
+
+/**
  * Lista paginada de transacciones propias, de la más reciente a la más antigua.
  * @param {{ type?: string, category?: string, q?: string, from?: string, to?: string, page?: number, pageSize?: number }} [filters]
  * @returns {Promise<{ data: Transaction[], page: number, pageSize: number, total: number }>}
