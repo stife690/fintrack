@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { env } from './config/env.js';
 import { pool } from './config/db.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/` con la columna
@@ -163,15 +164,22 @@ test('un create reenviado no se duplica: devuelve el mismo serverId', options, a
 });
 
 test('creado sin categoría y sin IA disponible queda sin_clasificar', options, async () => {
-  await withApi(async (api) => {
-    const token = await newUserToken(api);
-    const res = await sync(api, token, null, [
-      { op: 'create', localId: 'loc-1', transaction: expense({ category: null }) },
-    ]);
-    const saved = await api(`/transactions/${res.body.synced[0].serverId}`, { token });
-    assert.equal(saved.body.category, null);
-    assert.ok(['sin_clasificar', 'ia'].includes(saved.body.source));
-  });
+  // Se apaga la IA: con una AI_API_KEY en el .env, Gemini sí lo categorizaría.
+  const previous = env.aiApiKey;
+  env.aiApiKey = undefined;
+  try {
+    await withApi(async (api) => {
+      const token = await newUserToken(api);
+      const res = await sync(api, token, null, [
+        { op: 'create', localId: 'loc-1', transaction: expense({ category: null }) },
+      ]);
+      const saved = await api(`/transactions/${res.body.synced[0].serverId}`, { token });
+      assert.equal(saved.body.category, null);
+      assert.equal(saved.body.source, 'sin_clasificar');
+    });
+  } finally {
+    env.aiApiKey = previous;
+  }
 });
 
 test('last-write-wins: gana el cambio más reciente (RN-07)', options, async () => {
