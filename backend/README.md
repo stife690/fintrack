@@ -124,6 +124,8 @@ Reglas:
 | `GROQ_API_KEY` | Para dictar con Whisper | *(secreto)* | Clave de [Groq](https://console.groq.com) (plan gratis) para convertir la voz en texto con Whisper. Sin ella `POST /voice/transcribe` responde 503 y la app usa el dictado del navegador. |
 | `STT_MODEL` | No | `whisper-large-v3-turbo` | Modelo de Whisper en Groq. |
 | `APP_URL` | En producción | `https://fintrack-seven-delta.vercel.app` | Dirección del frontend para armar el enlace del correo (sin barra final). Por defecto `http://localhost:5173`. |
+| `ASSISTANT_MODEL` | No | `gemini-3.1-flash-lite` | Modelo del asistente financiero (`POST /assistant/chat`). Usa la misma `AI_API_KEY` que la categorización, pero otro modelo para no gastar su cuota diaria. |
+| `ASSISTANT_DAILY_MAX` | No | `20` | Preguntas al asistente por usuario y día (429 `RATE_LIMITED`). El conteo vive en memoria y vuelve a cero si el servidor se reinicia. |
 | `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
 | `VAPID_PUBLIC_KEY` | Para push | *(par generado con `npx web-push generate-vapid-keys`)* | Llave pública VAPID; el navegador la usa para suscribirse a las notificaciones. Sin las dos llaves el push y el recordatorio diario quedan desactivados. |
 | `VAPID_PRIVATE_KEY` | Para push | *(secreto)* | Llave privada VAPID con la que el servidor firma cada notificación. Nunca se sube al repo. |
@@ -243,6 +245,7 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Límite de intentos en login y registro
 - [x] Recuperar contraseña por correo (Brevo): enlace de un solo uso que vence en 30 minutos
 - [x] Registro por voz (FT-0013): `POST /voice/transcribe` con Whisper en Groq
+- [x] Asistente financiero: `POST /assistant/chat` con Gemini y solo datos agregados
 - [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) , PDF con gráficos y CSV (FT-0012)
 - [ ] Documentación Swagger del contrato

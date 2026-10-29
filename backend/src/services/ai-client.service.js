@@ -7,23 +7,42 @@ function aiUnavailable() {
 }
 
 /**
+ * @typedef {object} ChatTurn
+ * @property {'user'|'assistant'} role Quién habló.
+ * @property {string} text Lo que dijo.
+ */
+
+/**
+ * @typedef {object} AiRequest
+ * @property {string} system Instrucciones del sistema.
+ * @property {ChatTurn[]} messages Conversación, del más antiguo al más reciente.
+ * @property {number} maxTokens Tope de la respuesta.
+ * @property {number} temperature 0 para respuestas estables; más alto suena más natural.
+ * @property {string} model Modelo del proveedor.
+ */
+
+/**
  * Arma la petición HTTP para Gemini (`generateContent`). La clave va en una cabecera,
  * nunca en la URL, para que no quede en logs ni en historiales.
- * @param {{ system: string, prompt: string, maxTokens: number }} request
+ * @param {AiRequest} request
  * @returns {{ url: string, headers: Record<string, string>, body: object, readText: (data: object) => unknown }}
  */
-function buildGeminiRequest({ system, prompt, maxTokens }) {
+function buildGeminiRequest({ system, messages, maxTokens, temperature, model }) {
   // Margen de sobra para modelos que razonan antes de responder. No se envía `thinkingConfig`:
   // los modelos "lite" lo rechazan con 400 y su formato cambia entre versiones.
-  const generationConfig = { maxOutputTokens: Math.max(maxTokens, 256), temperature: 0 };
+  const generationConfig = { maxOutputTokens: Math.max(maxTokens, 256), temperature };
   return {
     url:
       env.aiApiUrl ??
-      `https://generativelanguage.googleapis.com/v1beta/models/${env.aiModel}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     headers: { 'x-goog-api-key': env.aiApiKey },
     body: {
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      // Gemini llama "model" a los turnos de la IA.
+      contents: messages.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.text }],
+      })),
       generationConfig,
     },
     readText: (data) => data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text,
@@ -32,18 +51,19 @@ function buildGeminiRequest({ system, prompt, maxTokens }) {
 
 /**
  * Arma la petición HTTP para la API de mensajes de Anthropic (proveedor alternativo).
- * @param {{ system: string, prompt: string, maxTokens: number }} request
+ * @param {AiRequest} request
  * @returns {{ url: string, headers: Record<string, string>, body: object, readText: (data: object) => unknown }}
  */
-function buildAnthropicRequest({ system, prompt, maxTokens }) {
+function buildAnthropicRequest({ system, messages, maxTokens, temperature, model }) {
   return {
     url: env.aiApiUrl ?? 'https://api.anthropic.com/v1/messages',
     headers: { 'x-api-key': env.aiApiKey, 'anthropic-version': '2023-06-01' },
     body: {
-      model: env.aiModel,
+      model,
       max_tokens: maxTokens,
+      temperature,
       system,
-      messages: [{ role: 'user', content: prompt }],
+      messages: messages.map((m) => ({ role: m.role, content: m.text })),
     },
     readText: (data) => data.content?.find((block) => block.type === 'text')?.text,
   };
@@ -63,14 +83,42 @@ const MAX_ATTEMPTS = 2;
  * @returns {Promise<string>} Texto generado por el modelo.
  * @throws {AppError} 503 `AI_UNAVAILABLE`.
  */
-export async function completeText({ system, prompt, maxTokens = 64 }) {
+export function completeText({ system, prompt, maxTokens = 64 }) {
+  return generate({
+    system,
+    messages: [{ role: 'user', text: prompt }],
+    maxTokens,
+    temperature: 0,
+    model: env.aiModel,
+  });
+}
+
+/**
+ * Como `completeText`, pero con una conversación de varios turnos (asistente financiero). Usa su
+ * propio modelo (`ASSISTANT_MODEL`) para no gastar la cuota de la categorización.
+ *
+ * @param {{ system: string, messages: ChatTurn[], maxTokens?: number, temperature?: number }} request
+ * @returns {Promise<string>} Respuesta del modelo al último mensaje.
+ * @throws {AppError} 503 `AI_UNAVAILABLE`.
+ */
+export function chatText({ system, messages, maxTokens = 1024, temperature = 0.4 }) {
+  return generate({ system, messages, maxTokens, temperature, model: env.assistantModel });
+}
+
+/**
+ * Hace la petición al proveedor con un reintento ante fallos transitorios.
+ * @param {AiRequest} request
+ * @returns {Promise<string>}
+ * @throws {AppError} 503 `AI_UNAVAILABLE`.
+ */
+async function generate(request) {
   if (!env.aiApiKey) {
     console.error('IA desactivada: falta AI_API_KEY en backend/.env');
     throw aiUnavailable();
   }
 
   const build = env.aiProvider === 'anthropic' ? buildAnthropicRequest : buildGeminiRequest;
-  const { url, headers, body, readText } = build({ system, prompt, maxTokens });
+  const { url, headers, body, readText } = build(request);
 
   const send = () =>
     fetch(url, {

@@ -55,3 +55,38 @@ test('no reintenta ante un 4xx (clave, cuota o petición inválida)', async () =
     assert.equal(calls(), 1);
   });
 });
+
+test('chatText envía la conversación a Gemini con los turnos de la IA como "model"', async () => {
+  const { chatText } = await import('./services/ai-client.service.js');
+  const { env } = await import('./config/env.js');
+  const original = globalThis.fetch;
+  let sent;
+  globalThis.fetch = async (url, init) => {
+    sent = { url, body: JSON.parse(init.body) };
+    return gemini('Vas bien');
+  };
+  try {
+    const reply = await chatText({
+      system: 'reglas',
+      messages: [
+        { role: 'user', text: 'hola' },
+        { role: 'assistant', text: '¿En qué te ayudo?' },
+        { role: 'user', text: '¿Voy bien?' },
+      ],
+    });
+    assert.equal(reply, 'Vas bien');
+    assert.match(sent.url, new RegExp(`/models/${env.assistantModel}:generateContent$`));
+    assert.deepEqual(
+      sent.body.contents.map((c) => [c.role, c.parts[0].text]),
+      [
+        ['user', 'hola'],
+        ['model', '¿En qué te ayudo?'],
+        ['user', '¿Voy bien?'],
+      ],
+    );
+    assert.equal(sent.body.systemInstruction.parts[0].text, 'reglas');
+    assert.equal(sent.body.generationConfig.temperature, 0.4);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
