@@ -813,6 +813,14 @@ paths:
         por categoría del mes actual hasta hoy, totales del mes anterior y los presupuestos del mes. Nunca
         descripciones de movimientos ni datos personales. La conversación no se guarda.
         Funciona desde el primer día: no exige el mes de historial de `GET /insights` (REQ-021).
+
+        El modelo tiene herramientas (function calling) que el servidor ejecuta cuando las pide, para
+        responder con datos reales en vez de inventarlos (máximo 4 vueltas por pregunta):
+        `resumen_de_movimientos` (totales por categoría entre dos fechas), `ahorro_promedio` (sobrante
+        mensual de los últimos 3 meses), `dolar_hoy` (TRM oficial), `tasas_cdt` (tasas de CDT por plazo
+        que reportan las entidades a la Superintendencia Financiera) y `simular_cdt` (interés compuesto
+        con retención en la fuente del 4 %). La TRM y las tasas se leen de datos.gov.co y se guardan
+        en caché una hora.
         Límite de `ASSISTANT_DAILY_MAX` preguntas por usuario y día (por defecto 20), además del límite
         por minuto de los endpoints de IA.
       requestBody:
@@ -843,11 +851,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [reply]
+                required: [reply, toolsUsed]
                 properties:
                   reply: { type: string, maxLength: 1500 }
+                  toolsUsed:
+                    type: array
+                    description: Herramientas que consultó el asistente, sin repetir y en orden de uso
+                    items: { type: string }
               example:
-                reply: Este mes tu mayor gasto es Alimentación, con $425.000; ya vas en el 85 % de su presupuesto.
+                reply: Para un CDT a 360 días el promedio es 12,77 % E.A.; la que más paga es Banco Pichincha con 13,31 % (corte del 27/10/2026, Superintendencia Financiera).
+                toolsUsed: [tasas_cdt]
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }

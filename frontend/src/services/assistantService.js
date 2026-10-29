@@ -32,12 +32,30 @@ export function toConversation(messages) {
  * Pregunta al asistente. Los errores traen `code`: `AI_UNAVAILABLE` (la IA no respondió),
  * o `RATE_LIMITED` (límite por minuto o diario); sin conexión, el mensaje de conexión de `apiRequest`.
  * @param {ChatMessage[]} messages Conversación completa; se envían los últimos mensajes.
- * @returns {Promise<string>} Respuesta del asistente.
+ * @returns {Promise<{ reply: string, toolsUsed: string[] }>} Respuesta y herramientas que consultó el asistente.
  */
 export async function askAssistant(messages) {
-  const { reply } = await apiRequest('/assistant/chat', {
+  const { reply, toolsUsed = [] } = await apiRequest('/assistant/chat', {
     method: 'POST',
     body: { messages: toConversation(messages) },
   });
-  return reply;
+  return { reply, toolsUsed };
+}
+
+/** Cómo se llama, para la persona, cada fuente que puede consultar el asistente. */
+const SOURCES = {
+  resumen_de_movimientos: 'Tus movimientos',
+  ahorro_promedio: 'Tu ahorro promedio',
+  dolar_hoy: 'TRM · Superfinanciera',
+  tasas_cdt: 'Tasas de CDT · Superfinanciera',
+  simular_cdt: 'Simulador de CDT',
+};
+
+/**
+ * Nombres legibles de las fuentes consultadas, sin repetir y en el orden en que se usaron.
+ * @param {string[]} toolsUsed
+ * @returns {string[]}
+ */
+export function sourceLabels(toolsUsed) {
+  return [...new Set(toolsUsed.map((name) => SOURCES[name]).filter(Boolean))];
 }

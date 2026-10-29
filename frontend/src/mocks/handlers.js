@@ -385,12 +385,19 @@ export const handlers = [
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const question = (await readJson(request))?.messages?.at(-1)?.text?.toLowerCase() ?? '';
     await delay(900);
+    if (question.includes('cdt')) {
+      return HttpResponse.json({
+        reply:
+          'Para un CDT a 360 días el promedio es 12,77 % E.A. La que más paga es Banco Pichincha con 13,31 % (corte del 27/10/2026, Superintendencia Financiera).',
+        toolsUsed: ['tasas_cdt'],
+      });
+    }
     const reply = question.includes('ahorr')
       ? 'Este mes llevas $1.500.000 de ingresos y $765.000 de gastos: te quedan unos $735.000. Si apartas el 20 % de tus ingresos, serían $300.000 de ahorro.'
       : question.includes('presupuesto')
         ? 'Vas bien en Transporte (52 %), pero Alimentación ya va en el 85 %: te quedan $75.000 para lo que resta del mes.'
         : 'Tu mayor gasto del mes es Alimentación, con $425.000. Le siguen Transporte ($210.000) y Ocio ($130.000).';
-    return HttpResponse.json({ reply });
+    return HttpResponse.json({ reply, toolsUsed: ['resumen_de_movimientos'] });
   }),
 
   http.get(`${API_V1}/push/vapid-public-key`, ({ request }) => {
