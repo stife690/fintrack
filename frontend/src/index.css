@@ -33,6 +33,36 @@
   --color-mint: #ccfff0;
   --color-success: #2fd6a3;
 
+  /*
+   * Tonos de Tailwind que usan las categorías y los avisos, en hex en vez de oklch (el formato de
+   * Tailwind 4): iPhones con iOS anterior a 15.4 no entienden oklch y dejaban los íconos sin color.
+   * Son los mismos tonos convertidos; si se usa otro tono de la paleta, se agrega aquí.
+   */
+  --color-amber-100: #fef3c6;
+  --color-amber-400: #ffb900;
+  --color-amber-500: #fe9a00;
+  --color-amber-600: #e17100;
+  --color-amber-700: #bb4d00;
+  --color-cyan-500: #00b8db;
+  --color-emerald-500: #00bc7d;
+  --color-emerald-600: #009966;
+  --color-emerald-700: #007a55;
+  --color-fuchsia-500: #e12afb;
+  --color-green-500: #00c950;
+  --color-indigo-500: #615fff;
+  --color-lime-500: #7ccf00;
+  --color-lime-600: #5ea500;
+  --color-orange-500: #ff6900;
+  --color-pink-500: #f6339a;
+  --color-rose-500: #ff2056;
+  --color-rose-600: #ec003f;
+  --color-sky-500: #00a6f4;
+  --color-sky-600: #0084d1;
+  --color-slate-500: #62748e;
+  --color-teal-500: #00bba7;
+  --color-yellow-500: #f0b100;
+  --color-yellow-600: #d08700;
+
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
   --radius-3xl: 1.5rem;

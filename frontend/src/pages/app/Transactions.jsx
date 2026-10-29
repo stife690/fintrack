@@ -25,7 +25,8 @@ import {
 } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT, saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
-  CATEGORY_CREATED_EVENT,
+  CATEGORIES_CHANGED_EVENT,
+  applyCategoryChange,
   deleteTransaction,
   getCategories,
   listTransactions,
@@ -180,14 +181,15 @@ export default function Transactions() {
       .catch((err) => setError(err.message));
   }, []);
 
-  // Una categoría creada desde el formulario se agrega al final de su tipo, sin volver a pedirlas.
+  // Una categoría creada, editada o eliminada desde el formulario se refleja sin volver a pedirlas.
   useEffect(() => {
-    const add = ({ detail }) => {
-      const list = detail.type === 'gasto' ? 'expense' : 'income';
-      setCategories((current) => ({ ...current, [list]: [...current[list], detail] }));
-    };
-    window.addEventListener(CATEGORY_CREATED_EVENT, add);
-    return () => window.removeEventListener(CATEGORY_CREATED_EVENT, add);
+    const apply = ({ detail }) =>
+      setCategories((current) => ({
+        expense: applyCategoryChange(current.expense, detail, 'gasto'),
+        income: applyCategoryChange(current.income, detail, 'ingreso'),
+      }));
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, apply);
+    return () => window.removeEventListener(CATEGORIES_CHANGED_EVENT, apply);
   }, []);
 
   useEffect(() => {
@@ -232,8 +234,14 @@ export default function Transactions() {
 
   // Lo guardado desde la barra rápida aparece en el historial sin recargar la página.
   useEffect(() => {
+    // Al eliminar una categoría sus movimientos pasan a "Otros": se vuelve a pedir la lista.
+    const onCategoryChange = ({ detail }) => detail.kind === 'deleted' && reload();
     window.addEventListener(TRANSACTION_SAVED_EVENT, reload);
-    return () => window.removeEventListener(TRANSACTION_SAVED_EVENT, reload);
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, onCategoryChange);
+    return () => {
+      window.removeEventListener(TRANSACTION_SAVED_EVENT, reload);
+      window.removeEventListener(CATEGORIES_CHANGED_EVENT, onCategoryChange);
+    };
   }, [reload]);
 
   // Al volver la conexión, la lista se vuelve a pedir al servidor.

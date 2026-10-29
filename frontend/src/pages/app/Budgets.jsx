@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { createBudget, deleteBudget, listBudgets, updateBudget } from '@/services/budgetService';
-import { CATEGORY_CREATED_EVENT, getCategories } from '@/services/transactionService';
+import { CATEGORIES_CHANGED_EVENT, applyCategoryChange, getCategories } from '@/services/transactionService';
 
 /**
  * Página privada `/app/presupuestos`: crear, editar y eliminar presupuestos por categoría y
@@ -40,11 +40,11 @@ export default function Budgets() {
       .catch((err) => setError(err.message));
   }, []);
 
-  // Una categoría creada desde el formulario se agrega a la lista, sin volver a pedirlas.
+  // Una categoría creada, editada o eliminada desde el formulario se refleja sin volver a pedirlas.
   useEffect(() => {
-    const add = ({ detail }) => setCategories((current) => [...current, detail]);
-    window.addEventListener(CATEGORY_CREATED_EVENT, add);
-    return () => window.removeEventListener(CATEGORY_CREATED_EVENT, add);
+    const apply = ({ detail }) => setCategories((current) => applyCategoryChange(current, detail, 'gasto'));
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, apply);
+    return () => window.removeEventListener(CATEGORIES_CHANGED_EVENT, apply);
   }, []);
 
   useEffect(() => {
@@ -64,6 +64,13 @@ export default function Budgets() {
   }, [month, version]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Al eliminar una categoría también se borran sus presupuestos: se vuelven a pedir.
+  useEffect(() => {
+    const onCategoryChange = ({ detail }) => detail.kind === 'deleted' && reload();
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, onCategoryChange);
+    return () => window.removeEventListener(CATEGORIES_CHANGED_EVENT, onCategoryChange);
+  }, [reload]);
 
   const changeMonth = (delta) => {
     setMonth((m) => shiftMonth(m, delta));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deletedMessage } from '@/components/account/CustomCategories';
+import { deletedMessage } from '@/components/categories/NewCategoryDialog';
 
 describe('deletedMessage', () => {
   it('dice cuántos movimientos cambiaron y a qué categoría', () => {

@@ -30,4 +30,11 @@ describe('CategoryPicker', () => {
   it('mientras cargan las categorías no ofrece crear una', () => {
     expect(render({ createType: 'gasto', categories: [] })).not.toContain('Nueva');
   });
+
+  it('con createType las propias llevan un lápiz para editarlas; las de todos no', () => {
+    const html = render({ createType: 'gasto' });
+    expect(html).toContain('aria-label="Editar Mascotas"');
+    expect(html).not.toContain('Editar Alimentación');
+    expect(render()).not.toContain('Editar Mascotas');
+  });
 });
