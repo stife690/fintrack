@@ -12,10 +12,11 @@ const INCOME_WORDS =
 
 /** Montos dichos solo con palabras, como se habla en Colombia. */
 const SPOKEN_AMOUNTS = [
-  [/(?<!\p{L})medio palo(?!\p{L})/u, 500_000],
-  [/(?<!\p{L})(un palo|un mill[oó]n)(?!\p{L})/u, 1_000_000],
-  [/(?<!\p{L})una luca(?!\p{L})/u, 1_000],
-  [/(?<!\p{L})mil pesos(?!\p{L})/u, 1_000],
+  // Sin una cifra pegada antes: en "30.000mil pesos", "mil pesos" no es otro monto.
+  [/(?<![\p{L}\d])medio palo(?!\p{L})/u, 500_000],
+  [/(?<![\p{L}\d])(un palo|un mill[oó]n)(?!\p{L})/u, 1_000_000],
+  [/(?<![\p{L}\d])una luca(?!\p{L})/u, 1_000],
+  [/(?<![\p{L}\d])mil pesos(?!\p{L})/u, 1_000],
 ];
 
 /** Cuánto vale cada unidad que puede ir después del número. */
@@ -103,7 +104,7 @@ export function parseSpokenTransaction(text, now = new Date()) {
 
   const found = [...lower.matchAll(NUMBER)].map((match) => ({
     text: match[0].trim(),
-    value: toNumber(match[1]) * (UNITS[match[2]] ?? 1),
+    value: toNumber(match[1]) * unitValue(match[1], match[2]),
     plain: !match[2], // sin unidad: puede ser una cantidad ("2 almuerzos")
     atEnd: lower.slice(match.index + match[0].length).trim() === '',
   }));
@@ -183,6 +184,18 @@ function toNumber(digits) {
   if (/^\d+[.,]\d{1,2}$/.test(digits)) return Number(digits.replace(',', '.'));
   if (/^\d+$/.test(digits)) return Number(digits);
   return Infinity; // "1.2.3": no es un monto
+}
+
+/**
+ * Cuánto multiplica la unidad. Si la cifra ya viene con puntos de miles ("30.000mil"), el "mil"
+ * se dijo de más: "treinta mil" escrito dos veces, no treinta millones.
+ * @param {string} digits
+ * @param {string|undefined} unit
+ * @returns {number}
+ */
+function unitValue(digits, unit) {
+  const factor = UNITS[unit] ?? 1;
+  return factor === 1e3 && /^\d{1,3}([.,]\d{3})+$/.test(digits) ? 1 : factor;
 }
 
 /** Un número entero pequeño y sin unidad, como el 2 de "2 almuerzos". */

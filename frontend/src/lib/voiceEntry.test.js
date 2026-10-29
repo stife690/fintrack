@@ -73,6 +73,20 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('pasaje dos mil 500').options).toEqual([500]);
   });
 
+  it('no multiplica el "mil" repetido ("30.000mil") ni cuenta "mil pesos" como otro monto', () => {
+    expect(parseSpokenTransaction('almuerzo 30.000mil pesos')).toMatchObject({ amount: 30000, options: [30000] });
+    expect(
+      parseSpokenTransaction('15 almuerzos a doña pepita el 08 de octubre de 30.000mil pesos', new Date(2026, 9, 29)),
+    ).toMatchObject({
+      amount: 30000,
+      options: [30000, 450000],
+      description: '15 almuerzos doña pepita',
+      date: '2026-10-08',
+    });
+    // "mil pesos" solo sigue siendo $1.000.
+    expect(parseSpokenTransaction('propina mil pesos').amount).toBe(1000);
+  });
+
   it('no ofrece total si la cantidad es mayor que 20', () => {
     expect(parseSpokenTransaction('50 almuerzos de 12 mil')).toMatchObject({ options: [12000], ambiguous: true });
   });
