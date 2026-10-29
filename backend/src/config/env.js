@@ -20,6 +20,16 @@ const DEFAULT_MODELS = {
   anthropic: 'claude-haiku-4-5-20251001',
 };
 
+/**
+ * Modelo del asistente financiero (se puede cambiar con `ASSISTANT_MODEL`). En Gemini es otro
+ * modelo que el de la categorización para que el chat no agote su cuota diaria. Se fija una versión
+ * (no un alias "latest"): en la prueba del 29/10/2026 respondía en ~1 s y los alias tardaban más de 8 s.
+ */
+const DEFAULT_ASSISTANT_MODELS = {
+  gemini: 'gemini-3.1-flash-lite',
+  anthropic: 'claude-haiku-4-5-20251001',
+};
+
 const aiProvider = process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : 'gemini';
 
 const nodeEnv = process.env.NODE_ENV || 'development';
@@ -32,7 +42,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
 
 /**
  * Configuración del backend.
- * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined, emailApiKey: string|undefined, emailFrom: string|undefined, appUrl: string, groqApiKey: string|undefined, sttModel: string, sttTimeoutMs: number }}
+ * @type {{ aiProvider: 'gemini'|'anthropic', aiApiKey: string|undefined, aiApiUrl: string|undefined, aiModel: string, assistantModel: string, assistantDailyMax: number, aiTimeoutMs: number, port: number, nodeEnv: string, corsOrigins: string[], databaseUrl: string|undefined, dbPoolMax: number, jwtSecret: string, accessTokenTtl: string, refreshTokenTtlDays: number, authRateLimitMax: number, aiRateLimitMax: number, trustProxy: number, vapidPublicKey: string|undefined, vapidPrivateKey: string|undefined, vapidSubject: string, remindersEnabled: boolean, reminderCheckIntervalMs: number, syncAiMax: number, googleClientId: string|undefined, emailApiKey: string|undefined, emailFrom: string|undefined, appUrl: string, groqApiKey: string|undefined, sttModel: string, sttTimeoutMs: number }}
  * @property {'gemini'|'anthropic'} aiProvider Proveedor de IA (`AI_PROVIDER`, por defecto "gemini").
  * @property {string|undefined} aiApiKey Clave del proveedor de IA (`AI_API_KEY`). Sin ella la IA queda desactivada y todo cae en "Sin clasificar".
  * @property {string|undefined} aiApiUrl Endpoint personalizado (`AI_API_URL`); si falta se usa el oficial del proveedor.
@@ -61,12 +71,16 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string} appUrl Dirección del frontend para armar los enlaces de los correos (`APP_URL`, por defecto http://localhost:5173, sin barra final).
  * @property {string|undefined} groqApiKey Clave de Groq para convertir voz en texto (`GROQ_API_KEY`); sin ella, el registro por voz usa el dictado del navegador.
  * @property {string} sttModel Modelo de Whisper en Groq (`STT_MODEL`, por defecto whisper-large-v3-turbo).
+ * @property {string} assistantModel Modelo del asistente financiero (`ASSISTANT_MODEL`).
+ * @property {number} assistantDailyMax Preguntas al asistente por usuario y día (`ASSISTANT_DAILY_MAX`, por defecto 20).
  */
 export const env = {
   aiProvider,
   aiApiKey: process.env.AI_API_KEY || undefined,
   aiApiUrl: process.env.AI_API_URL || undefined,
   aiModel: process.env.AI_MODEL || DEFAULT_MODELS[aiProvider],
+  assistantModel: process.env.ASSISTANT_MODEL || DEFAULT_ASSISTANT_MODELS[aiProvider],
+  assistantDailyMax: Number(process.env.ASSISTANT_DAILY_MAX) || 20,
   aiTimeoutMs: Number(process.env.AI_TIMEOUT_MS) || 8000,
   port: Number(process.env.PORT) || 3000,
   nodeEnv,

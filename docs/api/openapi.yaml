@@ -57,6 +57,8 @@ tags:
     description: Exportación de reportes (F12 — REQ-031 a REQ-033)
   - name: Voice
     description: Registro de movimientos por voz (FT-0013)
+  - name: Assistant
+    description: Asistente financiero en Insights (chat con IA sobre los datos agregados del usuario)
 
 security:
   - bearerAuth: []
@@ -795,6 +797,63 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "503":
           description: "TRANSCRIPTION_UNAVAILABLE — sin `GROQ_API_KEY` o Groq no respondió"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # ---------------------------------------------------------------- Assistant
+  /assistant/chat:
+    post:
+      tags: [Assistant]
+      summary: Responde una pregunta de finanzas con los datos del mes del usuario
+      description: |
+        El cliente envía los últimos mensajes de la conversación (máximo 10, de hasta 500 caracteres,
+        del más antiguo al más reciente, terminando en una pregunta del usuario). El servidor le pasa a
+        la IA (Gemini, modelo `ASSISTANT_MODEL`) solo datos agregados (RN-05, RNF-09): ingresos y gastos
+        por categoría del mes actual hasta hoy, totales del mes anterior y los presupuestos del mes. Nunca
+        descripciones de movimientos ni datos personales. La conversación no se guarda.
+        Funciona desde el primer día: no exige el mes de historial de `GET /insights` (REQ-021).
+        Límite de `ASSISTANT_DAILY_MAX` preguntas por usuario y día (por defecto 20), además del límite
+        por minuto de los endpoints de IA.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [role, text]
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      text: { type: string, minLength: 1, maxLength: 500 }
+            example:
+              messages:
+                - { role: user, text: ¿En qué gasto más? }
+      responses:
+        "200":
+          description: Respuesta del asistente
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reply]
+                properties:
+                  reply: { type: string, maxLength: 1500 }
+              example:
+                reply: Este mes tu mayor gasto es Alimentación, con $425.000; ya vas en el 85 % de su presupuesto.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503":
+          description: "AI_UNAVAILABLE — sin `AI_API_KEY` o la IA no respondió"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
