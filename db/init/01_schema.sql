@@ -99,7 +99,8 @@ CREATE TABLE alertas (
 CREATE TABLE insights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  mes CHAR(7) NOT NULL,
+  -- Periodo de los consejos: el mes (AAAA-MM) o el lunes de la semana (AAAA-MM-DD).
+  mes VARCHAR(10) NOT NULL,
   contenido JSONB NOT NULL,
   generado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (usuario_id, mes)

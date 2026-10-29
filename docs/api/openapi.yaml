@@ -675,29 +675,43 @@ paths:
   /insights:
     get:
       tags: [Insights]
-      summary: Insights del mes actual (se generan y cachean si no existen)
+      summary: Consejos de la semana o del mes actual (se generan y cachean si no existen)
       description: |
+        Desde la primera semana de historial (REQ-021, cambio aprobado por el equipo):
+        - Con al menos 7 días de historial y menos de un mes, compara la semana actual (de lunes a
+          hoy) con la semana anterior completa (`period: week`).
+        - Con un mes o más, compara el mes actual hasta hoy con el mes anterior (`period: month`).
+
         Al LLM solo llegan datos agregados por categoría y periodo, nunca descripciones
-        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y mes
-        y se regeneran si el resultado guardado tiene más de 24 horas; si la IA falla y hay uno
-        guardado, se devuelve ese. Hace falta al menos un mes de historial (la transacción más
-        antigua con un mes o más de antigüedad) y gastos en el mes actual o el anterior.
+        individuales ni identificadores del usuario (RN-05, RNF-09). Se cachean por usuario y
+        periodo (el mes o el lunes de la semana) y se regeneran si el resultado guardado tiene más
+        de 24 horas; si la IA falla y hay uno guardado, se devuelve ese. Hacen falta gastos en
+        alguno de los dos periodos.
       responses:
         "200":
-          description: Insights del mes
+          description: Consejos del periodo
           content:
             application/json:
               schema:
                 type: object
-                required: [month, insights]
+                required: [period, month, from, insights]
                 properties:
+                  period:
+                    type: string
+                    enum: [week, month]
+                    description: Periodo que se comparó.
                   month: { $ref: "#/components/schemas/Month" }
+                  from:
+                    type: string
+                    format: date
+                    description: Primer día del periodo actual (el lunes o el día 1 del mes).
+                    example: "2026-10-19"
                   insights:
                     type: array
                     items: { $ref: "#/components/schemas/Insight" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422":
-          description: "INSUFFICIENT_HISTORY — menos de un mes de historial"
+          description: "INSUFFICIENT_HISTORY — menos de una semana de historial o sin gastos en los dos periodos"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -1002,7 +1016,7 @@ paths:
         la IA (Gemini, modelo `ASSISTANT_MODEL`) solo datos agregados (RN-05, RNF-09): ingresos y gastos
         por categoría del mes actual hasta hoy, totales del mes anterior y los presupuestos del mes. Nunca
         descripciones de movimientos ni datos personales. La conversación no se guarda.
-        Funciona desde el primer día: no exige el mes de historial de `GET /insights` (REQ-021).
+        Funciona desde el primer día: no exige la semana de historial de `GET /insights` (REQ-021).
 
         El modelo tiene herramientas (function calling) que el servidor ejecuta cuando las pide, para
         responder con datos reales en vez de inventarlos (máximo 4 vueltas por pregunta):

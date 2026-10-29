@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppError } from './errors/app-error.js';
 import {
+  addDays,
   buildPrompt,
+  comparisonFor,
   createInsightsService,
   oneMonthBefore,
   parseInsights,
@@ -119,10 +121,48 @@ test('sin transacciones responde 422 INSUFFICIENT_HISTORY y no llama a la IA', a
   assert.equal(state.aiCalls, 0);
 });
 
-test('con menos de un mes de historial responde 422', async () => {
-  const { service, state } = setup({ first: '2026-09-25' });
-  await assert.rejects(service.getInsights('u1'), { code: 'INSUFFICIENT_HISTORY' });
+test('addDays suma y resta días cruzando meses', () => {
+  assert.equal(addDays('2026-10-01', -1), '2026-09-30');
+  assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+});
+
+test('comparisonFor elige semana o mes según el historial (REQ-021)', () => {
+  // Hoy es martes 20 de octubre: la semana empieza el lunes 19.
+  assert.equal(comparisonFor('2026-10-20', null), null);
+  assert.equal(comparisonFor('2026-10-20', '2026-10-14'), null);
+  assert.deepEqual(comparisonFor('2026-10-20', '2026-10-13'), {
+    period: 'week',
+    key: '2026-10-19',
+    current: { from: '2026-10-19', to: '2026-10-20' },
+    previous: { from: '2026-10-12', to: '2026-10-18' },
+    previousLabel: '2026-10-12',
+  });
+  const month = comparisonFor('2026-10-20', '2026-09-20');
+  assert.equal(month.period, 'month');
+  assert.equal(month.key, '2026-10');
+});
+
+test('con menos de una semana de historial responde 422', async () => {
+  const { service, state } = setup({ first: '2026-10-15' });
+  await assert.rejects(service.getInsights('u1'), {
+    code: 'INSUFFICIENT_HISTORY',
+    message: /al menos una semana/,
+  });
   assert.equal(state.aiCalls, 0);
+});
+
+test('con más de una semana y menos de un mes compara semana contra semana', async () => {
+  const { service, state } = setup({ first: '2026-09-25' });
+  const result = await service.getInsights('u1');
+  assert.equal(result.period, 'week');
+  assert.equal(result.from, '2026-10-19');
+  assert.deepEqual(state.ranges, [
+    { from: '2026-10-19', to: '2026-10-20' },
+    { from: '2026-10-12', to: '2026-10-18' },
+  ]);
+  // Se guarda con el lunes de la semana: la semana siguiente se generan consejos nuevos.
+  assert.equal(state.saved.month, '2026-10-19');
+  assert.match(state.prompts[0], /Semana actual \(desde el lunes 2026-10-19/);
 });
 
 test('con exactamente un mes de historial sí genera', async () => {
@@ -134,7 +174,9 @@ test('con exactamente un mes de historial sí genera', async () => {
 test('genera, valida y guarda los insights del mes', async () => {
   const { service, state } = setup();
   const result = await service.getInsights('u1');
+  assert.equal(result.period, 'month');
   assert.equal(result.month, '2026-10');
+  assert.equal(result.from, '2026-10-01');
   assert.equal(result.insights.length, 2);
   assert.deepEqual(state.saved, { userId: 'u1', month: '2026-10', insights: result.insights });
   // Mes actual hasta hoy y mes anterior completo.

@@ -38,7 +38,7 @@ async function loadMonth() {
 }
 
 /**
- * "Tu mes hasta hoy" en Insights mientras no hay un mes de historial: tarjetas cortas calculadas
+ * "Tu mes hasta hoy" en Insights mientras no hay una semana de historial: tarjetas cortas calculadas
  * sin IA (presupuesto más cerca del límite, mayor gasto y balance). Sin movimientos, invita a
  * registrar el primero.
  * @param {{ message: string }} props Aviso de la API sobre el historial que falta.
@@ -88,7 +88,7 @@ export default function MonthHighlights({ message }) {
         })}
       </ul>
       <p className="mt-4 text-sm text-ink/60">
-        Los consejos con IA llegan cuando tengas un mes de movimientos. Mientras tanto, pregúntale al asistente.
+        Los consejos con IA llegan cuando tengas una semana de movimientos. Mientras tanto, pregúntale al asistente.
       </p>
     </>
   );
