@@ -73,6 +73,12 @@ const DATE_PATTERNS = [
   },
 ];
 
+/** "un millón 200 mil" o "1 millón 200 mil": millones y miles dichos por separado. */
+const MILLIONS_AND_THOUSANDS = /(?<!\p{L})(un|\d+)\s+mill[oó]n(?:es)?\s+(?:y\s+)?(\d{1,3})\s+mil(?!\p{L})/iu;
+
+/** Puntuación y comillas que el dictado deja al principio o al final ("Almuerzo."). */
+const EDGE_PUNCTUATION = /^[\s.,;:!?¡¿"“”']+|[\s.,;:!?¡¿"“”']+$/g;
+
 /** Palabras que sobran en la descripción. */
 const FILLER =
   /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
@@ -88,7 +94,10 @@ const FILLER =
  */
 export function parseSpokenTransaction(text, now = new Date()) {
   // La fecha se quita primero para que su número ("el 12 de octubre") no se tome como monto.
-  const { date, rest: said } = extractDate(String(text ?? '').trim(), now);
+  const { date, rest } = extractDate(String(text ?? '').trim(), now);
+  const said = rest.replace(MILLIONS_AND_THOUSANDS, (_, millions, thousands) =>
+    String((millions.toLowerCase() === 'un' ? 1 : Number(millions)) * 1e6 + Number(thousands) * 1e3),
+  );
   const lower = said.toLowerCase();
   const type = INCOME_WORDS.test(lower) ? 'ingreso' : 'gasto';
 
@@ -120,7 +129,7 @@ export function parseSpokenTransaction(text, now = new Date()) {
 
   // Solo se quita el número usado como monto: "2 almuerzos de 12 mil" → "2 almuerzos".
   let description = biggest ? said.replace(new RegExp(escapeRegExp(biggest.text), 'i'), ' ') : said;
-  description = description.replace(FILLER, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+  description = description.replace(FILLER, ' ').replace(/\s+/g, ' ').replace(EDGE_PUNCTUATION, '').slice(0, 200);
   if (description) description = description[0].toUpperCase() + description.slice(1);
   else if (type === 'ingreso') description = 'Pago recibido';
 

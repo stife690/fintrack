@@ -12,7 +12,7 @@ import VoiceEntry from '@/components/transactions/VoiceEntry';
 import { formatDate, formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import usePageTitle from '@/hooks/usePageTitle';
-import { getSpeechRecognition } from '@/lib/speech';
+import { canDictate as browserCanDictate } from '@/hooks/useSpeechRecognition';
 import {
   SYNC_EVENT,
   cacheTransaction,
@@ -143,7 +143,7 @@ export default function Transactions() {
   // Registro por voz (FT-0013). Lo dictado desde el inicio llega en el estado de la navegación.
   const location = useLocation();
   const navigate = useNavigate();
-  const canDictate = getSpeechRecognition() !== null;
+  const canDictate = browserCanDictate();
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [draft, setDraft] = useState(() => location.state?.voiceDraft ?? null);
   const [categories, setCategories] = useState({ expense: [], income: [] });

@@ -91,6 +91,19 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('casa 20000000000').amount).toBeNull();
   });
 
+  it('limpia lo que escribe Whisper: punto final y "un millón 200 mil"', () => {
+    expect(parseSpokenTransaction('Ayer gasté 15 mil pesos en el almuerzo.')).toMatchObject({
+      amount: 15000,
+      description: 'Almuerzo',
+    });
+    expect(parseSpokenTransaction('Me pagaron un millón 200 mil.')).toMatchObject({
+      type: 'ingreso',
+      amount: 1_200_000,
+      description: 'Pago recibido',
+    });
+    expect(parseSpokenTransaction('arriendo 1 millón 350 mil').amount).toBe(1_350_000);
+  });
+
   describe('fecha dicha', () => {
     // Miércoles 28 de octubre de 2026.
     const now = new Date(2026, 9, 28, 15, 30);

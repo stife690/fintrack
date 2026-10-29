@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, Minus, Plus, Target } from 'lucide-react';
 import VoiceEntry from '@/components/transactions/VoiceEntry';
-import { getSpeechRecognition } from '@/lib/speech';
+import { canDictate as browserCanDictate } from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
 
 const ACTIONS = [
@@ -16,14 +16,14 @@ const TILE =
 
 /**
  * Accesos rápidos del inicio: registrar un gasto o un ingreso, dictarlo por voz (FT-0013) o ir a
- * presupuestos. "Voz" solo aparece si el navegador sabe dictar (Firefox no).
+ * presupuestos. "Voz" solo aparece si el navegador puede grabar o dictar.
  * @param {{ onSaved?: () => void, names?: Record<string, string> }} props
  *   `onSaved` recarga el inicio tras guardar por voz; `names`, el nombre de cada categoría.
  */
 export default function QuickActions({ onSaved, names }) {
   const navigate = useNavigate();
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const canDictate = getSpeechRecognition() !== null;
+  const canDictate = browserCanDictate();
 
   // "Editar antes de guardar": lo dictado viaja a Movimientos y llena el formulario.
   const editDictation = (draft) => {
