@@ -121,6 +121,8 @@ Reglas:
 | `AUTH_RATE_LIMIT_MAX` | No | `20` | Intentos de login, registro y recuperar contraseña permitidos por IP cada 15 minutos. |
 | `EMAIL_API_KEY` | Para correos | *(secreto)* | Clave de la API de [Brevo](https://www.brevo.com) para enviar el correo de recuperar contraseña. Sin ella no se envían correos: en desarrollo el enlace se imprime en la consola; en producción solo se registra el error. |
 | `EMAIL_FROM` | Para correos | `fintrack@gmail.com` | Remitente de los correos; debe estar verificado en Brevo. |
+| `GROQ_API_KEY` | Para dictar con Whisper | *(secreto)* | Clave de [Groq](https://console.groq.com) (plan gratis) para convertir la voz en texto con Whisper. Sin ella `POST /voice/transcribe` responde 503 y la app usa el dictado del navegador. |
+| `STT_MODEL` | No | `whisper-large-v3-turbo` | Modelo de Whisper en Groq. |
 | `APP_URL` | En producción | `https://fintrack-seven-delta.vercel.app` | Dirección del frontend para armar el enlace del correo (sin barra final). Por defecto `http://localhost:5173`. |
 | `AI_RATE_LIMIT_MAX` | No | `30` | Peticiones por IP y minuto a crear/editar transacciones, que pueden consumir la IA (429 `RATE_LIMITED`). |
 | `VAPID_PUBLIC_KEY` | Para push | *(par generado con `npx web-push generate-vapid-keys`)* | Llave pública VAPID; el navegador la usa para suscribirse a las notificaciones. Sin las dos llaves el push y el recordatorio diario quedan desactivados. |
@@ -240,6 +242,7 @@ throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
 - [x] Notificaciones push (FT-0011, backend): VAPID, suscripción, `reminder-settings` y recordatorio diario
 - [x] Límite de intentos en login y registro
 - [x] Recuperar contraseña por correo (Brevo): enlace de un solo uso que vence en 30 minutos
+- [x] Registro por voz (FT-0013): `POST /voice/transcribe` con Whisper en Groq
 - [x] Presupuestos (FT-0005, backend): CRUD con lo gastado, porcentaje y nivel de alerta
 - [x] Exportación de movimientos en Excel (reporte con resumen y fórmulas) , PDF con gráficos y CSV (FT-0012)
 - [ ] Documentación Swagger del contrato
