@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { describePart, formatNumber, projectionMessage, smallExpensesMessage } from '@/components/insights/analytics';
+import {
+  describePart,
+  formatNumber,
+  nextAction,
+  projectionMessage,
+  savingsDetail,
+  smallExpensesMessage,
+} from '@/components/insights/analytics';
 
 // Según la versión de ICU, Node escribe los pesos con o sin ",00": se quitan para comparar.
 const money = (text) => text.replace(/\s/g, ' ').replace(/,00/g, '');
@@ -44,5 +51,72 @@ describe('formatNumber', () => {
     expect(formatNumber(17.5)).toBe('17,5');
     expect(formatNumber(12.345)).toBe('12,3');
     expect(formatNumber(25)).toBe('25');
+  });
+});
+
+describe('savingsDetail', () => {
+  it('con gastos mayores a los ingresos no muestra un porcentaje negativo', () => {
+    expect(savingsDetail(17.5)).toBe('Ahorras el 17,5 % de tus ingresos');
+    expect(savingsDetail(-1482.1)).toBe('Gastas 15,8 veces lo que ingresas');
+    expect(savingsDetail(-30)).toBe('Gastas un 30 % más de lo que ingresas');
+    expect(savingsDetail(null)).toBe('Aún no hay ingresos este mes');
+  });
+});
+
+describe('nextAction', () => {
+  const part = (key, points, value = 0) => ({ key, points, value });
+  const base = {
+    day: 29,
+    daysInMonth: 31,
+    projection: { available: true, spent: 148000, projected: 158207, expectedIncome: 10000, balance: -148207 },
+    smallExpenses: { threshold: 20000, total: 53000 },
+  };
+
+  it('con ingresos muy bajos frente al gasto pide registrarlos', () => {
+    const action = nextAction({
+      ...base,
+      health: {
+        parts: [
+          part('savings', 0, -1482),
+          part('budgets', 12.5, null),
+          part('stability', 12.5, null),
+          part('small_expenses', 0, 35.8),
+        ],
+      },
+    });
+    expect(action).toMatchObject({
+      title: 'Registra tus ingresos del mes',
+      gain: 25,
+      to: '/app/transacciones?nuevo=ingreso',
+    });
+  });
+
+  it('elige la parte con menos puntos', () => {
+    const action = nextAction({
+      ...base,
+      health: { parts: [part('savings', 22, 18), part('budgets', 12.5, null), part('small_expenses', 5, 16)] },
+    });
+    expect(action.title).toBe('Recorta los gastos hormiga');
+    expect(money(action.detail)).toMatch(/ahorras \$ 26\.500/);
+    expect(action.gain).toBe(20);
+  });
+
+  it('sin presupuestos invita a crear uno; la estabilidad sin historial no cuenta', () => {
+    const action = nextAction({
+      ...base,
+      health: {
+        parts: [
+          part('savings', 24, 19),
+          part('budgets', 12.5, null),
+          part('stability', 12.5, null),
+          part('small_expenses', 25, 2),
+        ],
+      },
+    });
+    expect(action).toMatchObject({ title: 'Crea tu primer presupuesto', to: '/app/presupuestos' });
+  });
+
+  it('con todo en buen nivel no propone nada', () => {
+    expect(nextAction({ ...base, health: { parts: [part('savings', 25, 30), part('budgets', 25, 2)] } })).toBeNull();
   });
 });
