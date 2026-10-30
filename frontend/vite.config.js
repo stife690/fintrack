@@ -16,9 +16,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
-      // `defer`: registerSW.js no bloquea el primer pintado (Lighthouse lo marcaba como render-blocking).
-      injectRegister: 'script-defer',
+      // `prompt`: la versión nueva queda esperando y la app avisa "Hay una versión nueva · Actualizar"
+      // (components/common/UpdatePrompt.jsx), que también se encarga de registrar el service worker.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'FinTrack',
