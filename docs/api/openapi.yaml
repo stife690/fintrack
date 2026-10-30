@@ -748,7 +748,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [month, day, daysInMonth, empty, projection, smallExpenses, health]
+                required: [month, day, daysInMonth, empty, daily, previousScore, projection, smallExpenses, health]
                 properties:
                   month: { $ref: "#/components/schemas/Month" }
                   day: { type: integer, example: 29 }
@@ -756,6 +756,22 @@ paths:
                   empty:
                     type: boolean
                     description: "`true` si el mes aún no tiene movimientos."
+                  daily:
+                    type: array
+                    description: Gasto acumulado del mes, un punto por día del 1 a hoy.
+                    items:
+                      type: object
+                      required: [day, total]
+                      properties:
+                        day: { type: integer, example: 3 }
+                        total: { type: number, example: 47000 }
+                  previousScore:
+                    type: integer
+                    nullable: true
+                    description: |
+                      Puntaje del mes pasado con la misma fórmula (con lo que de verdad gastó e
+                      ingresó), para mostrar el cambio. `null` si ese mes no tuvo movimientos.
+                    example: 33
                   projection:
                     type: object
                     required: [available, spent, projected, pendingFixed, expectedIncome, balance]

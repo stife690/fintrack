@@ -463,6 +463,12 @@ export const handlers = [
       day: today.getDate(),
       daysInMonth,
       empty: (transactions.get(user.id) ?? []).length === 0,
+      // Gasto acumulado de ejemplo que llega a $ 1.840.000 hoy, con un arriendo el día 1.
+      daily: Array.from({ length: today.getDate() }, (_, i) => ({
+        day: i + 1,
+        total: Math.round(900000 + (940000 * (i + 1)) / today.getDate()),
+      })),
+      previousScore: 60,
       projection: {
         available: today.getDate() >= 3,
         spent: 1840000,

@@ -3,8 +3,9 @@ import * as budgets from './budgets.service.js';
 import { todayIso } from './insights.service.js';
 
 /**
- * Analítica del mes (FT-0019): proyección de fin de mes, gastos hormiga y puntaje de salud
- * financiera. Todo se calcula aquí con fórmulas fijas; nada de esto va a la IA.
+ * Analítica del mes (FT-0019): proyección de fin de mes, gastos hormiga, puntaje de salud
+ * financiera (y el del mes pasado, para comparar) y el gasto acumulado por día. Todo se calcula
+ * aquí con fórmulas fijas; nada de esto va a la IA.
  */
 
 /** Categorías de gasto fijo: se pagan una vez al mes, así que no se proyectan por ritmo diario. */
@@ -138,6 +139,25 @@ export function smallExpenses({ current, day, days }) {
 }
 
 /**
+ * Gasto acumulado día por día del mes hasta hoy, para el gráfico de Insights.
+ * @param {import('../repositories/analytics.repository.js').AnalyticsMovement[]} current Movimientos del mes.
+ * @param {number} day Día de hoy.
+ * @returns {Array<{ day: number, total: number }>} Uno por día, del 1 a hoy.
+ */
+export function dailySpending(current, day) {
+  const byDay = new Array(day + 1).fill(0);
+  for (const m of current) {
+    const d = Number(m.date.slice(8, 10));
+    if (m.type === 'gasto' && d <= day) byDay[d] += m.amount;
+  }
+  let total = 0;
+  return byDay.slice(1).map((amount, i) => {
+    total += amount;
+    return { day: i + 1, total: round(total) };
+  });
+}
+
+/**
  * Puntos de una parte del puntaje: `PART_MAX` en `best`, 0 en `worst` y en línea recta entre ambos.
  * @param {number} value
  * @param {number} best
@@ -229,18 +249,30 @@ export function createAnalyticsService(deps = {}) {
     const month = today.slice(0, 7);
     const day = Number(today.slice(8, 10));
     const days = daysInMonth(month);
-    const firstMonth = shiftMonth(month, -STABILITY_MONTHS);
+    const previousMonth = shiftMonth(month, -1);
+    // Un mes más de historial: el puntaje del mes pasado también compara con sus 3 anteriores.
+    const firstMonth = shiftMonth(month, -(STABILITY_MONTHS + 1));
 
-    const [movements, monthBudgets] = await Promise.all([
+    const [movements, monthBudgets, previousBudgets] = await Promise.all([
       movementsOf(userId, { from: `${firstMonth}-01`, to: today }),
       budgetsOf(userId, month),
+      budgetsOf(userId, previousMonth),
     ]);
     const inMonth = (m, target) => m.date.startsWith(target);
     const current = movements.filter((m) => inMonth(m, month));
-    const previous = movements.filter((m) => inMonth(m, shiftMonth(month, -1)));
-    const previousExpenses = Array.from({ length: STABILITY_MONTHS }, (_, i) =>
-      sum(movements.filter((m) => m.type === 'gasto' && inMonth(m, shiftMonth(month, -(i + 1))))),
-    );
+    const previous = movements.filter((m) => inMonth(m, previousMonth));
+    /**
+     * Gasto de los `STABILITY_MONTHS` meses anteriores a un mes.
+     * @param {string} target AAAA-MM
+     * @returns {number[]} Del más reciente al más antiguo.
+     */
+    const expensesBefore = (target) =>
+      Array.from({ length: STABILITY_MONTHS }, (_, i) =>
+        sum(
+          movements.filter((m) => m.type === 'gasto' && inMonth(m, shiftMonth(target, -(i + 1)))),
+        ),
+      );
+    const previousExpenses = expensesBefore(month);
 
     const projection = projectMonth({ current, previous, day, days });
     const small = smallExpenses({ current, day, days });
@@ -252,11 +284,27 @@ export function createAnalyticsService(deps = {}) {
       smallShare: small.share,
     });
 
+    // El mismo puntaje del mes pasado, ya cerrado: con lo que de verdad gastó e ingresó.
+    let previousScore = null;
+    if (previous.length > 0) {
+      const previousDays = daysInMonth(previousMonth);
+      previousScore = healthScore({
+        income: sum(previous.filter((m) => m.type === 'ingreso')),
+        expense: sum(previous.filter((m) => m.type === 'gasto')),
+        budgets: previousBudgets,
+        previousExpenses: expensesBefore(previousMonth),
+        smallShare: smallExpenses({ current: previous, day: previousDays, days: previousDays })
+          .share,
+      }).score;
+    }
+
     return {
       month,
       day,
       daysInMonth: days,
       empty: current.length === 0,
+      daily: dailySpending(current, day),
+      previousScore,
       projection,
       smallExpenses: small,
       health,

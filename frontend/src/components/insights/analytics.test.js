@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dailyAllowance,
   describePart,
   formatNumber,
   nextAction,
+  paceSeries,
   projectionMessage,
   savingsDetail,
+  scoreChange,
   smallExpensesMessage,
 } from '@/components/insights/analytics';
 
@@ -118,5 +121,52 @@ describe('nextAction', () => {
 
   it('con todo en buen nivel no propone nada', () => {
     expect(nextAction({ ...base, health: { parts: [part('savings', 25, 30), part('budgets', 25, 2)] } })).toBeNull();
+  });
+});
+
+describe('paceSeries', () => {
+  it('une lo gastado hasta hoy con la proyección en línea recta', () => {
+    const series = paceSeries({
+      day: 2,
+      daysInMonth: 4,
+      daily: [
+        { day: 1, total: 100 },
+        { day: 2, total: 300 },
+      ],
+      projection: { available: true, projected: 700 },
+    });
+    expect(series).toEqual([
+      { day: 1, real: 100 },
+      { day: 2, real: 300, projection: 300 },
+      { day: 3, projection: 500 },
+      { day: 4, projection: 700 },
+    ]);
+  });
+
+  it('sin proyección disponible solo muestra lo gastado', () => {
+    const series = paceSeries({
+      day: 1,
+      daysInMonth: 3,
+      daily: [{ day: 1, total: 50 }],
+      projection: { available: false, projected: 150 },
+    });
+    expect(series).toEqual([{ day: 1, real: 50 }, { day: 2 }, { day: 3 }]);
+  });
+});
+
+describe('dailyAllowance', () => {
+  it('reparte lo que queda entre los días que faltan, hoy incluido', () => {
+    const data = { day: 29, daysInMonth: 31, projection: { expectedIncome: 2_000_000, spent: 1_700_000 } };
+    expect(dailyAllowance(data)).toBe(100_000);
+    expect(dailyAllowance({ ...data, projection: { expectedIncome: 10_000, spent: 148_000 } })).toBe(0);
+  });
+});
+
+describe('scoreChange', () => {
+  it('compara con el mes pasado por su nombre', () => {
+    expect(scoreChange(25, 33, '2026-10')).toEqual({ text: 'Bajó 8 puntos frente a septiembre', direction: 'down' });
+    expect(scoreChange(61, 60, '2026-01')).toEqual({ text: 'Subió 1 punto frente a diciembre', direction: 'up' });
+    expect(scoreChange(50, 50, '2026-10').direction).toBe('same');
+    expect(scoreChange(50, null, '2026-10')).toBeNull();
   });
 });

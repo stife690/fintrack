@@ -3,6 +3,7 @@ import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
+import HealthCard from '@/components/dashboard/HealthCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import PeriodSelector from '@/components/dashboard/PeriodSelector';
 import QuickActions from '@/components/dashboard/QuickActions';
@@ -156,7 +157,8 @@ export default function Dashboard() {
         </div>
 
         <aside className="min-w-0" aria-label="Presupuestos del mes">
-          <div className="lg:sticky lg:top-8">
+          <div className="flex flex-col gap-6 lg:sticky lg:top-8">
+            {!empty && <HealthCard hidden={hidden} />}
             <BudgetOverview
               budgets={budgets.data}
               names={names}

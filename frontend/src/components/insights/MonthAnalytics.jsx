@@ -1,5 +1,18 @@
+import { lazy, Suspense, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bug, CalendarClock, ChevronDown, CircleCheck, HeartPulse, Lightbulb, Loader2 } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Bug,
+  CalendarClock,
+  ChevronDown,
+  CircleCheck,
+  HeartPulse,
+  Lightbulb,
+  Loader2,
+  Minus,
+} from 'lucide-react';
 import Panel from '@/components/layout/Panel';
 import { formatMoney } from '@/components/transactions/format';
 import useAsync from '@/hooks/useAsync';
@@ -11,9 +24,14 @@ import {
   describePart,
   formatNumber,
   nextAction,
+  paceSeries,
   projectionMessage,
+  scoreChange,
   smallExpensesMessage,
 } from './analytics';
+
+// Recharts va en un chunk aparte, como en Inicio: el panel se pinta sin esperarlo.
+const SpendingPaceLines = lazy(() => import('./SpendingPaceLines'));
 
 const TEXT = { positive: 'text-positive', caution: 'text-caution', negative: 'text-negative' };
 const BAR = { positive: 'bg-positive', caution: 'bg-caution', negative: 'bg-negative' };
@@ -31,9 +49,17 @@ function BlockTitle({ icon: Icon, children }) {
   );
 }
 
-/** Puntaje de 0 a 100 en un anillo, con su nivel. */
-function ScoreBlock({ health }) {
+const CHANGE = {
+  up: { icon: ArrowUpRight, className: 'text-positive' },
+  down: { icon: ArrowDownRight, className: 'text-negative' },
+  same: { icon: Minus, className: 'text-ink/60' },
+};
+
+/** Puntaje de 0 a 100 en un anillo, con su nivel y cuánto cambió frente al mes pasado. */
+function ScoreBlock({ health, previousScore, month }) {
   const { label, tone } = LEVELS[health.level];
+  const change = scoreChange(health.score, previousScore, month);
+  const ChangeIcon = change && CHANGE[change.direction].icon;
   const circumference = 2 * Math.PI * 42;
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-ink/10 p-4">
@@ -66,6 +92,12 @@ function ScoreBlock({ health }) {
       <div>
         <BlockTitle icon={HeartPulse}>Salud financiera</BlockTitle>
         <p className={cn('mt-1 text-xl font-semibold', TEXT[tone])}>{label}</p>
+        {change && (
+          <p className={cn('mt-1 flex items-center gap-1 text-xs font-medium', CHANGE[change.direction].className)}>
+            <ChangeIcon className="size-3.5" aria-hidden="true" />
+            {change.text}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -156,29 +188,51 @@ function PartsBlock({ parts }) {
   );
 }
 
-/** Proyección de fin de mes: cifra grande, frase y barra de lo gastado frente a lo proyectado. */
-function ProjectionBlock({ projection, day, daysInMonth }) {
+/**
+ * Ritmo de gasto: la proyección en texto y el gráfico de lo gastado día a día, la proyección
+ * hasta fin de mes y los ingresos. El gráfico es una imagen para el lector de pantalla; el texto
+ * de arriba ya dice lo importante.
+ */
+function PaceBlock({ data }) {
+  const { projection, day, daysInMonth, month } = data;
+  const series = useMemo(() => paceSeries(data), [data]);
   const over = projection.expectedIncome > 0 && projection.balance < 0;
-  const spentPct = projection.projected > 0 ? Math.min(100, (projection.spent / projection.projected) * 100) : 0;
   return (
     <div>
-      <BlockTitle icon={CalendarClock}>Proyección a fin de mes</BlockTitle>
-      <p className={cn('mt-3 text-2xl font-semibold tabular-nums', over && 'text-negative')}>
-        {projection.available ? formatMoney(projection.projected) : '—'}
-      </p>
-      <p className="mt-1 text-sm text-ink/75">{projectionMessage(projection)}</p>
-      {projection.available && (
-        <>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${spentPct}%` }} />
-          </div>
-          <p className="mt-1.5 text-xs text-ink/60">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0 max-w-xl">
+          <BlockTitle icon={CalendarClock}>Proyección a fin de mes</BlockTitle>
+          <p className={cn('mt-2 text-2xl font-semibold tabular-nums', over && 'text-negative')}>
+            {projection.available ? formatMoney(projection.projected) : '—'}
+          </p>
+          <p className="mt-1 text-sm text-ink/75">{projectionMessage(projection)}</p>
+          <p className="mt-1 text-xs text-ink/60">
             Llevas {formatMoney(projection.spent)} en el día {day} de {daysInMonth}.
             {projection.pendingFixed > 0 &&
               ` Incluye ${formatMoney(projection.pendingFixed)} de arriendo o servicios que aún no registras.`}
           </p>
-        </>
-      )}
+        </div>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70" aria-hidden="true">
+          <li className="inline-flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded bg-brand" /> Gastado
+          </li>
+          {projection.available && (
+            <li className="inline-flex items-center gap-1.5">
+              <span className="w-4 border-t-2 border-dashed border-brand" /> Proyección
+            </li>
+          )}
+          {projection.expectedIncome > 0 && (
+            <li className="inline-flex items-center gap-1.5">
+              <span className="h-0.5 w-4 rounded bg-chart-income" /> Ingresos
+            </li>
+          )}
+        </ul>
+      </div>
+      <div role="img" aria-label="Gráfico del gasto acumulado del mes y su proyección" className="mt-4 h-56">
+        <Suspense fallback={<div className="h-full rounded-xl bg-ink/5" />}>
+          <SpendingPaceLines data={series} income={projection.expectedIncome} month={month} />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -193,13 +247,21 @@ function SmallExpensesBlock({ small }) {
       </p>
       <p className="mt-1 text-sm text-ink/75">{smallExpensesMessage(small)}</p>
       {small.top.length > 0 && (
-        <ul className="mt-3 divide-y divide-ink/10 text-sm">
+        <ul className="mt-4 space-y-3 text-sm">
           {small.top.map((item) => (
-            <li key={item.description} className="flex justify-between gap-3 py-1.5">
-              <span className="min-w-0 truncate">
-                {item.description} <span className="text-ink/60">×{item.count}</span>
-              </span>
-              <span className="shrink-0 tabular-nums text-ink/75">{formatMoney(item.total)}</span>
+            <li key={item.description}>
+              <div className="flex justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  {item.description} <span className="text-ink/60">×{item.count}</span>
+                </span>
+                <span className="shrink-0 tabular-nums text-ink/75">{formatMoney(item.total)}</span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
+                <div
+                  className="h-full rounded-full bg-caution"
+                  style={{ width: `${(item.total / small.top[0].total) * 100}%` }}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -210,7 +272,8 @@ function SmallExpensesBlock({ small }) {
 
 /**
  * Insights → "Tu mes en números" (FT-0019): puntaje de salud financiera con la acción que más lo
- * sube, proyección de fin de mes, gastos hormiga y cómo se arma el puntaje. Los calcula el
+ * sube y su cambio frente al mes pasado, el ritmo de gasto con la proyección de fin de mes,
+ * gastos hormiga y cómo se arma el puntaje. Los calcula el
  * servidor con fórmulas fijas, sin IA; la acción recomendada sale de `nextAction`.
  */
 export default function MonthAnalytics() {
@@ -238,11 +301,11 @@ export default function MonthAnalytics() {
         ) : (
           <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-              <ScoreBlock health={data.health} />
+              <ScoreBlock health={data.health} previousScore={data.previousScore} month={data.month} />
               <ActionBlock action={nextAction(data)} />
             </div>
-            <div className="grid gap-8 md:grid-cols-3 md:gap-6">
-              <ProjectionBlock projection={data.projection} day={data.day} daysInMonth={data.daysInMonth} />
+            <PaceBlock data={data} />
+            <div className="grid gap-8 md:grid-cols-2 md:gap-10">
               <SmallExpensesBlock small={data.smallExpenses} />
               <PartsBlock parts={data.health.parts} />
             </div>

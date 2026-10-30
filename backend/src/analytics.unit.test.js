@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createAnalyticsService,
+  dailySpending,
   daysInMonth,
   healthLevel,
   healthScore,
@@ -201,7 +202,7 @@ test('getAnalytics pide 3 meses atrás hasta hoy y arma la respuesta', async () 
     listBudgets: async () => [{ percentage: 30 }],
   });
   const result = await service.getAnalytics('u1');
-  assert.deepEqual(calls, [{ userId: 'u1', range: { from: '2026-07-01', to: '2026-10-10' } }]);
+  assert.deepEqual(calls, [{ userId: 'u1', range: { from: '2026-06-01', to: '2026-10-10' } }]);
   assert.equal(result.month, '2026-10');
   assert.equal(result.day, 10);
   assert.equal(result.daysInMonth, 31);
@@ -220,4 +221,53 @@ test('getAnalytics marca empty cuando el mes no tiene movimientos', async () => 
   const result = await service.getAnalytics('u1');
   assert.equal(result.empty, true);
   assert.equal(result.projection.projected, 0);
+});
+
+test('dailySpending acumula los gastos de cada día hasta hoy', () => {
+  const current = [
+    gasto(10_000, 'alimentacion', 'Almuerzo', '2026-10-01'),
+    gasto(5_000, 'transporte', 'Bus', '2026-10-03'),
+    gasto(2_000, 'transporte', 'Bus', '2026-10-03'),
+    ingreso(900_000, '2026-10-02'),
+  ];
+  assert.deepEqual(dailySpending(current, 4), [
+    { day: 1, total: 10_000 },
+    { day: 2, total: 10_000 },
+    { day: 3, total: 17_000 },
+    { day: 4, total: 17_000 },
+  ]);
+});
+
+test('getAnalytics trae la serie del mes y el puntaje del mes pasado', async () => {
+  const budgetMonths = [];
+  const service = createAnalyticsService({
+    now: () => new Date('2026-10-03T15:00:00Z'),
+    listMovements: async () => [
+      gasto(30_000, 'alimentacion', 'Mercado', '2026-10-02'),
+      ingreso(2_000_000, '2026-09-01'),
+      gasto(1_500_000, 'alimentacion', 'Mercado', '2026-09-10'),
+    ],
+    listBudgets: async (userId, month) => {
+      budgetMonths.push(month);
+      return [];
+    },
+  });
+  const result = await service.getAnalytics('u1');
+  assert.deepEqual(budgetMonths, ['2026-10', '2026-09']);
+  assert.deepEqual(result.daily, [
+    { day: 1, total: 0 },
+    { day: 2, total: 30_000 },
+    { day: 3, total: 30_000 },
+  ]);
+  // Septiembre: ahorro 25 % → 25; sin presupuestos 12,5; sin historial 12,5; sin hormiga 25.
+  assert.equal(result.previousScore, 75);
+});
+
+test('sin movimientos el mes pasado no hay puntaje para comparar', async () => {
+  const service = createAnalyticsService({
+    now: () => new Date('2026-10-10T15:00:00Z'),
+    listMovements: async () => [gasto(1_000, 'otros', 'Algo', '2026-10-01')],
+    listBudgets: async () => [],
+  });
+  assert.equal((await service.getAnalytics('u1')).previousScore, null);
 });
