@@ -171,3 +171,54 @@ export function smallExpensesMessage({ threshold, count, total, share, yearly, f
   if (!flagged) return `Solo ${count} ${count === 1 ? 'gasto' : 'gastos'} de ${limit} o menos: vas bien.`;
   return `${count} gastos de ${limit} o menos suman ${formatMoney(total)} (${formatNumber(share)} % de tu gasto). A este ritmo serían ${formatMoney(yearly)} en un año.`;
 }
+
+/**
+ * Puntos del gráfico de ritmo de gasto: un punto por día del mes con lo gastado acumulado
+ * (`real`, hasta hoy) y la proyección (`projection`, de hoy a fin de mes en línea recta hasta el
+ * gasto proyectado). Hoy lleva los dos valores para que las líneas se unan.
+ * @param {import('@/services/analyticsService').Analytics} data
+ * @returns {Array<{ day: number, real?: number, projection?: number }>}
+ */
+export function paceSeries({ daily, day, daysInMonth, projection }) {
+  const today = daily.at(-1)?.total ?? 0;
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    const point = { day: d };
+    if (d <= day) point.real = daily[i]?.total ?? today;
+    if (projection.available && d >= day) {
+      const progress = daysInMonth === day ? 1 : (d - day) / (daysInMonth - day);
+      point.projection = Math.round(today + (projection.projected - today) * progress);
+    }
+    return point;
+  });
+}
+
+/**
+ * Cuánto se puede gastar por día lo que queda del mes sin pasar de los ingresos (hoy incluido).
+ * @param {{ projection: { expectedIncome: number, spent: number }, day: number, daysInMonth: number }} data
+ * @returns {number} 0 si ya no queda.
+ */
+export function dailyAllowance({ projection, day, daysInMonth }) {
+  const left = projection.expectedIncome - projection.spent;
+  return Math.max(0, Math.floor(left / (daysInMonth - day + 1)));
+}
+
+/**
+ * Cambio del puntaje frente al mes pasado.
+ * @param {number} score
+ * @param {number|null} previousScore
+ * @param {string} month AAAA-MM del mes actual.
+ * @returns {{ text: string, direction: 'up'|'down'|'same' }|null} `null` sin mes pasado para comparar.
+ */
+export function scoreChange(score, previousScore, month) {
+  if (previousScore === null || previousScore === undefined) return null;
+  const [year, m] = month.split('-').map(Number);
+  const previousName = new Date(year, m - 2, 1).toLocaleDateString('es-CO', { month: 'long' });
+  const diff = score - previousScore;
+  if (diff === 0) return { text: `Igual que en ${previousName}`, direction: 'same' };
+  const points = Math.abs(diff) === 1 ? 'punto' : 'puntos';
+  return {
+    text: `${diff > 0 ? 'Subió' : 'Bajó'} ${Math.abs(diff)} ${points} frente a ${previousName}`,
+    direction: diff > 0 ? 'up' : 'down',
+  };
+}
