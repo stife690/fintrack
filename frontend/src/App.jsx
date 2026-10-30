@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import ErrorBoundary, { hasChunkFailed } from '@/components/common/ErrorBoundary';
+import UpdatePrompt from '@/components/common/UpdatePrompt';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import AppShell from '@/components/layout/AppShell';
 
@@ -62,6 +63,8 @@ export default function App() {
     <>
       <ScrollToTop />
       <ReloadAfterChunkError />
+      {/* Aviso de versión nueva (FT-0020): fuera de las rutas, sale en cualquier pantalla. */}
+      <UpdatePrompt />
       {/* key: al cambiar de ruta se monta un boundary nuevo y se limpia el error anterior. */}
       <ErrorBoundary key={pathname}>
         <Suspense fallback={<RouteFallback />}>
