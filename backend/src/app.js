@@ -14,6 +14,7 @@ import insightsRoutes from './routes/insights.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
+import vacasRoutes from './routes/vacas.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -66,6 +67,9 @@ export function createApp() {
   app.post('/api/v1/voice/transcribe', aiRateLimit);
   // Cada pregunta al asistente es una llamada a la IA (además de su límite diario por usuario).
   app.post('/api/v1/assistant/chat', aiRateLimit);
+  // Invitar manda un correo y el consejo de la vaca puede llamar a la IA (FT-0014).
+  app.post('/api/v1/vacas/:id/invitations', aiRateLimit);
+  app.get('/api/v1/vacas/:id/advice', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
@@ -78,6 +82,7 @@ export function createApp() {
   app.use('/api/v1/reports', reportsRoutes);
   app.use('/api/v1/voice', voiceRoutes);
   app.use('/api/v1/assistant', assistantRoutes);
+  app.use('/api/v1/vacas', vacasRoutes);
   app.use(notFound);
   app.use(errorHandler);
 
