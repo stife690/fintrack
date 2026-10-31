@@ -5,6 +5,7 @@
  *   Cada una guarda el `userId` de la sesión con que se hizo, para no enviarla con otra cuenta.
  * - `transactions`: copia del historial de cada usuario, para verlo sin conexión. Se llena con
  *   `serverChanges` de `/sync/batch` (la primera vez, todo el historial; después, solo lo que cambió).
+ * - `vacaPending`: aportes a vacas hechos sin conexión (FT-0014); ver `vacaQueue.js`.
  * - `meta`: datos sueltos por llave: `lastSyncedAt:<userId>`, `conflicts:<userId>` (avisos de conflicto
  *   que el usuario aún no ha visto) y la copia del catálogo `categories`.
  */
@@ -47,3 +48,8 @@ db.version(2)
   // Quien ya sincronizó con v1 tiene `lastSyncedAt`: se borra para que la próxima vez llegue
   // todo el historial y no solo lo que cambió (la copia local nace vacía).
   .upgrade((tx) => tx.table('meta').where('key').startsWith('lastSyncedAt:').delete());
+
+// v3 (FT-0014, La Vaca Inteligente): aportes a vacas hechos sin conexión. Van aparte de `pending`
+// porque se envían a `POST /vacas/:id/contributions`, no a `/sync/batch`. La copia de las vacas
+// para verlas sin conexión vive en `meta` (`vacas:<userId>` y `vaca:<userId>:<id>`).
+db.version(3).stores({ vacaPending: 'localId, userId, vacaId, createdAt' });

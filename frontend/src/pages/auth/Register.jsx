@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -23,6 +23,7 @@ import { register as registerUser } from '@/services/authService';
 export default function Register() {
   usePageTitle('Crear cuenta');
   const navigate = useNavigate();
+  const location = useLocation();
   const [serverError, setServerError] = useState('');
 
   const {
@@ -45,7 +46,8 @@ export default function Register() {
     setServerError('');
     try {
       const { user } = await registerUser(data);
-      navigate('/login', { state: { email: user.email, registered: true } });
+      // `from`: quien llegó desde un enlace (p. ej. una invitación a una vaca) vuelve allí al entrar.
+      navigate('/login', { state: { email: user.email, registered: true, from: location.state?.from } });
     } catch (err) {
       setServerError(err.message || 'No pudimos crear tu cuenta. Inténtalo de nuevo.');
     }
@@ -58,7 +60,11 @@ export default function Register() {
       footer={
         <>
           <span className="text-white/55">¿Ya tienes cuenta? </span>
-          <Link to="/login" className="font-medium text-violet-light transition-colors hover:text-white">
+          <Link
+            to="/login"
+            state={location.state?.from ? { from: location.state.from } : undefined}
+            className="font-medium text-violet-light transition-colors hover:text-white"
+          >
             Inicia sesión
           </Link>
         </>

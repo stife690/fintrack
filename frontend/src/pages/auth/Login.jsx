@@ -61,7 +61,11 @@ export default function Login() {
       footer={
         <>
           <span className="text-white/55">¿No tienes cuenta? </span>
-          <Link to="/registro" className="font-medium text-violet-light transition-colors hover:text-white">
+          <Link
+            to="/registro"
+            state={location.state?.from ? { from: location.state.from } : undefined}
+            className="font-medium text-violet-light transition-colors hover:text-white"
+          >
             Regístrate
           </Link>
         </>
