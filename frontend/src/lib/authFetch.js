@@ -5,6 +5,11 @@
  * se cambia el refresh token por un par nuevo (`POST /auth/refresh`, con rotación) y la
  * petición se repite una sola vez. Si el refresh token también venció o fue revocado, la
  * sesión local se borra y se avisa con el evento `fintrack:session-expired`.
+ *
+ * Varias ventanas (la PWA instalada y una pestaña del navegador) comparten la sesión de
+ * `localStorage`, y cada refresh token sirve una sola vez. Por eso las renovaciones se turnan
+ * entre ventanas (`navigator.locks`) y, si otra ventana ya renovó, se usa su token en vez de
+ * gastar el viejo: antes, la ventana que perdía la carrera borraba la sesión de todas.
  */
 import { API_V1 } from '@/lib/api';
 import { clearSession, getSession, saveSession } from '@/auth/tokenStorage';
@@ -17,19 +22,28 @@ let refreshing = null;
 
 /**
  * Cambia el refresh token de la sesión por tokens nuevos y los guarda.
+ * @param {string} [usedRefreshToken] El refresh token que había cuando falló la petición. Si la
+ *   sesión ya tiene otro, otra ventana renovó mientras tanto y no hace falta volver a hacerlo.
  * @returns {Promise<string|null>} El access token nuevo, o `null` si la sesión no se pudo renovar.
  * @throws {Error} Solo si no hay conexión con el servidor: en ese caso la sesión se conserva.
  */
-export function refreshSession() {
-  refreshing ??= doRefresh().finally(() => {
+export function refreshSession(usedRefreshToken) {
+  const run = () => doRefresh(usedRefreshToken);
+  // `navigator.locks`: una ventana renueva a la vez; las demás esperan y usan el token nuevo.
+  refreshing ??= (navigator.locks ? navigator.locks.request('fintrack-refresh', run) : run()).finally(() => {
     refreshing = null;
   });
   return refreshing;
 }
 
-async function doRefresh() {
+/**
+ * @param {string} [usedRefreshToken]
+ * @returns {Promise<string|null>}
+ */
+async function doRefresh(usedRefreshToken) {
   const session = getSession();
   if (!session?.refreshToken) return expire();
+  if (usedRefreshToken && session.refreshToken !== usedRefreshToken) return session.accessToken;
 
   let res;
   try {
@@ -41,7 +55,13 @@ async function doRefresh() {
   } catch {
     throw new Error('No pudimos conectar con el servidor. Revisa tu conexión.');
   }
-  if (res.status === 401 || res.status === 400) return expire();
+  if (res.status === 401 || res.status === 400) {
+    // Sin `navigator.locks` (navegadores viejos) otra ventana pudo ganar la carrera: si ya guardó
+    // tokens nuevos, se usan; si no, la sesión de verdad venció.
+    const latest = getSession();
+    if (latest?.refreshToken && latest.refreshToken !== session.refreshToken) return latest.accessToken;
+    return expire();
+  }
   // Con código: el servidor respondió (5xx), no es falta de conexión (no va a la cola offline).
   if (!res.ok) {
     throw Object.assign(new Error('No pudimos renovar tu sesión. Inténtalo de nuevo.'), {
@@ -83,9 +103,16 @@ export async function authFetch(path, { method = 'GET', body } = {}) {
     });
   };
 
-  const res = await send(getSession()?.accessToken);
-  if (res.status !== 401 || !getSession()?.refreshToken) return res;
+  const before = getSession();
+  const res = await send(before?.accessToken);
+  if (res.status !== 401) return res;
+  // Sin sesión guardada (se cerró o venció en otra ventana): al login, no 401 en silencio.
+  // `authFetch` solo se usa con rutas que piden sesión, así que no hay 401 "esperados" aquí.
+  if (!getSession()?.refreshToken) {
+    expire();
+    return res;
+  }
 
-  const token = await refreshSession();
+  const token = await refreshSession(before?.refreshToken);
   return token ? send(token) : res;
 }
