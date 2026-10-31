@@ -29,12 +29,22 @@ export const VACA_STATUS = {
 };
 
 /**
+ * Dominio público de la app para los enlaces que se comparten (`VITE_APP_URL`, p. ej.
+ * `https://fintrackcol.online`). Sin la variable, el dominio en el que se abrió la app.
+ * @returns {string} Sin barra final.
+ */
+export function appOrigin() {
+  const configured = import.meta.env.VITE_APP_URL?.trim();
+  return (configured || window.location.origin).replace(/\/+$/, '');
+}
+
+/**
  * Enlace para invitar a la vaca (lo abre la PWA; si no hay sesión, pasa por el login y vuelve).
  * @param {string} code
  * @param {string} [origin]
  * @returns {string}
  */
-export function inviteLink(code, origin = window.location.origin) {
+export function inviteLink(code, origin = appOrigin()) {
   return `${origin}/app/vacas/unirse/${code}`;
 }
 

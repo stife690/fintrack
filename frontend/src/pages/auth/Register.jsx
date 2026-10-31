@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getReturnTo, isInvitation } from '@/auth/returnTo';
 import usePageTitle from '@/hooks/usePageTitle';
 import { registerSchema } from '@/lib/validation/auth';
 import { register as registerUser } from '@/services/authService';
@@ -70,6 +71,11 @@ export default function Register() {
         </>
       }
     >
+      {isInvitation(getReturnTo(location.state?.from)) && (
+        <p className="rounded-xl bg-violet/15 px-4 py-3 text-sm text-violet-light" role="status">
+          Te invitaron a una vaca. Al crear tu cuenta e iniciar sesión te llevamos a la invitación.
+        </p>
+      )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
         <div className="space-y-4">
           <FormField id="email" label="Correo electrónico" error={errors.email?.message}>

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
 import { loginSchema } from '@/lib/validation/auth';
 import { useAuth } from '@/auth/AuthContext';
+import { getReturnTo, isInvitation } from '@/auth/returnTo';
 
 /**
  * Pantalla de inicio de sesión. Valida en el cliente (zod), inicia la sesión con `signIn`
@@ -43,7 +44,7 @@ export default function Login() {
     setServerError('');
     try {
       await signIn(values);
-      navigate(location.state?.from ?? '/app', { replace: true });
+      navigate(getReturnTo(location.state?.from), { replace: true });
     } catch (err) {
       setServerError(err.message || 'No pudimos iniciar sesión. Inténtalo de nuevo.');
     }
@@ -51,7 +52,7 @@ export default function Login() {
 
   // Si ya hay sesión, no tiene sentido mostrar el formulario.
   if (user) {
-    return <Navigate to="/app" replace />;
+    return <Navigate to={getReturnTo(location.state?.from)} replace />;
   }
 
   return (
@@ -74,6 +75,11 @@ export default function Login() {
       {location.state?.registered && (
         <p className="rounded-xl bg-mint/10 px-4 py-3 text-sm text-mint" role="status">
           Cuenta creada. Ya puedes iniciar sesión.
+        </p>
+      )}
+      {isInvitation(getReturnTo(location.state?.from)) && (
+        <p className="rounded-xl bg-violet/15 px-4 py-3 text-sm text-violet-light" role="status">
+          Te invitaron a una vaca. Inicia sesión o crea tu cuenta y te llevamos a la invitación.
         </p>
       )}
       {location.state?.passwordReset && (

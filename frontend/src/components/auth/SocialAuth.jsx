@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
+import { getReturnTo } from '@/auth/returnTo';
 import { GOOGLE_CLIENT_ID, loadGoogleIdentity } from '@/lib/google';
 
 /** Logo oficial de Google en SVG. */
@@ -42,7 +43,7 @@ export default function SocialAuth() {
     setSigningIn(true);
     try {
       await signInWithGoogle(credential);
-      navigate(location.state?.from ?? '/app', { replace: true });
+      navigate(getReturnTo(location.state?.from), { replace: true });
     } catch (err) {
       setError(err.message || 'No pudimos iniciar sesión con Google. Inténtalo de nuevo.');
       setSigningIn(false);
