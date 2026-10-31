@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { deadlineText, inviteLink, projectionText, todayIso } from './vacaFormat';
 
 const projection = {
@@ -49,5 +49,15 @@ describe('vacaFormat (FT-0014/FT-0015)', () => {
     expect(projectionText({ deadline: null, projection, status: 'activa', total: 0 }).text).toContain('Aún no hay aportes');
     expect(projectionText({ deadline: null, projection, status: 'completada', total: 9 }).tone).toBe('positive');
     expect(projectionText({ deadline: null, projection, status: 'activa', total: 5 }).text).toContain('A este ritmo');
+  });
+});
+
+describe('appOrigin (dominio de los enlaces)', () => {
+  it('usa VITE_APP_URL sin la barra final', async () => {
+    vi.stubEnv('VITE_APP_URL', 'https://fintrackcol.online/');
+    const { appOrigin, inviteLink: link } = await import('./vacaFormat');
+    expect(appOrigin()).toBe('https://fintrackcol.online');
+    expect(link('4NS6NP')).toBe('https://fintrackcol.online/app/vacas/unirse/4NS6NP');
+    vi.unstubAllEnvs();
   });
 });

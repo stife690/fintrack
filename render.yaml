@@ -16,6 +16,8 @@ services:
         generateValue: true # Render genera un secreto aleatorio
       - key: DATABASE_URL
         sync: false # Supabase → Session pooler, con ?sslmode=no-verify
+      - key: APP_URL
+        value: https://fintrackcol.online # enlaces de los correos (invitaciones, recuperar contraseña)
       - key: AI_PROVIDER
         value: gemini
       - key: AI_API_KEY
