@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { saveSession, getSession, clearSession } from './tokenStorage';
+import { saveSession, getSession, clearSession, SESSION_KEY } from './tokenStorage';
 import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
 import { login, loginWithGoogle } from '@/services/authService';
 import { unsubscribeThisDevice } from '@/services/pushService';
@@ -14,6 +14,18 @@ export function AuthProvider({ children }) {
     const onExpired = () => setUser(null);
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  // La PWA y las pestañas del navegador comparten la sesión: si otra ventana la cierra o entra
+  // con otra cuenta, esta se entera (el evento `storage` solo llega a las demás ventanas).
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== null && event.key !== SESSION_KEY) return;
+      const next = getSession()?.user ?? null;
+      setUser((current) => (current?.id === next?.id ? current : next));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   async function signIn(credentials) {
