@@ -18,6 +18,9 @@ const Budgets = lazy(() => import('@/pages/app/Budgets'));
 const Insights = lazy(() => import('@/pages/app/Insights'));
 const Export = lazy(() => import('@/pages/app/Export'));
 const Account = lazy(() => import('@/pages/app/Account'));
+const Vacas = lazy(() => import('@/pages/app/Vacas'));
+const VacaDetail = lazy(() => import('@/pages/app/VacaDetail'));
+const VacaJoin = lazy(() => import('@/pages/app/VacaJoin'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
 function ScrollToTop() {
@@ -54,7 +57,9 @@ function RouteFallback() {
  * para cambiar la contraseña · `/restablecer` contraseña nueva (enlace del correo) · `*` 404.
  * Zona privada, dentro del marco con menú (`AppShell`): `/app` inicio · `/app/transacciones` registro y listado ·
  * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
- * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión.
+ * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión ·
+ * `/app/vacas` metas de ahorro en grupo · `/app/vacas/:id` seguimiento de aportes · `/app/vacas/unirse/:code`
+ * enlace de invitación (FT-0014/FT-0015).
  * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
  */
 export default function App() {
@@ -82,6 +87,9 @@ export default function App() {
                 <Route path="/app/insights" element={<Insights />} />
                 <Route path="/app/transacciones/exportar" element={<Export />} />
                 <Route path="/app/cuenta" element={<Account />} />
+                <Route path="/app/vacas" element={<Vacas />} />
+                <Route path="/app/vacas/unirse/:code" element={<VacaJoin />} />
+                <Route path="/app/vacas/:id" element={<VacaDetail />} />
                 <Route path="/app/notificaciones" element={<Navigate to="/app/cuenta" replace />} />
               </Route>
             </Route>

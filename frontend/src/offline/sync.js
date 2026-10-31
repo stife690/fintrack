@@ -11,6 +11,7 @@
  * Cada cambio se anuncia en `window` con `SYNC_EVENT` para que la interfaz se actualice.
  */
 import { db } from './db';
+import { clearVacaCache, flushContributions } from './vacaQueue';
 import { apiRequest } from '@/lib/apiRequest';
 import { getSession } from '@/auth/tokenStorage';
 
@@ -267,6 +268,7 @@ export async function cacheTransaction(transaction) {
 export async function clearCachedHistory(userId) {
   await db.transactions.where('userId').equals(userId).delete();
   await db.meta.delete(`lastSyncedAt:${userId}`);
+  await clearVacaCache(userId);
 }
 
 /**
@@ -290,10 +292,12 @@ async function doSync() {
   const lastSyncedAt = (await db.meta.get(metaKey))?.value ?? null;
   queue.forEach((o) => sending.add(o.localId));
   try {
-    return await sendBatch(userId, queue, metaKey, lastSyncedAt);
+    await sendBatch(userId, queue, metaKey, lastSyncedAt);
   } finally {
     sending.clear();
   }
+  // Después del lote: los aportes a vacas hechos sin conexión (FT-0014) van por su propia ruta.
+  await flushContributions();
 }
 
 /** Envía un lote a `/sync/batch` y aplica la respuesta a la cola y a la copia local. */
