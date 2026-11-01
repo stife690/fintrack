@@ -4,12 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import FormField from '@/components/auth/FormField';
 import MoneyInput from '@/components/common/MoneyInput';
-import { formatMoney } from '@/components/transactions/format';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { contributionSchema } from '@/lib/validation/vaca';
-import { todayIso } from './vacaFormat';
+import { formatPesos, todayIso } from './vacaFormat';
 
 /** Categoría del gasto que deja el aporte si no se elige otra (la misma que usa el servidor). */
 export const DEFAULT_CATEGORY = 'ahorro_inversion';
@@ -82,13 +82,13 @@ export default function ContributionForm({ categories, myRemaining, onSubmit }) 
         <button
           type="button"
           className="-mt-2 text-sm font-medium text-brand underline-offset-4 hover:underline"
-          onClick={() => setValue('amount', String(myRemaining), { shouldValidate: true })}
+          onClick={() => setValue('amount', String(Math.round(myRemaining)), { shouldValidate: true })}
         >
-          Poner lo que me falta ({formatMoney(myRemaining)})
+          Poner lo que me falta ({formatPesos(myRemaining)})
         </button>
       )}
 
-      <div className="grid gap-4 2xl:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <FormField id="contribution-date" label="Fecha" error={errors.date?.message}>
           <Input type="date" max={todayIso()} {...register('date')} />
         </FormField>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CloudOff, Trash2, TriangleAlert } from 'lucide-react';
-import { formatMoney, formatRelativeDay } from '@/components/transactions/format';
+import { formatRelativeDay } from '@/components/transactions/format';
+import { formatPesos } from './vacaFormat';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -20,18 +21,19 @@ function PendingRow({ pending, onDiscard }) {
         {pending.rejected ? <TriangleAlert className="size-4" /> : <CloudOff className="size-4" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-medium">
-          Tú <span className="font-normal text-ink/60">· {formatRelativeDay(date)}</span>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate font-medium">Tú</p>
+          <p className="shrink-0 font-semibold tabular-nums">{formatPesos(amount)}</p>
+        </div>
+        <p className="truncate text-sm text-ink/60">
+          {formatRelativeDay(date)}
+          {note && ` · ${note}`}
         </p>
-        {note && <p className="truncate text-sm text-ink/60">{note}</p>}
         <p className="text-sm text-caution">
           {pending.rejected ? `No se pudo registrar: ${pending.rejected}` : 'Pendiente: se envía al volver la conexión'}
         </p>
-      </div>
-      <div className="flex flex-col items-end gap-1">
-        <p className="font-semibold tabular-nums">{formatMoney(amount)}</p>
         {pending.rejected && (
-          <Button size="sm" variant="ghost" onClick={() => onDiscard(pending.localId)}>
+          <Button size="sm" variant="ghost" className="-ml-3" onClick={() => onDiscard(pending.localId)}>
             Descartar
           </Button>
         )}
@@ -73,11 +75,28 @@ function ContributionRow({ contribution, online, onDelete }) {
         {contribution.name.charAt(0).toUpperCase()}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-medium">
-          {contribution.isMe ? 'Tú' : contribution.name}{' '}
-          <span className="font-normal text-ink/60">· {formatRelativeDay(contribution.date)}</span>
-        </p>
-        {contribution.note && <p className="truncate text-sm text-ink/60">{contribution.note}</p>}
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate font-medium">{contribution.isMe ? 'Tú' : contribution.name}</p>
+          <p className="shrink-0 font-semibold tabular-nums text-positive">+{formatPesos(contribution.amount)}</p>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-sm text-ink/60">
+            {formatRelativeDay(contribution.date)}
+            {contribution.note && ` · ${contribution.note}`}
+          </p>
+          {contribution.isMe && !confirming && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="-my-1 -mr-1.5 size-7 shrink-0 text-ink/50 [&_svg]:size-4"
+              disabled={!online}
+              onClick={() => setConfirming(true)}
+              aria-label={`Borrar aporte de ${formatPesos(contribution.amount)}`}
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          )}
+        </div>
         {error && (
           <p role="alert" className="text-sm text-negative">
             {error}
@@ -93,20 +112,6 @@ function ContributionRow({ contribution, online, onDelete }) {
               No
             </Button>
           </div>
-        )}
-      </div>
-      <div className="flex items-center gap-1">
-        <p className="font-semibold tabular-nums text-positive">+{formatMoney(contribution.amount)}</p>
-        {contribution.isMe && !confirming && (
-          <Button
-            size="icon"
-            variant="ghost"
-            disabled={!online}
-            onClick={() => setConfirming(true)}
-            aria-label={`Borrar aporte de ${formatMoney(contribution.amount)}`}
-          >
-            <Trash2 aria-hidden="true" />
-          </Button>
         )}
       </div>
     </li>

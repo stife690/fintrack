@@ -13,6 +13,16 @@ export function formatPercent(value) {
   return `${percent.format(value)} %`;
 }
 
+/**
+ * Monto en pesos sin centavos: al repartir una meta entre varios quedan cuotas como
+ * $ 4.166.666,67, que no ayudan a leer. Los totales exactos siguen en el servidor.
+ * @param {number} value
+ * @returns {string} p. ej. `$ 4.166.667`.
+ */
+export function formatPesos(value) {
+  return formatMoney(Math.round(value));
+}
+
 /** Etiqueta y colores de cada estado de un miembro. */
 export const MEMBER_STATUS = {
   cumplido: { label: 'Cumplió', chip: 'bg-positive/15 text-positive', bar: 'bg-positive' },
@@ -61,16 +71,18 @@ export function todayIso(now = new Date()) {
 /**
  * Frase corta sobre el plazo: días que faltan, si ya venció o que no tiene fecha.
  * @param {{ deadline: string|null, projection: import('@/services/vacaService').VacaProjection, status: string }} vaca
+ * @param {{ withDate?: boolean }} [options] Sin la fecha (`withDate: false`) cabe en tarjetas y cifras.
  * @returns {string}
  */
-export function deadlineText({ deadline, projection, status }) {
+export function deadlineText({ deadline, projection, status }, { withDate = true } = {}) {
   if (!deadline) return 'Sin fecha límite';
   const date = formatDate(deadline);
-  if (status === 'completada') return `Fecha límite: ${date}`;
+  if (status === 'completada') return withDate ? `Fecha límite: ${date}` : 'Cumplida';
   const days = projection.daysLeft;
-  if (days < 0) return `Venció el ${date}`;
-  if (days === 0) return `Vence hoy (${date})`;
-  return `${days === 1 ? 'Falta 1 día' : `Faltan ${days} días`} · ${date}`;
+  if (days < 0) return withDate ? `Venció el ${date}` : 'Venció';
+  if (days === 0) return withDate ? `Vence hoy (${date})` : 'Vence hoy';
+  const left = days === 1 ? 'Falta 1 día' : `Faltan ${days} días`;
+  return withDate ? `${left} · ${date}` : left;
 }
 
 /**
@@ -84,13 +96,13 @@ export function projectionText({ deadline, projection, status, total }) {
   if (total === 0) return { tone: 'neutral', text: 'Aún no hay aportes. Con el primero calculamos el ritmo del grupo.' };
   const estimated = projection.estimatedDate ? formatDate(projection.estimatedDate) : null;
   if (status === 'vencida') {
-    return { tone: 'caution', text: `Pasó la fecha límite y faltan ${formatMoney(projection.remaining)}.` };
+    return { tone: 'caution', text: `Pasó la fecha límite y faltan ${formatPesos(projection.remaining)}.` };
   }
   if (!deadline) {
     return {
       tone: 'neutral',
       text: estimated
-        ? `A este ritmo (${formatMoney(projection.averagePerDay)} por día) completan la meta hacia el ${estimated}.`
+        ? `A este ritmo (${formatPesos(projection.averagePerDay)} por día) completan la meta hacia el ${estimated}.`
         : 'Sigan aportando para ver cuándo completan la meta.',
     };
   }
@@ -102,6 +114,6 @@ export function projectionText({ deadline, projection, status, total }) {
   }
   return {
     tone: 'caution',
-    text: `A este ritmo no llegan${estimated ? ` (terminarían hacia el ${estimated})` : ''}. Necesitan ${formatMoney(projection.neededPerWeek ?? projection.remaining)} por semana entre todos.`,
+    text: `A este ritmo no llegan${estimated ? ` (terminarían hacia el ${estimated})` : ''}. Necesitan ${formatPesos(projection.neededPerWeek ?? projection.remaining)} por semana entre todos.`,
   };
 }

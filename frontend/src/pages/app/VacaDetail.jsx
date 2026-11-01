@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, LogOut, Pencil, Trash2 } from 'lucide-react';
-import PageHeader from '@/components/layout/PageHeader';
-import Panel from '@/components/layout/Panel';
-import { formatDate, formatMoney } from '@/components/transactions/format';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, HandCoins, Loader2, LogOut, MoreHorizontal, Pencil, Trash2, UserPlus } from 'lucide-react';
 import ConfirmButton from '@/components/common/ConfirmButton';
+import Sheet from '@/components/common/Sheet';
+import Tabs from '@/components/common/Tabs';
+import Panel from '@/components/layout/Panel';
+import { formatDate } from '@/components/transactions/format';
+import { Button } from '@/components/ui/button';
 import AdviceCard from '@/components/vacas/AdviceCard';
 import ContributionForm from '@/components/vacas/ContributionForm';
 import ContributionList from '@/components/vacas/ContributionList';
@@ -13,7 +14,7 @@ import InvitePanel from '@/components/vacas/InvitePanel';
 import MemberList from '@/components/vacas/MemberList';
 import VacaForm from '@/components/vacas/VacaForm';
 import VacaProgress from '@/components/vacas/VacaProgress';
-import { MEMBER_STATUS, VACA_STATUS, deadlineText, formatPercent } from '@/components/vacas/vacaFormat';
+import { MEMBER_STATUS, VACA_STATUS, deadlineText, formatPercent, formatPesos } from '@/components/vacas/vacaFormat';
 import { useAuth } from '@/auth/AuthContext';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
@@ -46,18 +47,18 @@ function Stat({ label, value, hint }) {
   return (
     <div className="min-w-0 rounded-xl bg-ink/5 p-3">
       <dt className="text-xs text-ink/60">{label}</dt>
-      <dd className="mt-0.5 font-semibold tabular-nums">{value}</dd>
-      {hint && <dd className="mt-0.5 text-xs text-ink/60">{hint}</dd>}
+      <dd className="mt-0.5 break-words font-semibold tabular-nums">{value}</dd>
+      {hint && <dd className="mt-0.5 break-words text-xs text-ink/60">{hint}</dd>}
     </div>
   );
 }
 
 /**
- * Página privada `/app/vacas/:id` (FT-0015): seguimiento de aportes de una vaca. Muestra el avance
- * del grupo, lo que lleva y le falta a cada miembro, el ritmo y el consejo; permite aportar (también
- * sin conexión), invitar y, a los administradores, ajustar cuotas, roles y datos de la vaca.
- * Se actualiza sola cada 15 s, al volver a la pestaña y al recuperar la conexión, para ver los
- * aportes de los demás.
+ * Página privada `/app/vacas/:id` (FT-0015): seguimiento de aportes de una vaca. Arriba, el avance
+ * del grupo con las dos acciones principales (aportar e invitar); debajo, miembros y aportes en
+ * pestañas y si van a tiempo. Aportar, invitar y los ajustes se abren en una ventana.
+ * Aportar funciona sin conexión. Se actualiza sola cada 15 s, al volver a la pestaña y al recuperar
+ * la conexión, para ver los aportes de los demás.
  */
 export default function VacaDetail() {
   const { id } = useParams();
@@ -74,7 +75,8 @@ export default function VacaDetail() {
   const [notice, setNotice] = useState(
     state?.created ? 'Vaca creada. Invita a los demás con el enlace o el código.' : state?.joined ? '¡Ya eres parte de la vaca!' : '',
   );
-  const [editing, setEditing] = useState(false);
+  const [sheet, setSheet] = useState(state?.created ? 'invitar' : null); // 'aportar' | 'invitar' | 'opciones' | 'editar'
+  const [tab, setTab] = useState('miembros');
   const loading = useRef(false);
   usePageTitle(vaca?.name ?? 'Vaca');
 
@@ -176,12 +178,14 @@ export default function VacaDetail() {
   const handleContribute = async (values) => {
     const queue = await loadQueue();
     const result = await queue.saveContribution(id, values);
+    setSheet(null);
+    setTab('aportes');
     if (result.queued) {
       setNotice('Sin conexión: tu aporte quedó guardado en el dispositivo y se envía solo al volver internet.');
       refreshPending();
     } else {
       setVaca(result.result.vaca);
-      setNotice(`Aporte de ${formatMoney(values.amount)} registrado. También quedó en tus movimientos.`);
+      setNotice(`Aporte de ${formatPesos(values.amount)} registrado. También quedó en tus movimientos.`);
     }
   };
 
@@ -241,6 +245,7 @@ export default function VacaDetail() {
   const mine = MEMBER_STATUS[vaca.myStatus];
   const isAdmin = vaca.role === 'admin';
   const pendingTotal = pending.filter((p) => !p.rejected).reduce((acc, p) => acc + p.contribution.amount, 0);
+  const closeSheet = () => setSheet(null);
 
   return (
     <>
@@ -250,28 +255,34 @@ export default function VacaDetail() {
       >
         <ArrowLeft className="size-4" aria-hidden="true" /> Mis vacas
       </Link>
-      <PageHeader
-        title={vaca.name}
-        description={vaca.description ?? undefined}
-        actions={
-          <span className={cn('rounded-full px-3 py-1 text-sm font-medium', status.chip)}>{status.label}</span>
-        }
-      />
 
-      <p role="status" className="-mt-3 mb-3 min-h-5 text-sm text-positive">
+      <header className="mb-5 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="break-words text-2xl font-semibold tracking-tight md:text-3xl">{vaca.name}</h1>
+          {vaca.description && <p className="mt-1 break-words text-ink/60">{vaca.description}</p>}
+          <span className={cn('mt-2 inline-block rounded-full px-2.5 py-0.5 text-sm font-medium', status.chip)}>
+            {status.label}
+          </span>
+        </div>
+        <Button variant="outline" size="icon" className="shrink-0" onClick={() => setSheet('opciones')} aria-label="Opciones de la vaca">
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </header>
+
+      <p role="status" className={cn('text-sm text-positive', notice && 'mb-4')}>
         {notice}
       </p>
       {fromCache && (
-        <p className="mb-3 text-sm text-ink/60">
+        <p className="mb-4 text-sm text-ink/60">
           Sin conexión: ves la última versión guardada. Los aportes que hagas se envían al volver internet.
         </p>
       )}
 
       <Panel aria-label="Avance de la vaca" className="mb-6">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <p className="tabular-nums text-ink/60">
-            <span className="text-3xl font-semibold tracking-tight text-ink md:text-4xl">{formatMoney(vaca.total)}</span>{' '}
-            de {formatMoney(vaca.goal)}
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 tabular-nums text-ink/60">
+            <span className="text-3xl font-semibold tracking-tight text-ink md:text-4xl">{formatPesos(vaca.total)}</span>
+            <span>de {formatPesos(vaca.goal)}</span>
           </p>
           <p className="text-lg font-semibold tabular-nums">{formatPercent(vaca.percentage)}</p>
         </div>
@@ -281,161 +292,165 @@ export default function VacaDetail() {
             value={vaca.percentage}
             barClass={status.bar}
             label={`Avance de ${vaca.name}`}
-            valueText={`${formatPercent(vaca.percentage)}: ${formatMoney(vaca.total)} de ${formatMoney(vaca.goal)}`}
+            valueText={`${formatPercent(vaca.percentage)}: ${formatPesos(vaca.total)} de ${formatPesos(vaca.goal)}`}
           />
         </div>
         {pendingTotal > 0 && (
-          <p className="mt-2 text-sm text-caution">
-            + {formatMoney(pendingTotal)} tuyos pendientes de enviar
-          </p>
+          <p className="mt-2 text-sm text-caution">+ {formatPesos(pendingTotal)} tuyos pendientes de enviar</p>
         )}
-        <dl className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+
+        <dl className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
           <Stat
             label="Tu parte"
-            value={`${formatMoney(vaca.myContributed)} de ${formatMoney(vaca.myQuota)}`}
-            hint={vaca.myRemaining > 0 ? `Te faltan ${formatMoney(vaca.myRemaining)} · ${mine.label}` : mine.label}
+            value={formatPesos(vaca.myContributed)}
+            hint={`de ${formatPesos(vaca.myQuota)} · ${mine.label}`}
           />
-          <Stat label="Le falta al grupo" value={formatMoney(vaca.projection.remaining)} />
+          <Stat label="Le falta al grupo" value={formatPesos(vaca.projection.remaining)} />
           <Stat
-            label="Ritmo"
-            value={`${formatMoney(vaca.projection.averagePerDay)} / día`}
+            label="Ritmo por día"
+            value={formatPesos(vaca.projection.averagePerDay)}
             hint={vaca.projection.estimatedDate ? `Terminan hacia el ${formatDate(vaca.projection.estimatedDate)}` : undefined}
           />
           <Stat
             label="Plazo"
-            value={deadlineText(vaca)}
+            value={deadlineText(vaca, { withDate: false })}
             hint={
-              vaca.projection.neededPerWeek !== null ? `Hacen falta ${formatMoney(vaca.projection.neededPerWeek)} / semana` : undefined
+              vaca.projection.neededPerWeek !== null
+                ? `Hacen falta ${formatPesos(vaca.projection.neededPerWeek)} por semana`
+                : vaca.deadline
+                  ? formatDate(vaca.deadline)
+                  : undefined
             }
           />
         </dl>
+
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:flex">
+          <Button size="lg" className="sm:min-w-40" onClick={() => setSheet('aportar')}>
+            <HandCoins aria-hidden="true" /> Aportar
+          </Button>
+          <Button size="lg" variant="outline" className="sm:min-w-40" onClick={() => setSheet('invitar')}>
+            <UserPlus aria-hidden="true" /> Invitar
+          </Button>
+        </div>
       </Panel>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <Panel aria-labelledby="contribute-title">
-            <h2 id="contribute-title" className="mb-4 text-lg font-semibold tracking-tight">
-              Aportar
-            </h2>
-            <ContributionForm categories={categories} myRemaining={vaca.myRemaining} onSubmit={handleContribute} />
-          </Panel>
-
-          <Panel aria-labelledby="members-title">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 id="members-title" className="text-lg font-semibold tracking-tight">
-                Miembros ({vaca.membersCount})
-              </h2>
-              <p className="text-sm text-ink/60">
-                {vaca.split === 'igual' ? 'Partes iguales' : 'Cuotas a medida'}
-              </p>
-            </div>
-            <MemberList
-              members={vaca.members}
-              isAdmin={isAdmin}
-              split={vaca.split}
-              online={online}
-              onUpdate={(userId, changes) => apply(() => updateMember(id, userId, changes), 'Miembro actualizado.')}
-              onRemove={async (userId) => {
-                await removeMember(id, userId);
-                setNotice('Miembro retirado de la vaca. Sus aportes siguen contando.');
-                await load();
-              }}
-            />
-          </Panel>
-
-          <Panel aria-labelledby="contributions-title">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 id="contributions-title" className="text-lg font-semibold tracking-tight">
-                Aportes
-              </h2>
-              {online && <p className="text-xs text-ink/50">Se actualiza solo</p>}
-            </div>
-            <ContributionList
-              contributions={vaca.contributions}
-              pending={pending}
-              online={online}
-              onDelete={handleDeleteContribution}
-              onDiscard={handleDiscard}
-            />
-          </Panel>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          <Panel aria-labelledby="smart-title">
-            <h2 id="smart-title" className="mb-4 text-lg font-semibold tracking-tight">
-              ¿Van a tiempo?
-            </h2>
-            <AdviceCard vaca={vaca} online={online && !fromCache} onRemind={() => sendReminders(id)} />
-          </Panel>
-
-          <Panel aria-labelledby="invite-title">
-            <h2 id="invite-title" className="mb-4 text-lg font-semibold tracking-tight">
-              Invitar
-            </h2>
-            <InvitePanel
-              vaca={vaca}
-              online={online}
-              onInvite={async (email) => {
-                const result = await inviteByEmail(id, email);
-                if (isAdmin) load();
-                return result;
-              }}
-              onCancelInvitation={async (email) => {
-                await cancelInvitation(id, email);
-                await load();
-              }}
-              onRegenerate={async () => {
-                const { code } = await regenerateCode(id);
-                setVaca((current) => ({ ...current, code }));
-                setNotice('Código cambiado: comparte el enlace nuevo.');
-              }}
-            />
-          </Panel>
-
-          <Panel aria-labelledby="settings-title">
-            <h2 id="settings-title" className="mb-3 text-lg font-semibold tracking-tight">
-              Ajustes
-            </h2>
-            {editing ? (
-              <VacaForm
-                initial={vaca}
-                disabled={!online}
-                onSubmit={(values) =>
-                  apply(() => updateVaca(id, values), 'Cambios guardados.').then(() => setEditing(false))
-                }
-                onCancel={() => setEditing(false)}
-              />
-            ) : (
-              <div className="flex flex-col gap-1">
-                {isAdmin && (
-                  <Button variant="ghost" className="justify-start" disabled={!online} onClick={() => setEditing(true)}>
-                    <Pencil aria-hidden="true" /> Editar la vaca
-                  </Button>
-                )}
-                <ConfirmButton
-                  label="Salirme de la vaca"
-                  question="Tus aportes seguirán contando para el grupo y sus gastos quedan en tus movimientos."
-                  confirmLabel="Sí, salirme"
-                  icon={LogOut}
-                  disabled={!online}
-                  onConfirm={leave}
-                />
-                {isAdmin && (
-                  <ConfirmButton
-                    label="Eliminar la vaca"
-                    question="Se borra para todos los miembros. Los gastos de los aportes quedan en los movimientos de cada uno."
-                    confirmLabel="Sí, eliminar"
-                    icon={Trash2}
-                    disabled={!online}
-                    onConfirm={remove}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Panel aria-label="Miembros y aportes">
+          <Tabs
+            label="Miembros y aportes"
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { value: 'miembros', label: 'Miembros', count: vaca.membersCount },
+              { value: 'aportes', label: 'Aportes', count: vaca.contributions.length + pending.length },
+            ]}
+          >
+            {(current) =>
+              current === 'miembros' ? (
+                <>
+                  <p className="pt-2 text-sm text-ink/60">
+                    {vaca.split === 'igual' ? 'La meta se reparte en partes iguales.' : 'Cada miembro tiene una cuota a medida.'}
+                  </p>
+                  <MemberList
+                    members={vaca.members}
+                    isAdmin={isAdmin}
+                    split={vaca.split}
+                    online={online}
+                    onUpdate={(userId, changes) => apply(() => updateMember(id, userId, changes), 'Miembro actualizado.')}
+                    onRemove={async (userId) => {
+                      await removeMember(id, userId);
+                      setNotice('Miembro retirado de la vaca. Sus aportes siguen contando.');
+                      await load();
+                    }}
                   />
-                )}
-                {!online && <p className="mt-1 text-sm text-ink/60">Necesitas conexión para cambiar la vaca.</p>}
-              </div>
-            )}
-          </Panel>
-        </div>
+                </>
+              ) : (
+                <ContributionList
+                  contributions={vaca.contributions}
+                  pending={pending}
+                  online={online}
+                  onDelete={handleDeleteContribution}
+                  onDiscard={handleDiscard}
+                />
+              )
+            }
+          </Tabs>
+        </Panel>
+
+        <Panel aria-labelledby="smart-title" className="self-start">
+          <h2 id="smart-title" className="mb-4 text-lg font-semibold tracking-tight">
+            ¿Van a tiempo?
+          </h2>
+          <AdviceCard vaca={vaca} online={online && !fromCache} onRemind={() => sendReminders(id)} />
+        </Panel>
       </div>
+
+      <Sheet
+        open={sheet === 'aportar'}
+        title="Aportar"
+        description={vaca.myRemaining > 0 ? `Te faltan ${formatPesos(vaca.myRemaining)} de tu parte.` : 'Ya pusiste tu parte.'}
+        onClose={closeSheet}
+      >
+        <ContributionForm categories={categories} myRemaining={vaca.myRemaining} onSubmit={handleContribute} />
+      </Sheet>
+
+      <Sheet open={sheet === 'invitar'} title="Invitar a la vaca" onClose={closeSheet}>
+        <InvitePanel
+          vaca={vaca}
+          online={online}
+          onInvite={async (email) => {
+            const result = await inviteByEmail(id, email);
+            if (isAdmin) load();
+            return result;
+          }}
+          onCancelInvitation={async (email) => {
+            await cancelInvitation(id, email);
+            await load();
+          }}
+          onRegenerate={async () => {
+            const { code } = await regenerateCode(id);
+            setVaca((current) => ({ ...current, code }));
+          }}
+        />
+      </Sheet>
+
+      <Sheet open={sheet === 'editar'} title="Editar la vaca" onClose={closeSheet}>
+        <VacaForm
+          initial={vaca}
+          disabled={!online}
+          onSubmit={(values) => apply(() => updateVaca(id, values), 'Cambios guardados.').then(closeSheet)}
+          onCancel={closeSheet}
+        />
+      </Sheet>
+
+      <Sheet open={sheet === 'opciones'} title="Opciones de la vaca" onClose={closeSheet}>
+        <div className="flex flex-col gap-1">
+          {isAdmin && (
+            <Button variant="ghost" className="justify-start" disabled={!online} onClick={() => setSheet('editar')}>
+              <Pencil aria-hidden="true" /> Editar nombre, meta y reparto
+            </Button>
+          )}
+          <ConfirmButton
+            label="Salirme de la vaca"
+            question="Tus aportes seguirán contando para el grupo y sus gastos quedan en tus movimientos."
+            confirmLabel="Sí, salirme"
+            icon={LogOut}
+            disabled={!online}
+            onConfirm={leave}
+          />
+          {isAdmin && (
+            <ConfirmButton
+              label="Eliminar la vaca"
+              question="Se borra para todos los miembros. Los gastos de los aportes quedan en los movimientos de cada uno."
+              confirmLabel="Sí, eliminar"
+              icon={Trash2}
+              disabled={!online}
+              onConfirm={remove}
+            />
+          )}
+          {!online && <p className="mt-1 text-sm text-ink/60">Necesitas conexión para cambiar la vaca.</p>}
+        </div>
+      </Sheet>
     </>
   );
 }

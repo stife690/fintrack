@@ -83,14 +83,14 @@ export default function InvitePanel({ vaca, online, onInvite, onCancelInvitation
       <div>
         <p className="text-sm font-medium text-ink/80">Enlace para unirse</p>
         <div className="mt-2 flex gap-2">
-          <Input readOnly value={link} aria-label="Enlace de invitación" onFocus={(e) => e.target.select()} />
+          <Input readOnly value={link} aria-label="Enlace de invitación" className="min-w-0 text-sm" onFocus={(e) => e.target.select()} />
           <Button type="button" variant="outline" size="icon" className="size-12 shrink-0" onClick={copy} aria-label="Copiar enlace">
             {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
           </Button>
         </div>
         <p className="mt-2 text-sm text-ink/60">
-          O comparte el código <span className="font-mono text-base font-semibold tracking-widest text-ink">{vaca.code}</span>: se
-          ingresa en Vacas → Unirme.
+          O comparte el código <span className="font-mono text-base font-semibold tracking-widest text-ink">{vaca.code}</span>{' '}
+          (en Vacas → Tengo un código).
         </p>
         {canShare && (
           <Button type="button" variant="outline" className="mt-3" onClick={share}>
@@ -103,22 +103,20 @@ export default function InvitePanel({ vaca, online, onInvite, onCancelInvitation
         <label htmlFor="invite-email" className="text-sm font-medium text-ink/80">
           Invitar por correo
         </label>
-        <div className="flex gap-2">
-          <Input
-            id="invite-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="correo@ejemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={!online}
-          />
-          <Button type="submit" className="h-12 shrink-0" disabled={!online || busy || !email}>
-            {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
-            Invitar
-          </Button>
-        </div>
+        <Input
+          id="invite-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="correo@ejemplo.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={!online}
+        />
+        <Button type="submit" size="lg" variant="outline" className="w-full" disabled={!online || busy || !email}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
+          Enviar invitación
+        </Button>
       </form>
 
       <p role="status" className="min-h-5 text-sm text-positive">
@@ -136,7 +134,7 @@ export default function InvitePanel({ vaca, online, onInvite, onCancelInvitation
           <ul className="mt-2 divide-y divide-ink/10">
             {vaca.invitations.map((inv) => (
               <li key={inv.email} className="flex items-center justify-between gap-2 py-2">
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{inv.email}</span>
                   <span className="text-xs text-ink/60">Enviada: {formatRelativeDay(inv.sentAt.slice(0, 10))}</span>
                 </span>

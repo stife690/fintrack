@@ -28,14 +28,14 @@ describe('PartnerList (FT-0016)', () => {
     expect(html).not.toContain('Sacar');
   });
 
-  it('el dueño puede cambiar roles, participaciones y sacar a otros, pero no a sí mismo', () => {
+  it('el dueño gestiona a cada socio desde su botón y ve sus correos', () => {
     const html = render({
       isOwner: true,
       partners: [partner({ userId: 'me', name: 'Yo', isMe: true, role: 'dueno' }), partner({ email: 'ana@x.co' })],
     });
-    expect(html).toContain('Rol de Yo');
-    expect(html).toContain('Participación');
-    expect(html.match(/Sacar/g)).toHaveLength(1);
+    expect(html).toContain('Gestionar a Yo');
+    expect(html).toContain('Gestionar a Ana');
+    expect(html).not.toContain('Sacar');
     expect(html).toContain('ana@x.co');
   });
 });
