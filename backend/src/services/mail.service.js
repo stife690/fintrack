@@ -131,9 +131,44 @@ export async function sendVacaInvitationEmail({ to, inviter, vacaName, goal, lin
     to,
     subject: `${inviter} te invitó a la vaca "${vacaName}"`,
     html: invitationHtml({
-      inviter: escapeHtml(inviter),
-      vacaName: escapeHtml(vacaName),
-      goal: escapeHtml(goal),
+      heading: 'Te invitaron a una vaca',
+      intro: `<strong>${escapeHtml(inviter)}</strong> te invitó a <strong>${escapeHtml(vacaName)}</strong>, una meta de ahorro en grupo de ${escapeHtml(goal)}.
+            Únete para ver cuánto lleva cada uno y registrar tus aportes.`,
+      button: 'Unirme a la vaca',
+      link,
+    }),
+    text,
+  });
+}
+
+/** Cómo se llama cada rol en el correo de invitación a un negocio. */
+const ROLE_TEXT = {
+  dueno: 'como dueño',
+  editor: 'para registrar sus ventas y gastos',
+  lector: 'para ver sus finanzas',
+};
+
+/**
+ * Envía la invitación a un negocio (FT-0016) con el enlace para unirse.
+ * @param {{ to: string, inviter: string, businessName: string, role: 'dueno'|'editor'|'lector', link: string }} data
+ * @returns {Promise<void>}
+ */
+export async function sendBusinessInvitationEmail({ to, inviter, businessName, role, link }) {
+  const text = [
+    `${inviter} te invitó al negocio "${businessName}" en FinTrack ${ROLE_TEXT[role]}.`,
+    'Únete desde este enlace (si no tienes cuenta, créala con este mismo correo):',
+    link,
+    '',
+    'Si no conoces a quien te invita, ignora este correo.',
+  ].join('\n');
+  await sendEmail({
+    to,
+    subject: `${inviter} te invitó al negocio "${businessName}"`,
+    html: invitationHtml({
+      heading: 'Te invitaron a un negocio',
+      intro: `<strong>${escapeHtml(inviter)}</strong> te invitó a <strong>${escapeHtml(businessName)}</strong> ${ROLE_TEXT[role]}.
+            Las finanzas del negocio quedan separadas de las tuyas.`,
+      button: 'Unirme al negocio',
       link,
     }),
     text,
@@ -141,12 +176,12 @@ export async function sendVacaInvitationEmail({ to, inviter, vacaName, goal, lin
 }
 
 /**
- * Plantilla HTML de la invitación, con el mismo estilo que la de recuperar la contraseña.
- * Los textos ya vienen escapados.
- * @param {{ inviter: string, vacaName: string, goal: string, link: string }} data
+ * Plantilla HTML de las invitaciones (vacas y negocios), con el mismo estilo que la de recuperar
+ * la contraseña. `intro` ya viene escapado (es HTML).
+ * @param {{ heading: string, intro: string, button: string, link: string }} data
  * @returns {string}
  */
-function invitationHtml({ inviter, vacaName, goal, link }) {
+function invitationHtml({ heading, intro, button, link }) {
   return `<!doctype html>
 <html lang="es">
 <body style="margin:0;padding:0;background:#f5f4f9;font-family:Arial,Helvetica,sans-serif;color:#16141f">
@@ -158,13 +193,12 @@ function invitationHtml({ inviter, vacaName, goal, link }) {
             <span style="display:inline-block;width:28px;height:28px;border-radius:8px;background:#6142ff;vertical-align:middle"></span>
             <span style="vertical-align:middle;margin-left:8px">FinTrack</span>
           </p>
-          <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3">Te invitaron a una vaca</h1>
+          <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3">${heading}</h1>
           <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#4b4858">
-            <strong>${inviter}</strong> te invitó a <strong>${vacaName}</strong>, una meta de ahorro en grupo de ${goal}.
-            Únete para ver cuánto lleva cada uno y registrar tus aportes.
+            ${intro}
           </p>
           <a href="${link}" style="display:inline-block;background:#6142ff;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
-            Unirme a la vaca
+            ${button}
           </a>
           <p style="margin:28px 0 0;font-size:13px;line-height:1.6;color:#6e6b7b">
             Si no tienes cuenta, créala con este mismo correo. Si el botón no funciona, copia esta dirección en tu navegador:<br>

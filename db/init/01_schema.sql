@@ -169,3 +169,38 @@ CREATE TABLE vaca_aportes (
 CREATE INDEX idx_vaca_aportes_vaca ON vaca_aportes(vaca_id, created_at DESC);
 CREATE UNIQUE INDEX ux_vaca_aportes_usuario_local
   ON vaca_aportes(usuario_id, local_id) WHERE local_id IS NOT NULL;
+
+-- Emprendimientos (FT-0016): negocios que comparten varias personas, sus socios e invitaciones.
+CREATE TABLE negocios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre VARCHAR(60) NOT NULL,
+  descripcion VARCHAR(200) NULL,
+  nit VARCHAR(20) NULL,
+  codigo VARCHAR(8) UNIQUE NOT NULL, -- código de invitación (enlace /app/negocios/unirse/<codigo>)
+  creador_id UUID NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- dueño: administra el negocio y sus socios · editor: registra movimientos · lector: solo ve.
+CREATE TABLE negocio_socios (
+  negocio_id UUID NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  rol VARCHAR(10) NOT NULL DEFAULT 'editor' CHECK (rol IN ('dueno','editor','lector')),
+  participacion NUMERIC(5,2) NULL CHECK (participacion IS NULL OR (participacion >= 0 AND participacion <= 100)),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (negocio_id, usuario_id)
+);
+CREATE INDEX idx_negocio_socios_usuario ON negocio_socios(usuario_id);
+
+-- El rol con el que entra quien acepta la invitación por correo.
+CREATE TABLE negocio_invitaciones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  negocio_id UUID NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  rol VARCHAR(10) NOT NULL DEFAULT 'editor' CHECK (rol IN ('dueno','editor','lector')),
+  invitado_por UUID NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  enviada_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX ux_negocio_invitaciones_email ON negocio_invitaciones(negocio_id, lower(email));
