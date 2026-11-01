@@ -77,8 +77,18 @@ export function clearReturnToIfReached(path) {
 
 /**
  * @param {string} path
- * @returns {boolean} `true` si la ruta es el enlace de invitación a una vaca.
+ * @returns {'vaca'|'negocio'|null} A qué invita la ruta, o `null` si no es un enlace de invitación.
+ */
+export function invitationKind(path) {
+  if (path.startsWith('/app/vacas/unirse/')) return 'vaca';
+  if (path.startsWith('/app/negocios/unirse/')) return 'negocio';
+  return null;
+}
+
+/**
+ * @param {string} path
+ * @returns {boolean} `true` si la ruta es el enlace de invitación a una vaca o a un negocio.
  */
 export function isInvitation(path) {
-  return path.startsWith('/app/vacas/unirse/');
+  return invitationKind(path) !== null;
 }

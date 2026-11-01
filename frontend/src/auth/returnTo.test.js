@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearReturnToIfReached, getReturnTo, isInvitation, saveReturnTo } from './returnTo';
+import { clearReturnToIfReached, getReturnTo, invitationKind, isInvitation, saveReturnTo } from './returnTo';
 
 const INVITE = '/app/vacas/unirse/4NS6NP';
 
@@ -44,8 +44,11 @@ describe('returnTo: volver a la invitación después de entrar', () => {
     expect(getReturnTo()).toBe('/app');
   });
 
-  it('reconoce el enlace de invitación', () => {
+  it('reconoce el enlace de invitación a una vaca y a un negocio', () => {
     expect(isInvitation(INVITE)).toBe(true);
     expect(isInvitation('/app')).toBe(false);
+    expect(invitationKind(INVITE)).toBe('vaca');
+    expect(invitationKind('/app/negocios/unirse/K7M2QX')).toBe('negocio');
+    expect(invitationKind('/app/negocios/123')).toBeNull();
   });
 });

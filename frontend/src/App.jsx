@@ -21,6 +21,9 @@ const Account = lazy(() => import('@/pages/app/Account'));
 const Vacas = lazy(() => import('@/pages/app/Vacas'));
 const VacaDetail = lazy(() => import('@/pages/app/VacaDetail'));
 const VacaJoin = lazy(() => import('@/pages/app/VacaJoin'));
+const Negocios = lazy(() => import('@/pages/app/Negocios'));
+const NegocioDetail = lazy(() => import('@/pages/app/NegocioDetail'));
+const NegocioJoin = lazy(() => import('@/pages/app/NegocioJoin'));
 
 /** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
 function ScrollToTop() {
@@ -59,7 +62,8 @@ function RouteFallback() {
  * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
  * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión ·
  * `/app/vacas` metas de ahorro en grupo · `/app/vacas/:id` seguimiento de aportes · `/app/vacas/unirse/:code`
- * enlace de invitación (FT-0014/FT-0015).
+ * enlace de invitación (FT-0014/FT-0015) · `/app/negocios` emprendimientos compartidos · `/app/negocios/:id`
+ * socios y roles · `/app/negocios/unirse/:code` enlace de invitación (FT-0016).
  * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
  */
 export default function App() {
@@ -90,6 +94,9 @@ export default function App() {
                 <Route path="/app/vacas" element={<Vacas />} />
                 <Route path="/app/vacas/unirse/:code" element={<VacaJoin />} />
                 <Route path="/app/vacas/:id" element={<VacaDetail />} />
+                <Route path="/app/negocios" element={<Negocios />} />
+                <Route path="/app/negocios/unirse/:code" element={<NegocioJoin />} />
+                <Route path="/app/negocios/:id" element={<NegocioDetail />} />
                 <Route path="/app/notificaciones" element={<Navigate to="/app/cuenta" replace />} />
               </Route>
             </Route>

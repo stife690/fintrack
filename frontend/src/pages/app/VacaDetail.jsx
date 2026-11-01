@@ -5,6 +5,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import { formatDate, formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
+import ConfirmButton from '@/components/common/ConfirmButton';
 import AdviceCard from '@/components/vacas/AdviceCard';
 import ContributionForm from '@/components/vacas/ContributionForm';
 import ContributionList from '@/components/vacas/ContributionList';
@@ -47,56 +48,6 @@ function Stat({ label, value, hint }) {
       <dt className="text-xs text-ink/60">{label}</dt>
       <dd className="mt-0.5 font-semibold tabular-nums">{value}</dd>
       {hint && <dd className="mt-0.5 text-xs text-ink/60">{hint}</dd>}
-    </div>
-  );
-}
-
-/**
- * Botón con confirmación en línea (sin diálogos del navegador).
- * @param {{ label: string, question: string, confirmLabel: string, icon: import('lucide-react').LucideIcon, disabled?: boolean, onConfirm: () => Promise<void> }} props
- */
-function ConfirmButton({ label, question, confirmLabel, icon: Icon, disabled, onConfirm }) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  if (!confirming) {
-    return (
-      <Button variant="ghost" className="justify-start text-negative" disabled={disabled} onClick={() => setConfirming(true)}>
-        <Icon aria-hidden="true" /> {label}
-      </Button>
-    );
-  }
-  return (
-    <div className="space-y-2 rounded-xl bg-negative/5 p-3">
-      <p className="text-sm">{question}</p>
-      {error && (
-        <p role="alert" className="text-sm text-negative">
-          {error}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            setError('');
-            try {
-              await onConfirm();
-            } catch (err) {
-              setError(err.message);
-              setBusy(false);
-            }
-          }}
-        >
-          {confirmLabel}
-        </Button>
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
-          Cancelar
-        </Button>
-      </div>
     </div>
   );
 }
