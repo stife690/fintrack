@@ -1,6 +1,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeftRight, Briefcase, House, Loader2, Menu, PiggyBank, Sparkles, Target } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Briefcase,
+  House,
+  Landmark,
+  Loader2,
+  Menu,
+  PiggyBank,
+  Sparkles,
+  Target,
+  UserPlus,
+} from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import MoreSheet, { isMorePath } from '@/components/layout/MoreSheet';
 import SyncStatus from '@/components/layout/SyncStatus';
@@ -15,8 +26,8 @@ import { getProfile } from '@/services/userService';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 /**
- * Secciones de la zona privada, en dos grupos: las finanzas propias y lo que se maneja con otras
- * personas. `end` evita que "Inicio" quede activo en las subrutas. Cuenta va aparte (el usuario,
+ * Secciones de la zona privada, por grupos: las finanzas propias, lo que se maneja con otras
+ * personas y la app. `end` evita que "Inicio" quede activo en las subrutas. Cuenta va aparte (el usuario,
  * abajo en el menú lateral, y el avatar arriba en el celular).
  */
 const NAV_GROUPS = [
@@ -27,6 +38,7 @@ const NAV_GROUPS = [
       { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
       { to: '/app/insights', label: 'Insights', icon: Sparkles },
+      { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],
   },
   {
@@ -35,6 +47,10 @@ const NAV_GROUPS = [
       { to: '/app/vacas', label: 'Vacas', icon: PiggyBank },
       { to: '/app/negocios', label: 'Negocios', icon: Briefcase },
     ],
+  },
+  {
+    label: 'FinTrack',
+    items: [{ to: '/app/invitar', label: 'Invitar amigos', icon: UserPlus }],
   },
 ];
 
@@ -62,7 +78,7 @@ function Avatar({ user, className }) {
  */
 function Sidebar({ user }) {
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[76px] shrink-0 flex-col border-r border-ink/10 bg-surface px-3 py-5 md:flex lg:w-64 lg:px-4">
+    <aside className="sticky top-0 hidden h-dvh w-[76px] shrink-0 flex-col overflow-y-auto border-r border-ink/10 bg-surface px-3 py-5 md:flex lg:w-64 lg:px-4">
       <Link
         to="/app"
         className="flex items-center gap-2.5 rounded-xl px-2 text-xl font-semibold tracking-tight max-lg:justify-center"
