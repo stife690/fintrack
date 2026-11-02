@@ -24,9 +24,21 @@ function Section({ id, title, description, children }) {
   );
 }
 
+/** Grupo de ajustes con su nombre, para ubicar rápido lo que se busca. */
+function Group({ label, children }) {
+  return (
+    <section aria-label={label}>
+      <p aria-hidden="true" className="mb-2 px-1 text-sm font-medium text-ink/60">
+        {label}
+      </p>
+      <div className="flex flex-col gap-5">{children}</div>
+    </section>
+  );
+}
+
 /**
- * Página privada `/app/cuenta`: perfil (nombre editable), categorías propias, tema de la app,
- * notificaciones (REQ-029 y REQ-030) y cierre de sesión.
+ * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), preferencias (tema de la app
+ * y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
  */
 export default function Account() {
   usePageTitle('Cuenta');
@@ -44,27 +56,32 @@ export default function Account() {
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Cuenta" />
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-8">
         <ProfileCard />
 
-        <CustomCategories />
+        <Group label="Preferencias">
+          <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
+            <ThemeSelector />
+          </Section>
+          <CustomCategories />
+        </Group>
 
-        <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
-          <ThemeSelector />
-        </Section>
+        <Group label="Alertas">
+          <NotificationSettings />
+        </Group>
 
-        <NotificationSettings />
-
-        <Panel className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Cerrar sesión</h2>
-            <p className="mt-1 text-sm text-ink/60">Sales de tu cuenta en este dispositivo.</p>
-          </div>
-          <Button variant="outline" onClick={handleSignOut} disabled={leaving}>
-            {leaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut aria-hidden="true" />}
-            {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
-          </Button>
-        </Panel>
+        <Group label="Sesión">
+          <Panel className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Cerrar sesión</h2>
+              <p className="mt-1 text-sm text-ink/60">Sales de tu cuenta en este dispositivo.</p>
+            </div>
+            <Button variant="outline" onClick={handleSignOut} disabled={leaving}>
+              {leaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut aria-hidden="true" />}
+              {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </Button>
+          </Panel>
+        </Group>
       </div>
     </div>
   );
