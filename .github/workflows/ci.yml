@@ -48,7 +48,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      # Va antes de `npm test`: sin las tablas, las pruebas con base de datos se omiten sin avisar.
       - name: Validar que el esquema SQL se aplica sobre PostgreSQL
         working-directory: .
         env:
@@ -59,6 +59,7 @@ jobs:
           done
           test "$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from information_schema.tables where table_schema='public'")" -eq 18
           test "$(psql -h localhost -U fintrack -d fintrack -Atc 'select count(*) from categorias')" -eq 15
+      - run: npm test
 
   frontend:
     name: Frontend (tests y build)
