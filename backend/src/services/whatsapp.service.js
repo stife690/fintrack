@@ -6,7 +6,7 @@ import { findUserById } from '../repositories/users.repository.js';
 import * as repo from '../repositories/whatsapp.repository.js';
 import { parseSpokenTransaction } from './entry-parser.js';
 import { todayIso } from './insights.service.js';
-import { create as createTransaction } from './transactions.service.js';
+import { create as createTransaction, summary as summarizePeriod } from './transactions.service.js';
 import { sendText } from './whatsapp-client.service.js';
 
 /** Minutos que dura el código para vincular; la pantalla de Cuenta dice lo mismo. */
@@ -16,6 +16,11 @@ export const LINK_CODE_MINUTES = 10;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 8;
 const CODE_RE = /^FT-[A-Z0-9]{8}$/;
+
+/** Preguntas que entiende el bot, sobre el texto en minúsculas y sin tildes. */
+const BALANCE_QUESTION = /(?<!\p{L})(cuanto tengo|cuanta plata tengo|cuanto me queda|saldo|balance)(?!\p{L})/u;
+const EXPENSE_QUESTION = /(?<!\p{L})(cuanto (he gastado|llevo gastado|gaste)|mis gastos|gastos del mes)(?!\p{L})/u;
+const ANY_QUESTION = /\?|^¿?\s*(cuanto|cuanta|que|como|cual)(?!\p{L})/u;
 
 export const REPLIES = {
   unlinked: 'Hola. Para usar este chat, conecta tu número en FinTrack, en Cuenta → WhatsApp.',
@@ -28,6 +33,10 @@ export const REPLIES = {
   noDescription: '¿En qué fue? Agrega una palabra, como "almuerzo 15 mil".',
   dailyLimit: 'Llegaste al límite de mensajes de hoy. Mañana sigo registrando.',
   failed: 'No pude guardar ese movimiento. Inténtalo de nuevo en un momento.',
+  help: 'Por ahora puedo decirte tu saldo y tus gastos del mes. Prueba con "cuánto tengo" o "cuánto he gastado".',
+  queryFailed: 'No pude consultar tus movimientos. Inténtalo de nuevo en un momento.',
+  noMovements: (month) => `En ${month} aún no tienes movimientos.`,
+  noExpenses: (month) => `En ${month} aún no tienes gastos.`,
 };
 
 /**
@@ -133,10 +142,19 @@ export function extractMessages(payload, phoneNumberId = env.whatsappPhoneNumber
 
 /**
  * @param {number} value
- * @returns {string} Monto en pesos, p. ej. "$15.000".
+ * @returns {string} Monto en pesos, p. ej. "$15.000" o "-$15.000".
  */
 function money(value) {
-  return `$${value.toLocaleString('es-CO', { maximumFractionDigits: 2 })}`;
+  const sign = value < 0 ? '-' : '';
+  return `${sign}$${Math.abs(value).toLocaleString('es-CO', { maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * @param {string} date AAAA-MM-DD.
+ * @returns {string} Nombre del mes, p. ej. "noviembre".
+ */
+function monthName(date) {
+  return new Intl.DateTimeFormat('es-CO', { month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
 
 /**
@@ -145,6 +163,7 @@ function money(value) {
  * @param {Pick<typeof repo, 'findPhone'|'findUserIdByPhone'|'saveLinkCode'|'confirmLink'|'removeLink'|'claimMessage'|'countRecentMessages'>} [deps.repository]
  * @param {typeof createTransaction} [deps.createTransaction]
  * @param {typeof listCategories} [deps.listCategories]
+ * @param {typeof summarizePeriod} [deps.summarize]
  * @param {typeof sendText} [deps.sendText]
  * @param {typeof findUserById} [deps.findUser]
  * @param {() => Date} [deps.now]
@@ -155,6 +174,7 @@ export function createWhatsappService(deps = {}) {
   const store = deps.repository ?? repo;
   const save = deps.createTransaction ?? createTransaction;
   const categoriesOf = deps.listCategories ?? listCategories;
+  const summarize = deps.summarize ?? summarizePeriod;
   const send = deps.sendText ?? sendText;
   const findUser = deps.findUser ?? findUserById;
   const now = deps.now ?? (() => new Date());
@@ -213,6 +233,62 @@ export function createWhatsappService(deps = {}) {
   }
 
   /**
+   * @param {string} userId
+   * @param {string|null} key
+   * @returns {Promise<string>} Nombre de la categoría.
+   */
+  async function categoryName(userId, key) {
+    const categories = await categoriesOf(userId);
+    return categories.find((c) => c.key === key)?.name ?? 'Sin clasificar';
+  }
+
+  /**
+   * Responde el balance del mes con las mismas cuentas del dashboard.
+   * @param {string} userId
+   * @param {string} today AAAA-MM-DD.
+   * @returns {Promise<string>}
+   */
+  async function balanceReply(userId, today) {
+    const month = monthName(today);
+    const { income, expense } = await summarize(userId, { period: 'month', date: today });
+    if (income.total === 0 && expense.total === 0) return REPLIES.noMovements(month);
+    const balance = Math.round((income.total - expense.total) * 100) / 100;
+    return `En ${month} llevas:\nIngresos: ${money(income.total)}\nGastos: ${money(expense.total)}\nBalance: ${money(balance)}`;
+  }
+
+  /**
+   * Responde cuánto se ha gastado en el mes y la categoría que más pesa.
+   * @param {string} userId
+   * @param {string} today AAAA-MM-DD.
+   * @returns {Promise<string>}
+   */
+  async function expensesReply(userId, today) {
+    const month = monthName(today);
+    const { expense } = await summarize(userId, { period: 'month', date: today });
+    if (expense.total === 0) return REPLIES.noExpenses(month);
+    const [top] = expense.byCategory;
+    const name = await categoryName(userId, top.category);
+    return `En ${month} has gastado ${money(expense.total)}.\nLo que más pesa: ${name}, ${money(top.total)}.`;
+  }
+
+  /**
+   * Responde un mensaje sin monto: una consulta del mes o, si no lo es, qué hace falta aclarar.
+   * @param {string} userId
+   * @param {string} text
+   * @param {string} today AAAA-MM-DD.
+   * @returns {Promise<string>} Respuesta para el usuario.
+   */
+  async function answer(userId, text, today) {
+    const asked = text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
+    const query = BALANCE_QUESTION.test(asked) ? balanceReply : EXPENSE_QUESTION.test(asked) && expensesReply;
+    if (!query) return ANY_QUESTION.test(asked) ? REPLIES.help : REPLIES.noAmount;
+    return query(userId, today).catch((err) => {
+      console.error(`No se pudo consultar el mes por WhatsApp (${err.message})`);
+      return REPLIES.queryFailed;
+    });
+  }
+
+  /**
    * Registra un movimiento a partir del texto, o devuelve qué hace falta aclarar. El analizador
    * trabaja con la fecha local del servidor: se le pasa el mediodía de hoy en Bogotá.
    * @param {string} userId
@@ -222,7 +298,7 @@ export function createWhatsappService(deps = {}) {
   async function register(userId, { id, text }) {
     const today = todayIso(now());
     const parsed = parseSpokenTransaction(text, new Date(`${today}T12:00:00`));
-    if (parsed.amount === null) return REPLIES.noAmount;
+    if (parsed.amount === null) return answer(userId, text, today);
     if (parsed.ambiguous) return REPLIES.severalAmounts;
     if (!parsed.description) return REPLIES.noDescription;
 
@@ -235,9 +311,8 @@ export function createWhatsappService(deps = {}) {
       // Como máximo 64 caracteres, igual que `transacciones.local_id`.
       localId: `wa-${hashCode(id).slice(0, 61)}`,
     });
-    const categories = await categoriesOf(userId);
-    const name = categories.find((c) => c.key === saved.category)?.name ?? 'Sin clasificar';
-    const when = saved.date === today ? '' : ` del ${saved.date}`;
+    const name = await categoryName(userId, saved.category);
+    const when =saved.date === today ? '' : ` del ${saved.date}`;
     const what = saved.type === 'ingreso' ? 'ingreso' : 'gasto';
     return `Guardé un ${what} de ${money(saved.amount)}${when} en ${name}.`;
   }
