@@ -130,7 +130,7 @@ function PendingList({ operations, onError }) {
 }
 
 /**
- * Página privada `/app/transacciones`: formulario de registro y listado con filtros
+ * Página privada `/app/transacciones`: formulario de registro y listado con buscador, filtros
  * (tipo, categoría, rango de fechas) y paginación. FT-0002.
  * Sin conexión, los movimientos nuevos se guardan en el dispositivo y se sincronizan después (FT-0009).
  */

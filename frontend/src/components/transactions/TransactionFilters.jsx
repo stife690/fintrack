@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { currentMonth, shiftMonth } from '@/components/budgets/month';
 import ChipGroup from '@/components/common/ChipGroup';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,15 @@ import { Label } from '@/components/ui/label';
 import { getCategoryStyle } from '@/lib/categoryStyles';
 import { monthRange } from '@/services/summaryService';
 
-/** @typedef {{ type: string, category: string, from: string, to: string }} Filters */
+/** @typedef {{ q: string, type: string, category: string, from: string, to: string }} Filters */
 
-export const NO_FILTERS = { type: '', category: '', from: '', to: '' };
+export const NO_FILTERS = { q: '', type: '', category: '', from: '', to: '' };
+
+/** Espera tras la última tecla antes de buscar, para no pedir la lista con cada letra. */
+export const SEARCH_DELAY_MS = 300;
+
+/** Lo máximo que acepta `GET /transactions?q=`. */
+const MAX_SEARCH_LENGTH = 100;
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Todos' },
@@ -42,8 +48,8 @@ function periodOf({ from, to }) {
 }
 
 /**
- * Filtros del historial en forma de pastillas: tipo, periodo (con rango personalizado) y
- * categoría (en una fila deslizable, con el ícono de cada una).
+ * Filtros del historial: buscador por descripción y, en forma de pastillas, tipo, periodo (con
+ * rango personalizado) y categoría (en una fila deslizable, con el ícono de cada una).
  *
  * @param {object} props
  * @param {Filters} props.filters
@@ -54,6 +60,22 @@ export default function TransactionFilters({ filters, categories, onChange }) {
   // "Personalizado" puede estar elegido antes de escribir las fechas.
   const [customOpen, setCustomOpen] = useState(false);
   const period = customOpen ? 'custom' : periodOf(filters);
+  // Lo escrito se ve al instante; el filtro cambia cuando el usuario deja de escribir.
+  const [search, setSearch] = useState(filters.q);
+  const searchTimer = useRef(null);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+
+  const changeSearch = (text) => {
+    setSearch(text);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => onChange({ q: text.trim() }), SEARCH_DELAY_MS);
+  };
+
+  const clearSearch = () => {
+    setSearch('');
+    clearTimeout(searchTimer.current);
+    onChange({ q: '' });
+  };
 
   const pickPeriod = (next) => {
     setCustomOpen(next === 'custom');
@@ -73,10 +95,34 @@ export default function TransactionFilters({ filters, categories, onChange }) {
     ...list.map((c) => ({ value: c.key, label: c.name, icon: getCategoryStyle(c.key).icon })),
   ];
 
-  const active = Object.values(filters).some(Boolean);
+  const active = Object.values(filters).some(Boolean) || search !== '';
 
   return (
     <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-ink/40" aria-hidden="true" />
+        <Input
+          aria-label="Buscar movimientos"
+          placeholder="Buscar: almuerzo, arriendo…"
+          value={search}
+          maxLength={MAX_SEARCH_LENGTH}
+          enterKeyHint="search"
+          autoComplete="off"
+          className="px-11"
+          onChange={(e) => changeSearch(e.target.value)}
+        />
+        {search && (
+          <button
+            type="button"
+            aria-label="Borrar búsqueda"
+            onClick={clearSearch}
+            className="absolute top-1/2 right-1 grid size-10 -translate-y-1/2 place-items-center rounded-full text-ink/60 hover:text-ink"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-x-6 gap-y-4">
         <ChipGroup legend="Tipo" options={TYPE_OPTIONS} value={filters.type} onChange={pickType} />
         <ChipGroup legend="Periodo" options={PERIOD_OPTIONS} value={period} onChange={pickPeriod} />
@@ -120,6 +166,8 @@ export default function TransactionFilters({ filters, categories, onChange }) {
           type="button"
           onClick={() => {
             setCustomOpen(false);
+            setSearch('');
+            clearTimeout(searchTimer.current);
             onChange(NO_FILTERS);
           }}
           className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"

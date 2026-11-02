@@ -81,8 +81,12 @@ export async function listTransactions({ userId, type, category, q, from, to, li
   };
   if (type) add('t.tipo = ?', type);
   if (category) add('c.key = ?', category);
-  // Búsqueda por texto en la descripción; se escapan % y _ para tomarlos literalmente.
-  if (q) add("t.descripcion ILIKE ? ESCAPE '\\'", `%${q.replace(/[\\%_]/g, '\\$&')}%`);
+  // Búsqueda por texto en la descripción, sin distinguir tildes ni mayúsculas ("cafe" = "Café"; la
+  // ñ se conserva). Se escapan % y _ para tomarlos literalmente.
+  if (q) {
+    const plain = (text) => `translate(lower(${text}), 'áéíóúüÁÉÍÓÚÜ', 'aeiouuaeiouu')`;
+    add(`${plain('t.descripcion')} LIKE ${plain('?')} ESCAPE '\\'`, `%${q.replace(/[\\%_]/g, '\\$&')}%`);
+  }
   if (from) add('t.fecha >= ?', from);
   if (to) add('t.fecha <= ?', to);
   const clause = where.join(' AND ');
