@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   deleteCommitment,
+  getPlan,
   getProfile,
   postCommitment,
   postWelcome,
@@ -13,6 +14,7 @@ import { requireAuth } from '../middlewares/auth.middleware.js';
  * Rutas de Mi plata (se montan en `/api/v1/money-profile`). Todas exigen access token y solo
  * operan sobre los datos del usuario autenticado (RN-01).
  * - `GET /` → perfil y compromisos.
+ * - `GET /plan` → cuánto puede gastar o necesita ganar hoy.
  * - `PUT /` → cómo le entra la plata y cuánta tiene.
  * - `POST /welcome` → guarda la bienvenida o la marca como omitida.
  * - `POST /commitments` → crear un compromiso.
@@ -23,6 +25,7 @@ const router = Router();
 
 router.use(requireAuth);
 router.get('/', getProfile);
+router.get('/plan', getPlan);
 router.put('/', putProfile);
 router.post('/welcome', postWelcome);
 router.post('/commitments', postCommitment);

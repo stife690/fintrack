@@ -53,6 +53,26 @@ export async function findProfile(userId) {
 }
 
 /**
+ * Lo registrado después de que el usuario dijo cuánta plata tenía. Un movimiento nuevo con fecha
+ * anterior a ese día ya estaba incluido en el saldo: no se cuenta.
+ * @param {string} userId
+ * @returns {Promise<{ income: number, expense: number }>}
+ */
+export async function changesSinceBalance(userId) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(t.monto) FILTER (WHERE t.tipo = 'ingreso'), 0)::float8 AS income,
+            COALESCE(SUM(t.monto) FILTER (WHERE t.tipo = 'gasto'), 0)::float8 AS expense
+     FROM perfiles_financieros p
+     JOIN usuarios u ON u.id = p.usuario_id
+     JOIN transacciones t ON t.usuario_id = p.usuario_id
+     WHERE p.usuario_id = $1 AND t.deleted_at IS NULL AND t.created_at > p.saldo_at
+       AND t.fecha >= (p.saldo_at AT TIME ZONE u.timezone)::date`,
+    [userId],
+  );
+  return rows[0];
+}
+
+/**
  * Crea o reemplaza el perfil.
  * @param {string} userId
  * @param {import('../validators/money-profile.validator.js').ProfileData} data

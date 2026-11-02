@@ -12,6 +12,7 @@ import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import { currentMonth } from '@/components/budgets/month';
 import PageHeader from '@/components/layout/PageHeader';
 import MoneyInvite from '@/components/money/MoneyInvite';
+import MoneyPlanCard from '@/components/money/MoneyPlanCard';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
@@ -22,7 +23,7 @@ import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
-import { getMoneyProfile } from '@/services/moneyProfileService';
+import { getMoneyPlan, getMoneyProfile } from '@/services/moneyProfileService';
 import { getSummary } from '@/services/summaryService';
 import { getCategories, listTransactions } from '@/services/transactionService';
 
@@ -43,6 +44,7 @@ function monthName(month) {
  * Sin conexión, los últimos movimientos salen de la copia del dispositivo (FT-0009) y el balance y los
  * presupuestos avisan que se actualizan al volver internet; al reconectar, todo se recarga.
  * Quien no ha visto la bienvenida (FT-0036) va a ella si no tiene movimientos; si ya tiene, se le invita.
+ * Con la bienvenida respondida, lo primero es la tarjeta de Mi plata (FT-0037).
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -75,6 +77,7 @@ export default function Dashboard() {
   );
   const categories = useAsync(getCategories, []);
   const moneyProfile = useAsync(getMoneyProfile, [online]);
+  const moneyPlan = useAsync(getMoneyPlan, [online]);
 
   const names = useMemo(() => {
     const all = categories.data ? [...categories.data.expense, ...categories.data.income] : [];
@@ -86,6 +89,7 @@ export default function Dashboard() {
   const { reload: reloadRecent } = recent;
   const { reload: reloadSummary } = summary;
   const { reload: reloadBudgets } = budgets;
+  const { reload: reloadPlan } = moneyPlan;
 
   // Un movimiento nuevo desde la barra rápida (FT-0013): se recargan balance, últimos y presupuestos.
   useEffect(() => {
@@ -93,10 +97,11 @@ export default function Dashboard() {
       reloadRecent();
       reloadSummary();
       reloadBudgets();
+      reloadPlan();
     };
     window.addEventListener(TRANSACTION_SAVED_EVENT, onSaved);
     return () => window.removeEventListener(TRANSACTION_SAVED_EVENT, onSaved);
-  }, [reloadRecent, reloadSummary, reloadBudgets]);
+  }, [reloadRecent, reloadSummary, reloadBudgets, reloadPlan]);
 
   useEffect(() => {
     const onSync = ({ detail }) => {
@@ -105,12 +110,13 @@ export default function Dashboard() {
       if (detail.synced?.length) {
         reloadRecent();
         reloadSummary();
+        reloadPlan();
       }
     };
     listPending().then((ops) => setPending(ops.length));
     window.addEventListener(SYNC_EVENT, onSync);
     return () => window.removeEventListener(SYNC_EVENT, onSync);
-  }, [reloadRecent, reloadSummary]);
+  }, [reloadRecent, reloadSummary, reloadPlan]);
 
   const name = getDisplayName(user);
   // `total` cuenta todos los movimientos del usuario, no solo los de la página pedida.
@@ -118,6 +124,9 @@ export default function Dashboard() {
   // Sin conexión la copia local puede estar vacía aunque el servidor tenga datos: no se afirma que no hay.
   const empty = online && recent.data?.total === 0 && pending === 0;
   const welcomePending = online && moneyProfile.data?.welcomeDone === false;
+
+  // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.
+  const plan = online && moneyPlan.data?.ready ? moneyPlan.data : null;
 
   if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
@@ -130,6 +139,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
+          {plan && <MoneyPlanCard plan={plan} hidden={hidden} />}
           {empty ? (
             <DashboardEmpty />
           ) : (
@@ -167,7 +177,7 @@ export default function Dashboard() {
 
         <aside className="min-w-0" aria-label="Presupuestos del mes">
           <div className="flex flex-col gap-6 lg:sticky lg:top-8">
-            {!empty && <HealthCard hidden={hidden} />}
+            {!empty && <HealthCard hidden={hidden} showAllowance={!plan} />}
             <BudgetOverview
               budgets={budgets.data}
               names={names}

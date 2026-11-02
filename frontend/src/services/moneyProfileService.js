@@ -28,6 +28,14 @@ export function getMoneyProfile() {
 }
 
 /**
+ * Cuánto puede gastar o necesita ganar el usuario hoy (FT-0037).
+ * @returns {Promise<{ ready: boolean } & Record<string, any>>} Ver `GET /money-profile/plan` en la API.
+ */
+export function getMoneyPlan() {
+  return apiRequest('/money-profile/plan');
+}
+
+/**
  * Cambia cómo le entra la plata al usuario y cuánta tiene.
  * @param {{ incomeType: string|null, payDays: number[], balance: number|null }} data
  * @returns {Promise<MoneyProfile>}

@@ -708,6 +708,27 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /money-profile/plan:
+    get:
+      tags: [MoneyProfile]
+      summary: Cuánto puede gastar o necesita ganar el usuario hoy (FT-0037)
+      description: |
+        Se calcula con fórmulas fijas, sin IA. `ready` es `false` si falta el tipo de ingreso o el saldo.
+        Plata actual = saldo + ingresos − gastos registrados después de dar el saldo. Libre = plata
+        actual − compromisos pendientes. Un compromiso está pagado si un gasto del mes lleva su nombre.
+        `daily` (fecha fija): `perDay` = libre ÷ días hasta `nextPay`, restando solo lo que vence antes
+        del pago y lo atrasado. `goal` (sin fecha): `goal` = (compromisos + `pace` × días − plata) ÷
+        días, hasta el último compromiso pendiente. `runway` (sin fecha, ya cubre todo): `runwayDays`
+        = libre ÷ `pace`. `pace` y `usualIncome` piden 14 días de historial. La plata que no ha
+        entrado nunca se cuenta.
+      responses:
+        "200":
+          description: Plan de hoy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MoneyPlan" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /money-profile/welcome:
     post:
       tags: [MoneyProfile]
@@ -1902,6 +1923,35 @@ components:
         commitments:
           type: array
           items: { $ref: "#/components/schemas/Commitment" }
+    MoneyPlan:
+      type: object
+      required: [ready]
+      properties:
+        ready: { type: boolean }
+        mode: { type: string, enum: [daily, goal, runway] }
+        money: { type: number, description: Plata actual }
+        pendingTotal: { type: number }
+        free: { type: number }
+        shortfall: { type: number, description: Lo que falta para los compromisos; 0 si alcanza }
+        pace: { type: number, nullable: true, description: Gasto normal por día }
+        hasCommitments: { type: boolean }
+        pending:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              amount: { type: number }
+              date: { type: string, format: date }
+        nextPay: { type: string, format: date, description: Solo `daily` }
+        days: { type: integer, description: "Días del cálculo; `daily` y `goal`" }
+        perDay: { type: number, description: Solo `daily` }
+        goal: { type: number, description: Solo `goal` }
+        until: { type: string, description: "Solo `goal`: el último compromiso pendiente" }
+        todayIncome: { type: number, description: Solo `goal` }
+        usualIncome: { type: number, nullable: true, description: Solo `goal` }
+        runwayDays: { type: integer, nullable: true, description: Solo `runway` }
     CommitmentInput:
       type: object
       required: [name, amount, dayOfMonth]
