@@ -24,6 +24,12 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+/** Correos que pueden usar el bot de WhatsApp, separados por coma. Vacío: nadie. */
+const whatsappAllowedEmails = (process.env.WHATSAPP_ALLOWED_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
 const DEFAULT_MODELS = {
   gemini: 'gemini-flash-lite-latest',
@@ -89,6 +95,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string|undefined} whatsappAppSecret Clave secreta de la app, valida la firma del webhook (`WHATSAPP_APP_SECRET`).
  * @property {string|undefined} whatsappVerifyToken Texto con el que Meta verifica el webhook (`WHATSAPP_VERIFY_TOKEN`).
  * @property {string|undefined} whatsappBotNumber Número del bot con indicativo, solo dígitos (`WHATSAPP_BOT_NUMBER`); arma el enlace para abrir el chat.
+ * @property {string[]} whatsappAllowedEmails Correos que pueden conectar el bot (`WHATSAPP_ALLOWED_EMAILS`).
  * @property {number} whatsappDailyMax Mensajes al bot por usuario y día (`WHATSAPP_DAILY_MAX`, por defecto 100).
  */
 export const env = {
@@ -129,6 +136,7 @@ export const env = {
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET?.trim() || undefined,
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN?.trim() || undefined,
   whatsappBotNumber: process.env.WHATSAPP_BOT_NUMBER?.replace(/\D/g, '') || undefined,
+  whatsappAllowedEmails,
   whatsappDailyMax: Number(process.env.WHATSAPP_DAILY_MAX) || 100,
 };
 

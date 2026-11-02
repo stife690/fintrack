@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { env } from '../config/env.js';
+import { AppError } from '../errors/app-error.js';
 import { listCategories } from '../repositories/categories.repository.js';
+import { findUserById } from '../repositories/users.repository.js';
 import * as repo from '../repositories/whatsapp.repository.js';
 import { parseSpokenTransaction } from './entry-parser.js';
 import { todayIso } from './insights.service.js';
@@ -144,6 +146,7 @@ function money(value) {
  * @param {typeof createTransaction} [deps.createTransaction]
  * @param {typeof listCategories} [deps.listCategories]
  * @param {typeof sendText} [deps.sendText]
+ * @param {typeof findUserById} [deps.findUser]
  * @param {() => Date} [deps.now]
  * @param {number} [deps.dailyMax]
  * @returns {{ status: (userId: string) => Promise<object>, createLinkCode: (userId: string) => Promise<object>, unlink: (userId: string) => Promise<void>, handleMessage: (message: { id: string, from: string, text: string|null }) => Promise<void>, handleWebhook: (payload: object) => Promise<void> }}
@@ -153,8 +156,21 @@ export function createWhatsappService(deps = {}) {
   const save = deps.createTransaction ?? createTransaction;
   const categoriesOf = deps.listCategories ?? listCategories;
   const send = deps.sendText ?? sendText;
+  const findUser = deps.findUser ?? findUserById;
   const now = deps.now ?? (() => new Date());
   const dailyMax = deps.dailyMax ?? env.whatsappDailyMax;
+
+  /**
+   * ¿Este usuario puede conectar el bot? Con el número de prueba, Meta solo deja responderles a
+   * cinco destinatarios: la lista evita ofrecerles el bot a los demás.
+   * @param {string} userId
+   * @returns {Promise<boolean>}
+   */
+  async function canUse(userId) {
+    if (!isAvailable()) return false;
+    const user = await findUser(userId);
+    return Boolean(user) && env.whatsappAllowedEmails.includes(user.email.toLowerCase());
+  }
 
   /**
    * Estado de la conexión para la pantalla de Cuenta.
@@ -164,7 +180,7 @@ export function createWhatsappService(deps = {}) {
   async function status(userId) {
     const phone = await store.findPhone(userId);
     return {
-      available: isAvailable(),
+      available: await canUse(userId),
       linked: phone !== null,
       phone: phone && maskPhone(phone),
       botNumber: env.whatsappBotNumber ?? null,
@@ -175,8 +191,12 @@ export function createWhatsappService(deps = {}) {
    * Genera el código de un solo uso que el usuario le envía al bot.
    * @param {string} userId
    * @returns {Promise<{ code: string, expiresAt: Date, botNumber: string|null }>}
+   * @throws {AppError} 403 si el usuario no está en la lista.
    */
   async function createLinkCode(userId) {
+    if (!(await canUse(userId))) {
+      throw new AppError(403, 'FORBIDDEN', 'WhatsApp aún no está disponible para tu cuenta');
+    }
     const code = generateCode();
     const expiresAt = new Date(now().getTime() + LINK_CODE_MINUTES * 60 * 1000);
     await store.saveLinkCode({ userId, codeHash: hashCode(code), expiresAt });

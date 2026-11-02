@@ -16,6 +16,7 @@ Object.assign(process.env, {
 });
 const { createApp } = await import('./app.js');
 const { pool } = await import('./config/db.js');
+const { env } = await import('./config/env.js');
 const { signAccessToken } = await import('./services/token.service.js');
 
 // Usa la base real: necesita el esquema de `db/init/` (o el parche 010).
@@ -40,12 +41,18 @@ after(async () => {
   await pool.end();
 });
 
-/** @returns {Promise<{ id: string, token: string }>} */
-async function createUser() {
+/**
+ * Crea un usuario de prueba.
+ * @param {{ allowed?: boolean }} [options] `allowed: false` lo deja fuera de la lista del bot.
+ * @returns {Promise<{ id: string, token: string }>}
+ */
+async function createUser({ allowed = true } = {}) {
+  const email = `${randomUUID()}${TEST_DOMAIN}`;
   const { rows: created } = await pool.query(
     'INSERT INTO usuarios (email, password_hash) VALUES ($1, $2) RETURNING id',
-    [`${randomUUID()}${TEST_DOMAIN}`, 'x'],
+    [email, 'x'],
   );
+  if (allowed) env.whatsappAllowedEmails.push(email);
   return { id: created[0].id, token: signAccessToken(created[0].id) };
 }
 
@@ -156,6 +163,15 @@ test('rechaza avisos sin firma o con firma falsa', options, async () => {
 test('las rutas de conexión exigen sesión', options, async () => {
   await withServer(async (base) => {
     assert.equal((await fetch(`${base}/link`)).status, 401);
+  });
+});
+
+test('quien no está en la lista no ve el bot ni puede pedir un código', options, async () => {
+  const user = await createUser({ allowed: false });
+  await withServer(async (base) => {
+    const status = await (await fetch(`${base}/link`, json(user.token))).json();
+    assert.equal(status.available, false);
+    assert.equal((await fetch(`${base}/link`, json(user.token, 'POST'))).status, 403);
   });
 });
 
