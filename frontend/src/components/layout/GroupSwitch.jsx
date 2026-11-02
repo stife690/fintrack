@@ -8,8 +8,8 @@ const OPTIONS = [
 ];
 
 /**
- * Selector Vacas | Negocios arriba de esas dos pantallas en el celular, donde la barra inferior
- * las junta en "Grupos". Desde tablet el menú lateral ya muestra las dos, así que se oculta.
+ * Selector Vacas | Negocios arriba de esas dos pantallas en el celular: las dos viven en "Más" y
+ * así se cambia de una a otra sin abrirlo. Desde tablet el menú lateral ya las muestra, se oculta.
  */
 export default function GroupSwitch() {
   return (
