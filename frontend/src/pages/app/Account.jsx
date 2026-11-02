@@ -4,6 +4,7 @@ import { Loader2, LogOut } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
+import WhatsappLink from '@/components/account/WhatsappLink';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
@@ -64,6 +65,7 @@ export default function Account() {
             <ThemeSelector />
           </Section>
           <CustomCategories />
+          <WhatsappLink />
         </Group>
 
         <Group label="Alertas">

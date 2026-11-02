@@ -226,3 +226,21 @@ CREATE TABLE idea_votos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (idea_id, usuario_id)
 );
+
+-- Registro por WhatsApp (FT-0029). Una fila por usuario: `telefono` es NULL hasta que envía su
+-- código al bot; del código de un solo uso solo se guarda el hash.
+CREATE TABLE whatsapp_vinculos (
+  usuario_id UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  telefono VARCHAR(20) UNIQUE NULL,
+  codigo_hash VARCHAR(64) UNIQUE NULL,
+  codigo_expira TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Meta puede reenviar un mensaje: la llave primaria impide procesarlo dos veces. No guarda el texto.
+CREATE TABLE whatsapp_mensajes (
+  mensaje_id VARCHAR(128) PRIMARY KEY,
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_whatsapp_mensajes_usuario ON whatsapp_mensajes(usuario_id, created_at DESC);

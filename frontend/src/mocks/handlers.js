@@ -14,6 +14,7 @@ const users = new Map();
 const accessTokens = new Map();
 /** refresh token → email */
 const refreshTokens = new Map();
+let whatsappLinked = false;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -655,6 +656,35 @@ export const handlers = [
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     ideaVotes.delete(params.id);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/whatsapp/link`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({
+      available: true,
+      linked: whatsappLinked,
+      phone: whatsappLinked ? '•••• 3374' : null,
+      botNumber: '15551773374',
+    });
+  }),
+
+  http.post(`${API_V1}/whatsapp/link`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    // En los mocks no hay bot: "Ya lo envié" encuentra el número conectado.
+    whatsappLinked = true;
+    return HttpResponse.json(
+      { code: 'FT-AB23CD45', expiresAt: new Date(Date.now() + 600000).toISOString(), botNumber: '15551773374' },
+      { status: 201 },
+    );
+  }),
+
+  http.delete(`${API_V1}/whatsapp/link`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    whatsappLinked = false;
     return new HttpResponse(null, { status: 204 });
   }),
 ];
