@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { X } from 'lucide-react';
+import { lockScroll } from '@/lib/scrollLock';
 
 const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
@@ -16,14 +17,15 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
  * @param {string} [props.description] Una línea bajo el título.
  * @param {() => void} props.onClose
  * @param {React.ReactNode} props.children
+ * @param {number} [props.keyboardInset] Alto del teclado del celular, para subir la ventana sobre él.
  */
-export default function Sheet({ open, title, description, onClose, children }) {
+export default function Sheet({ open, title, description, onClose, children, keyboardInset }) {
   // Portal al contenedor con `data-theme`: queda encima de todo y conserva el tema.
   return createPortal(
     <MotionConfig reducedMotion="user">
       <AnimatePresence>
         {open && (
-          <Panel key="sheet" title={title} description={description} onClose={onClose}>
+          <Panel key="sheet" title={title} description={description} onClose={onClose} keyboardInset={keyboardInset}>
             {children}
           </Panel>
         )}
@@ -34,9 +36,9 @@ export default function Sheet({ open, title, description, onClose, children }) {
 }
 
 /**
- * @param {{ title: string, description?: string, onClose: () => void, children: React.ReactNode }} props
+ * @param {{ title: string, description?: string, onClose: () => void, children: React.ReactNode, keyboardInset?: number }} props
  */
-function Panel({ title, description, onClose, children }) {
+function Panel({ title, description, onClose, children, keyboardInset }) {
   const titleId = useId();
   const panelRef = useRef(null);
   // Se guarda al montar, antes de mover el foco dentro de la ventana.
@@ -54,8 +56,7 @@ function Panel({ title, description, onClose, children }) {
     ];
     // El primer campo editable del contenido (no la X de cerrar ni un enlace de solo lectura).
     (focusable().find((el) => !el.dataset.sheetClose && !el.readOnly && el.tagName !== 'BUTTON') ?? panelRef.current).focus();
-    const { overflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
+    const unlockScroll = lockScroll();
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onCloseRef.current();
       if (event.key !== 'Tab') return;
@@ -72,14 +73,17 @@ function Panel({ title, description, onClose, children }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = overflow;
+      unlockScroll();
       window.removeEventListener('keydown', onKeyDown);
       opener?.focus?.();
     };
   }, [opener]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
+    <div
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6"
+    >
       <motion.div
         aria-hidden="true"
         className="absolute inset-0 bg-black/60"

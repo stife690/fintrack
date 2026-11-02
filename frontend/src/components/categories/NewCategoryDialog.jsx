@@ -5,6 +5,7 @@ import { Loader2, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { COLOR_OPTIONS, ICON_OPTIONS, customStyle } from '@/lib/categoryStyles';
+import { lockScroll } from '@/lib/scrollLock';
 import { cn } from '@/lib/utils';
 import { createCategory, deleteCategory, updateCategory } from '@/services/transactionService';
 
@@ -92,8 +93,7 @@ function Dialog({ type: fixedType, category, onClose, onCreated, onDeleted }) {
   // que devuelve el foco al botón, se lo quitaba al campo.
   useEffect(() => {
     nameRef.current?.focus();
-    const { overflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
+    const unlockScroll = lockScroll();
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onCloseRef.current();
       if (event.key !== 'Tab') return;
@@ -114,7 +114,7 @@ function Dialog({ type: fixedType, category, onClose, onCreated, onDeleted }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = overflow;
+      unlockScroll();
       window.removeEventListener('keydown', onKeyDown);
       opener?.focus?.();
     };

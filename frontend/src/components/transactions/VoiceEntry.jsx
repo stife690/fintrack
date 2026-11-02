@@ -6,6 +6,7 @@ import BudgetAlert from '@/components/transactions/BudgetAlert';
 import { formatMoney, formatRelativeDay } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
+import { lockScroll } from '@/lib/scrollLock';
 import { cn } from '@/lib/utils';
 import { parseSpokenTransaction } from '@/lib/voiceEntry';
 import { saveNewTransaction } from '@/offline/saveNewTransaction';
@@ -143,8 +144,7 @@ function VoiceDialog({ onClose, onEdit, onSaved, names, text, autoStart }) {
   // Mientras está abierta: la página no se desplaza, Escape cierra, Tab no sale de la ventana
   // y al cerrar el foco vuelve al botón que la abrió.
   useEffect(() => {
-    const { overflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
+    const unlockScroll = lockScroll();
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onCloseRef.current();
       if (event.key !== 'Tab') return;
@@ -161,7 +161,7 @@ function VoiceDialog({ onClose, onEdit, onSaved, names, text, autoStart }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = overflow;
+      unlockScroll();
       window.removeEventListener('keydown', onKeyDown);
       opener?.focus?.();
     };
