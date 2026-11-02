@@ -8,7 +8,7 @@ import { MAX_AMOUNT } from '@/lib/money';
 
 /** Palabras que indican que entró plata; todo lo demás se toma como gasto. */
 const INCOME_WORDS =
-  /(?<!\p{L})(me pagaron|pagaron|recib[ií]|me consignaron|me dieron|vend[ií]|salario|sueldo|prima|ingreso)(?!\p{L})/u;
+  /(?<!\p{L})(me pagaron|pagaron|recib[ií]|me consignaron|me dieron|me entr[oó]|me entraron|me transfirieron|me depositaron|me giraron|me abonaron|me devolvieron|gan[eé]|cobr[eé]|vend[ií]|salario|sueldo|prima|ingreso)(?!\p{L})/u;
 
 /** Montos dichos solo con palabras, como se habla en Colombia. */
 const SPOKEN_AMOUNTS = [
@@ -82,7 +82,7 @@ const EDGE_PUNCTUATION = /^[\s.,;:!?¡¿"“”']+|[\s.,;:!?¡¿"“”']+$/g;
 
 /** Palabras que sobran en la descripción. */
 const FILLER =
-  /(?<!\p{L})(me pagaron|me consignaron|me dieron|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|y cada un[oa]|cada un[oa]|me cost[oó]|cost[oó]|me sali[oó]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
+  /(?<!\p{L})(me pagaron|me consignaron|me dieron|me entr[oó]|me entraron|me transfirieron|me depositaron|me giraron|me abonaron|me devolvieron|gan[eé]|cobr[eé]|recib[ií]|gast[eé]|pagu[eé]|compr[eé]|y cada un[oa]|cada un[oa]|me cost[oó]|cost[oó]|me sali[oó]|de|en|por|a|el|la|los|las|pesos?)(?!\p{L})/giu;
 
 /**
  * @param {string} text Lo que entendió el reconocimiento de voz.
