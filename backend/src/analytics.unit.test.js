@@ -6,6 +6,7 @@ import {
   daysInMonth,
   healthLevel,
   healthScore,
+  largeExpenseLimit,
   linearPoints,
   normalizeDescription,
   projectMonth,
@@ -36,26 +37,29 @@ test('daysInMonth y shiftMonth manejan febrero y el cambio de año', () => {
 });
 
 test('proyección: los fijos cuentan una vez y los variables siguen el ritmo diario', () => {
-  // Día 10 de 30: arriendo de 1.000.000 y 200.000 variables → 1.000.000 + 20.000 × 30.
+  // Día 10 de 30: arriendo de 1.000.000 y 90.000 variables → 1.090.000 + 9.000 × 20.
   const result = projectMonth({
-    current: [gasto(1_000_000, 'vivienda'), gasto(200_000, 'alimentacion'), ingreso(3_000_000)],
+    current: [gasto(1_000_000, 'vivienda'), gasto(90_000, 'alimentacion'), ingreso(3_000_000)],
     previous: [],
     day: 10,
     days: 30,
   });
   assert.deepEqual(result, {
     available: true,
-    spent: 1_200_000,
-    projected: 1_600_000,
+    spent: 1_090_000,
+    projected: 1_270_000,
     pendingFixed: 0,
-    expectedIncome: 3_000_000,
-    balance: 1_400_000,
+    oneOff: 0,
+    saved: 0,
+    income: 3_000_000,
+    possibleIncome: 0,
+    balance: 1_730_000,
   });
 });
 
 test('proyección: un fijo del mes pasado que aún no se paga se suma como pendiente', () => {
   const result = projectMonth({
-    current: [gasto(100_000, 'alimentacion')],
+    current: [gasto(90_000, 'alimentacion')],
     previous: [
       gasto(900_000, 'vivienda', 'Arriendo', '2026-09-01'),
       ingreso(2_500_000, '2026-09-30'),
@@ -64,9 +68,58 @@ test('proyección: un fijo del mes pasado que aún no se paga se suma como pendi
     days: 30,
   });
   assert.equal(result.pendingFixed, 900_000);
-  assert.equal(result.projected, 900_000 + 600_000);
-  // Sin ingresos este mes todavía, se esperan los del mes pasado.
-  assert.equal(result.expectedIncome, 2_500_000);
+  assert.equal(result.projected, 90_000 + 900_000 + 18_000 * 25);
+});
+
+test('proyección: una compra única se cuenta una vez, no se multiplica', () => {
+  const result = projectMonth({
+    current: [gasto(2_400_000, 'tecnologia'), gasto(30_000, 'alimentacion')],
+    previous: [],
+    day: 3,
+    days: 30,
+  });
+  assert.equal(result.oneOff, 2_400_000);
+  assert.equal(result.projected, 2_700_000);
+});
+
+test('proyección: una cuota sin categoría fija tampoco se multiplica', () => {
+  const result = projectMonth({
+    current: [gasto(800_000, 'otros', 'Cuota'), gasto(100_000, 'alimentacion')],
+    previous: [],
+    day: 5,
+    days: 30,
+  });
+  assert.equal(result.projected, 1_400_000);
+});
+
+test('proyección: un ingreso que aún no entra no cuenta en el balance', () => {
+  const result = projectMonth({
+    current: [gasto(90_000, 'alimentacion')],
+    previous: [ingreso(6_000_000, '2026-09-30')],
+    day: 5,
+    days: 30,
+  });
+  assert.equal(result.income, 0);
+  assert.equal(result.possibleIncome, 6_000_000);
+  assert.equal(result.balance, -540_000);
+});
+
+test('proyección: lo apartado en ahorro cuenta una vez y se informa aparte', () => {
+  const result = projectMonth({
+    current: [gasto(500_000, 'ahorro_inversion', 'Ahorro'), gasto(90_000, 'alimentacion')],
+    previous: [],
+    day: 10,
+    days: 30,
+  });
+  assert.equal(result.saved, 500_000);
+  assert.equal(result.projected, 590_000 + 9_000 * 20);
+});
+
+test('largeExpenseLimit compara con la mediana de los gastos pequeños', () => {
+  assert.equal(largeExpenseLimit([2_400_000]), 100_000);
+  assert.equal(largeExpenseLimit([800_000, 100_000]), 300_000);
+  assert.equal(largeExpenseLimit([2_400_000, 2_000_000, 30_000]), 100_000);
+  assert.equal(largeExpenseLimit([80_000, 90_000, 150_000]), 255_000);
 });
 
 test('proyección: los primeros días no está disponible', () => {
@@ -176,13 +229,13 @@ test('puntaje: sin ingresos, presupuestos ni historial', () => {
   assert.deepEqual(
     result.parts.map((p) => [p.key, p.points, p.value]),
     [
-      ['savings', 0, null],
+      ['savings', 12.5, null],
       ['budgets', 12.5, null],
       ['stability', 12.5, null],
       ['small_expenses', 25, 0],
     ],
   );
-  assert.equal(result.score, 50);
+  assert.equal(result.score, 63);
 });
 
 test('getAnalytics pide 3 meses atrás hasta hoy y arma la respuesta', async () => {
@@ -193,7 +246,7 @@ test('getAnalytics pide 3 meses atrás hasta hoy y arma la respuesta', async () 
       calls.push({ userId, range });
       return [
         gasto(1_000_000, 'vivienda', 'Arriendo', '2026-10-01'),
-        gasto(200_000, 'alimentacion', 'Mercado', '2026-10-03'),
+        gasto(90_000, 'alimentacion', 'Mercado', '2026-10-03'),
         ingreso(3_000_000, '2026-10-01'),
         gasto(1_400_000, 'alimentacion', 'Mercado', '2026-09-15'),
         gasto(999, 'otros', 'Viejo', '2026-07-01'),
@@ -207,9 +260,24 @@ test('getAnalytics pide 3 meses atrás hasta hoy y arma la respuesta', async () 
   assert.equal(result.day, 10);
   assert.equal(result.daysInMonth, 31);
   assert.equal(result.empty, false);
-  // 1.000.000 + 200.000 / 10 × 31
-  assert.equal(result.projection.projected, 1_620_000);
+  // 1.090.000 gastados + 9.000 × 21 días
+  assert.equal(result.projection.projected, 1_279_000);
   assert.equal(typeof result.health.score, 'number');
+});
+
+test('ahorrar no baja la parte de ahorro del puntaje', async () => {
+  const scoreWith = async (movements) => {
+    const service = createAnalyticsService({
+      now: () => new Date('2026-10-30T15:00:00Z'),
+      listMovements: async () => movements,
+      listBudgets: async () => [],
+    });
+    const { health } = await service.getAnalytics('u1');
+    return health.parts.find((p) => p.key === 'savings').points;
+  };
+  const base = [ingreso(1_000_000, '2026-10-01'), gasto(90_000, 'alimentacion', 'Mercado', '2026-10-02')];
+  const saving = gasto(300_000, 'ahorro_inversion', 'Ahorro', '2026-10-03');
+  assert.equal(await scoreWith([...base, saving]), await scoreWith(base));
 });
 
 test('getAnalytics marca empty cuando el mes no tiene movimientos', async () => {

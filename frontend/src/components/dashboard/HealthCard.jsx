@@ -54,6 +54,8 @@ export default function HealthCard({ hidden }) {
                 <span className="font-semibold tabular-nums">{hidden ? '$ ••••••' : formatMoney(perDay)}</span> por día
                 hasta fin de mes
               </>
+            ) : data.projection.income === 0 ? (
+              'Aún no registras ingresos este mes'
             ) : (
               'Ya gastaste lo que ingresó este mes'
             )}

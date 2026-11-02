@@ -196,7 +196,8 @@ function PartsBlock({ parts }) {
 function PaceBlock({ data }) {
   const { projection, day, daysInMonth, month } = data;
   const series = useMemo(() => paceSeries(data), [data]);
-  const over = projection.expectedIncome > 0 && projection.balance < 0;
+  // En rojo solo si ni con lo que aún podría entrar alcanza: un ingreso pendiente no es una alarma.
+  const over = projection.income > 0 && projection.balance + projection.possibleIncome < 0;
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
@@ -210,7 +211,14 @@ function PaceBlock({ data }) {
             Llevas {formatMoney(projection.spent)} en el día {day} de {daysInMonth}.
             {projection.pendingFixed > 0 &&
               ` Incluye ${formatMoney(projection.pendingFixed)} de arriendo o servicios que aún no registras.`}
+            {projection.oneOff > 0 && ` Las compras grandes (${formatMoney(projection.oneOff)}) se cuentan una sola vez.`}
           </p>
+          {projection.possibleIncome > 0 && (
+            <p className="mt-1 text-xs text-ink/60">
+              Posible: {formatMoney(projection.possibleIncome)} más, según lo que entró el mes pasado. No lo contamos hasta
+              que lo registres.
+            </p>
+          )}
         </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70" aria-hidden="true">
           <li className="inline-flex items-center gap-1.5">
@@ -221,7 +229,7 @@ function PaceBlock({ data }) {
               <span className="w-4 border-t-2 border-dashed border-brand" /> Proyección
             </li>
           )}
-          {projection.expectedIncome > 0 && (
+          {projection.income > 0 && (
             <li className="inline-flex items-center gap-1.5">
               <span className="h-0.5 w-4 rounded bg-chart-income" /> Ingresos
             </li>
@@ -230,7 +238,7 @@ function PaceBlock({ data }) {
       </div>
       <div role="img" aria-label="Gráfico del gasto acumulado del mes y su proyección" className="mt-4 h-56">
         <Suspense fallback={<div className="h-full rounded-xl bg-ink/5" />}>
-          <SpendingPaceLines data={series} income={projection.expectedIncome} month={month} />
+          <SpendingPaceLines data={series} income={projection.income} month={month} />
         </Suspense>
       </div>
     </div>

@@ -484,7 +484,10 @@ export const handlers = [
         spent: 1840000,
         projected: 2310000,
         pendingFixed: 0,
-        expectedIncome: 2800000,
+        oneOff: 0,
+        saved: 0,
+        income: 2800000,
+        possibleIncome: 0,
         balance: 490000,
       },
       smallExpenses: {

@@ -45,7 +45,7 @@ function PaceTooltip({ active, payload, month }) {
  *
  * @param {object} props
  * @param {Array<{ day: number, real?: number, projection?: number }>} props.data De `paceSeries`.
- * @param {number} props.income Ingresos esperados; 0 para no dibujar la línea.
+ * @param {number} props.income Ingresos que ya entraron; 0 para no dibujar la línea.
  * @param {string} props.month AAAA-MM
  */
 export default function SpendingPaceLines({ data, income, month }) {
