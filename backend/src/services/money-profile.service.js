@@ -1,5 +1,6 @@
 import { AppError } from '../errors/app-error.js';
 import * as repo from '../repositories/money-profile.repository.js';
+import { currentMoney } from './money-plan.service.js';
 import { MAX_COMMITMENTS } from '../validators/money-profile.validator.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,12 +21,19 @@ function duplicated() {
  * @returns {Promise<object>} Ver `GET /api/v1/money-profile` en `docs/api/openapi.yaml`.
  */
 export async function get(userId) {
-  const [profile, commitments] = await Promise.all([repo.findProfile(userId), repo.listCommitments(userId)]);
+  const [profile, commitments, totals, changes] = await Promise.all([
+    repo.findProfile(userId),
+    repo.listCommitments(userId),
+    repo.movementTotals(userId),
+    repo.changesSinceBalance(userId),
+  ]);
   return {
     incomeType: profile?.incomeType ?? null,
     payDays: profile?.payDays ?? [],
     balance: profile?.balance ?? null,
     balanceAt: profile?.balanceAt ?? null,
+    money: currentMoney({ profile, changes, totals }),
+    totals,
     welcomeDone: Boolean(profile?.welcomeAt),
     commitments,
   };

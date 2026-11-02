@@ -13,6 +13,7 @@ import {
   Sparkles,
   Target,
   UserPlus,
+  Wallet,
 } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import MoreSheet, { isMorePath } from '@/components/layout/MoreSheet';
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
       { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
       { to: '/app/insights', label: 'Insights', icon: Sparkles },
+      { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
       { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],
   },

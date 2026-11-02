@@ -18,6 +18,8 @@ import { apiRequest } from '@/lib/apiRequest';
  * @property {number[]} payDays
  * @property {number|null} balance Plata que el usuario dijo tener.
  * @property {string|null} balanceAt Cuándo lo dijo.
+ * @property {number|null} money Plata actual: `balance` más lo registrado después.
+ * @property {{ income: number, expense: number }} totals Todo lo registrado.
  * @property {boolean} welcomeDone `true` si ya respondió u omitió la bienvenida.
  * @property {Commitment[]} commitments
  */
@@ -37,7 +39,7 @@ export function getMoneyPlan() {
 
 /**
  * Cambia cómo le entra la plata al usuario y cuánta tiene.
- * @param {{ incomeType: string|null, payDays: number[], balance: number|null }} data
+ * @param {{ incomeType: string|null, payDays: number[], balance: number|null, resetBalance?: boolean }} data
  * @returns {Promise<MoneyProfile>}
  */
 export function updateMoneyProfile(data) {

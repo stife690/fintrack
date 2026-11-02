@@ -10,7 +10,7 @@ export default function MoneySetupLink() {
   return (
     <Panel className="p-0 md:p-0">
       <Link
-        to="/app/cuenta"
+        to="/app/mi-plata"
         className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
       >
         <Wallet className="size-5 shrink-0 text-brand" aria-hidden="true" />

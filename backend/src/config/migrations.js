@@ -236,6 +236,22 @@ export const MIGRATIONS = [
          ON compromisos(usuario_id, lower(nombre))`,
     ],
   },
+  {
+    id: '012_saldo_corregido',
+    statements: [
+      `DO $$
+       BEGIN
+         IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                         WHERE table_name = 'perfiles_financieros' AND column_name = 'saldo_corregido') THEN
+           ALTER TABLE perfiles_financieros ADD COLUMN saldo_corregido BOOLEAN NOT NULL DEFAULT false;
+           UPDATE perfiles_financieros p SET saldo_corregido = true
+            WHERE p.saldo_inicial IS NOT NULL AND COALESCE((
+              SELECT SUM(CASE WHEN t.tipo = 'ingreso' THEN t.monto ELSE -t.monto END)
+                FROM transacciones t WHERE t.usuario_id = p.usuario_id AND t.deleted_at IS NULL), 0) <= 0;
+         END IF;
+       END $$`,
+    ],
+  },
 ];
 
 /**

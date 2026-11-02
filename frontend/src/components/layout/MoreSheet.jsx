@@ -11,6 +11,7 @@ import {
   Plus,
   Target,
   UserPlus,
+  Wallet,
 } from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
 
@@ -20,6 +21,7 @@ export const MORE_GROUPS = [
     label: 'Mi dinero',
     items: [
       { to: '/app/transacciones?nuevo=gasto', label: 'Agregar movimiento', detail: 'Abre el formulario', icon: Plus },
+      { to: '/app/mi-plata', label: 'Mi plata', detail: 'Tu saldo y pagos de cada mes', icon: Wallet },
       { to: '/app/presupuestos', label: 'Presupuestos', detail: 'Límites por categoría', icon: Target },
       { to: '/app/renta', label: 'Renta y DIAN', detail: 'Si debes declarar y cuándo', icon: Landmark },
       { to: '/app/transacciones/exportar', label: 'Exportar reportes', detail: 'Excel, PDF o CSV', icon: Download },

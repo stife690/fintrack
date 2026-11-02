@@ -14,25 +14,27 @@ import { pool } from '../config/db.js';
  * @property {number[]} payDays
  * @property {number|null} balance Plata que el usuario dijo tener.
  * @property {Date|null} balanceAt Cuándo lo dijo.
+ * @property {boolean} balanceCorrected `true` si el usuario fijó ese saldo a propósito.
  * @property {Date|null} welcomeAt Cuándo respondió u omitió la bienvenida.
  */
 
 const COMMITMENT_COLUMNS = `id, nombre AS name, monto::float8 AS amount, dia_mes::int AS "dayOfMonth"`;
 
 /**
- * Guarda el perfil. La hora del saldo solo cambia si cambió el saldo: si no, lo registrado
- * desde entonces dejaría de contar.
+ * Guarda el perfil. La hora del saldo solo cambia si cambió el saldo o si el usuario lo corrigió
+ * ($6): si no, lo registrado desde entonces dejaría de contar.
  */
 const SAVE_PROFILE = `INSERT INTO perfiles_financieros AS p
-    (usuario_id, tipo_ingreso, dias_pago, saldo_inicial, saldo_at, bienvenida_at)
-  VALUES ($1, $2, $3, $4, CASE WHEN $4::numeric IS NULL THEN NULL ELSE now() END, CASE WHEN $5 THEN now() END)
+    (usuario_id, tipo_ingreso, dias_pago, saldo_inicial, saldo_at, bienvenida_at, saldo_corregido)
+  VALUES ($1, $2, $3, $4, CASE WHEN $4::numeric IS NULL THEN NULL ELSE now() END, CASE WHEN $5 THEN now() END, $7)
   ON CONFLICT (usuario_id) DO UPDATE SET
     tipo_ingreso = EXCLUDED.tipo_ingreso,
     dias_pago = EXCLUDED.dias_pago,
     saldo_inicial = EXCLUDED.saldo_inicial,
-    saldo_at = CASE WHEN p.saldo_inicial IS NOT DISTINCT FROM EXCLUDED.saldo_inicial THEN p.saldo_at
-                    ELSE EXCLUDED.saldo_at END,
+    saldo_at = CASE WHEN NOT $6 AND p.saldo_inicial IS NOT DISTINCT FROM EXCLUDED.saldo_inicial
+                    THEN p.saldo_at ELSE EXCLUDED.saldo_at END,
     bienvenida_at = COALESCE(p.bienvenida_at, EXCLUDED.bienvenida_at),
+    saldo_corregido = p.saldo_corregido OR EXCLUDED.saldo_corregido,
     updated_at = now()`;
 
 const UNIQUE_VIOLATION = '23505';
@@ -45,7 +47,8 @@ const UNIQUE_VIOLATION = '23505';
 export async function findProfile(userId) {
   const { rows } = await pool.query(
     `SELECT tipo_ingreso AS "incomeType", dias_pago::int[] AS "payDays",
-            saldo_inicial::float8 AS balance, saldo_at AS "balanceAt", bienvenida_at AS "welcomeAt"
+            saldo_inicial::float8 AS balance, saldo_at AS "balanceAt",
+            saldo_corregido AS "balanceCorrected", bienvenida_at AS "welcomeAt"
      FROM perfiles_financieros WHERE usuario_id = $1`,
     [userId],
   );
@@ -73,13 +76,44 @@ export async function changesSinceBalance(userId) {
 }
 
 /**
+ * Todo lo que el usuario ha registrado, sin importar la fecha.
+ * @param {string} userId
+ * @returns {Promise<{ income: number, expense: number }>}
+ */
+export async function movementTotals(userId) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(monto) FILTER (WHERE tipo = 'ingreso'), 0)::float8 AS income,
+            COALESCE(SUM(monto) FILTER (WHERE tipo = 'gasto'), 0)::float8 AS expense
+     FROM transacciones WHERE usuario_id = $1 AND deleted_at IS NULL`,
+    [userId],
+  );
+  return rows[0];
+}
+
+/**
+ * Gastos de un día, con la hora en que se registraron.
+ * @param {string} userId
+ * @param {string} date AAAA-MM-DD
+ * @returns {Promise<Array<{ description: string, amount: number, createdAt: Date }>>}
+ */
+export async function expensesOfDay(userId, date) {
+  const { rows } = await pool.query(
+    `SELECT descripcion AS description, monto::float8 AS amount, created_at AS "createdAt"
+     FROM transacciones
+     WHERE usuario_id = $1 AND deleted_at IS NULL AND tipo = 'gasto' AND fecha = $2`,
+    [userId, date],
+  );
+  return rows;
+}
+
+/**
  * Crea o reemplaza el perfil.
  * @param {string} userId
  * @param {import('../validators/money-profile.validator.js').ProfileData} data
  * @returns {Promise<void>}
  */
-export async function saveProfile(userId, { incomeType, payDays, balance }) {
-  await pool.query(SAVE_PROFILE, [userId, incomeType, payDays, balance, false]);
+export async function saveProfile(userId, { incomeType, payDays, balance, resetBalance = false }) {
+  await pool.query(SAVE_PROFILE, [userId, incomeType, payDays, balance, false, resetBalance, resetBalance]);
 }
 
 /**
@@ -89,11 +123,11 @@ export async function saveProfile(userId, { incomeType, payDays, balance }) {
  * @param {import('../validators/money-profile.validator.js').ProfileData & { commitments: import('../validators/money-profile.validator.js').NewCommitment[] }} data
  * @returns {Promise<void>}
  */
-export async function saveWelcome(userId, { incomeType, payDays, balance, commitments }) {
+export async function saveWelcome(userId, { incomeType, payDays, balance, balanceCorrected, commitments }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(SAVE_PROFILE, [userId, incomeType, payDays, balance, true]);
+    await client.query(SAVE_PROFILE, [userId, incomeType, payDays, balance, true, false, balanceCorrected ?? balance !== null]);
     for (const { name, amount, dayOfMonth } of commitments) {
       await client.query(
         `INSERT INTO compromisos (usuario_id, nombre, monto, dia_mes) VALUES ($1, $2, $3, $4)

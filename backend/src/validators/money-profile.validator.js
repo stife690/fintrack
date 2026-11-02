@@ -17,7 +17,7 @@ export const MAX_COMMITMENTS = 30;
 
 /** @typedef {{ name: string, amount: number, dayOfMonth: number }} NewCommitment */
 
-/** @typedef {{ incomeType: 'fecha_fija'|'sin_fecha'|null, payDays: number[], balance: number|null }} ProfileData */
+/** @typedef {{ incomeType: 'fecha_fija'|'sin_fecha'|null, payDays: number[], balance: number|null, resetBalance?: boolean }} ProfileData */
 
 /** @returns {AppError} 400: el cuerpo no es un objeto JSON. */
 function invalidBody() {
@@ -109,7 +109,8 @@ function readProfile(source, details) {
 }
 
 /**
- * Valida el cuerpo de `PUT /money-profile`: `{ incomeType, payDays, balance }`.
+ * Valida el cuerpo de `PUT /money-profile`: `{ incomeType, payDays, balance, resetBalance }`.
+ * `resetBalance` dice que el usuario corrigió el saldo, aunque sea al mismo número de antes.
  * @param {unknown} body
  * @returns {ProfileData}
  * @throws {AppError} 400 o 422 `VALIDATION_ERROR`.
@@ -119,7 +120,7 @@ export function parseProfile(body) {
   const details = [];
   const profile = readProfile(body, details);
   throwIfInvalid(details);
-  return profile;
+  return { ...profile, resetBalance: body.resetBalance === true };
 }
 
 /**

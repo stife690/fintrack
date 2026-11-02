@@ -71,6 +71,8 @@ test('un usuario nuevo tiene un perfil vacío y la bienvenida pendiente', option
       payDays: [],
       balance: null,
       balanceAt: null,
+      money: null,
+      totals: { income: 0, expense: 0 },
       welcomeDone: false,
       commitments: [],
     });
@@ -213,6 +215,49 @@ test('el plan empieza sin datos y se calcula con lo registrado después del sald
     const { status, body } = await api('/money-profile/plan', { token });
     assert.equal(status, 200);
     assert.equal(body.money, 430000, 'el gasto con fecha vieja ya estaba en el saldo');
+    assert.equal(body.ledger, -140000);
+
+    const profile = await api('/money-profile', { token });
+    assert.equal(profile.body.money, 430000, 'el perfil y el plan dicen lo mismo');
+    assert.deepEqual(profile.body.totals, { income: 30000, expense: 170000 });
+  });
+});
+
+test('corregir el saldo al mismo número reinicia la cuenta', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken(api);
+    const put = (body) => api('/money-profile', { method: 'PUT', token, body });
+    await put({ incomeType: 'sin_fecha', balance: 1000000, resetBalance: true });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    await api('/transactions', {
+      method: 'POST',
+      token,
+      body: { type: 'ingreso', amount: 200000, date: today, description: 'Prueba', category: 'otros_ingresos' },
+    });
+
+    const untouched = await put({ incomeType: 'sin_fecha', balance: 1000000 });
+    assert.equal(untouched.body.money, 1200000, 'cambiar otra cosa no reinicia la cuenta');
+
+    const corrected = await put({ incomeType: 'sin_fecha', balance: 1000000, resetBalance: true });
+    assert.equal(corrected.body.money, 1000000);
+  });
+});
+
+test('sin corregir, la plata sale de los movimientos; al corregir, del saldo', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken(api);
+    const put = (body) => api('/money-profile', { method: 'PUT', token, body });
+    await put({ incomeType: 'sin_fecha', balance: 1000000 });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    await api('/transactions', {
+      method: 'POST',
+      token,
+      body: { type: 'ingreso', amount: 7000000, date: today, description: 'Prueba', category: 'otros_ingresos' },
+    });
+    assert.equal((await api('/money-profile/plan', { token })).body.money, 7000000);
+
+    await put({ incomeType: 'sin_fecha', balance: 1000000, resetBalance: true });
+    assert.equal((await api('/money-profile/plan', { token })).body.money, 1000000);
   });
 });
 

@@ -12,6 +12,18 @@ export function dayAndMonth(date) {
 const daysText = (days) => (days === 1 ? '1 día' : `${days} días`);
 
 /**
+ * Aviso del día, si se acerca o se pasa del límite.
+ * @param {{ dayStatus: string, overBy: number, leftToday: number }} plan
+ * @param {(value: number) => string} money Formatea un monto (o lo oculta).
+ * @returns {string} Vacío si va bien.
+ */
+export function dayMessage({ dayStatus, overBy, leftToday }, money) {
+  if (dayStatus === 'over') return `Te pasaste ${money(overBy)} hoy`;
+  if (dayStatus === 'near') return `Ya casi llegas: te quedan ${money(leftToday)}`;
+  return '';
+}
+
+/**
  * Lo primero que dice la tarjeta de Mi plata, según cómo le entra la plata al usuario.
  * @param {object} plan Respuesta de `GET /money-profile/plan` con `ready: true`.
  * @param {(value: number) => string} money Formatea un monto (o lo oculta).
@@ -29,8 +41,8 @@ export function planHeadline(plan, money) {
     }
     return {
       label: 'Puedes gastar hoy',
-      value: money(plan.perDay),
-      note: `Hasta tu pago del ${dayAndMonth(plan.nextPay)}, en ${daysText(plan.days)}`,
+      value: money(plan.leftToday),
+      note: `Faltan ${daysText(plan.days)} para tu pago`,
     };
   }
   if (plan.mode === 'goal') {

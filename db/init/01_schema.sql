@@ -253,6 +253,7 @@ CREATE TABLE perfiles_financieros (
   dias_pago SMALLINT[] NOT NULL DEFAULT '{}',
   saldo_inicial NUMERIC(12,2) NULL CHECK (saldo_inicial IS NULL OR saldo_inicial >= 0),
   saldo_at TIMESTAMPTZ NULL,
+  saldo_corregido BOOLEAN NOT NULL DEFAULT false, -- false: la plata sale de los movimientos si dan más de 0
   bienvenida_at TIMESTAMPTZ NULL, -- cuándo respondió u omitió la bienvenida: no se vuelve a mostrar
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

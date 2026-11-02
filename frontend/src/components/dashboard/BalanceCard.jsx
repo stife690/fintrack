@@ -1,4 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import PlanSummary from '@/components/money/PlanSummary';
 import { formatMoney } from '@/components/transactions/format';
 import { cn } from '@/lib/utils';
 
@@ -50,11 +51,15 @@ function Total({ label, value, hidden, positive = false }) {
  * @param {string} props.periodLabel Periodo legible, p. ej. `octubre`, `esta semana` o `2026`.
  * @param {{ income: number, expense: number, balance: number }|undefined} props.totals `undefined` mientras carga.
  * @param {string} [props.note] Reemplaza "Calculando…" cuando no hay totales que esperar (p. ej. sin conexión).
+ * @param {object|null} [props.plan] Plan de Mi plata (FT-0037): si existe, la franja muestra cuánta plata tiene.
+ * @param {object} [props.profile] Perfil de Mi plata, para corregir el saldo desde aquí.
+ * @param {() => void} [props.onPlanChanged] El saldo cambió.
  * @param {boolean} props.hidden
  * @param {() => void} props.onToggleHidden
  */
-export default function BalanceCard({ periodLabel, totals, note, hidden, onToggleHidden }) {
+export default function BalanceCard({ periodLabel, totals, note, plan = null, profile, onPlanChanged, hidden, onToggleHidden }) {
   const negative = totals && totals.balance < 0;
+  const money = (value) => (hidden ? MASK : formatMoney(value));
   return (
     <section aria-labelledby="balance-title" className="relative">
       <div className="relative overflow-hidden rounded-3xl bg-violet px-6 pb-14 pt-6 text-white md:px-8 md:pt-7">
@@ -64,7 +69,7 @@ export default function BalanceCard({ periodLabel, totals, note, hidden, onToggl
 
         <div className="relative flex items-start justify-between gap-4">
           <h2 id="balance-title" className="text-sm font-medium text-white/90">
-            Balance de {periodLabel}
+            {plan ? 'Cuánta plata tienes' : `Balance de ${periodLabel}`}
           </h2>
           <button
             type="button"
@@ -77,17 +82,23 @@ export default function BalanceCard({ periodLabel, totals, note, hidden, onToggl
           </button>
         </div>
 
-        <p className="relative mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
-          {negative && !hidden && <span className="sr-only">Negativo: </span>}
-          <Amount value={totals?.balance} hidden={hidden} />
-        </p>
-        <p className="relative mt-2 text-sm text-white/90">
-          {totals === undefined
-            ? (note ?? 'Calculando…')
-            : negative
-              ? 'En este periodo has gastado más de lo que te ha entrado.'
-              : 'Lo que te ha entrado menos lo que has gastado.'}
-        </p>
+        {plan ? (
+          <PlanSummary plan={plan} profile={profile} money={money} onChanged={onPlanChanged} />
+        ) : (
+          <>
+            <p className="relative mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
+              {negative && !hidden && <span className="sr-only">Negativo: </span>}
+              <Amount value={totals?.balance} hidden={hidden} />
+            </p>
+            <p className="relative mt-2 text-sm text-white/90">
+              {totals === undefined
+                ? (note ?? 'Calculando…')
+                : negative
+                  ? 'En este periodo has gastado más de lo que te ha entrado.'
+                  : 'Lo que te ha entrado menos lo que has gastado.'}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="relative -mt-9 flex gap-3 px-3 md:gap-4 md:px-5">

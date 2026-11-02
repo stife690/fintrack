@@ -12,8 +12,8 @@ import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import { currentMonth } from '@/components/budgets/month';
 import PageHeader from '@/components/layout/PageHeader';
 import MoneyInvite from '@/components/money/MoneyInvite';
-import MoneyPlanCard from '@/components/money/MoneyPlanCard';
 import MoneySetupLink from '@/components/money/MoneySetupLink';
+import PendingPayments from '@/components/money/PendingPayments';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
@@ -132,6 +132,22 @@ export default function Dashboard() {
 
   if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
+  const balanceCard = (
+    <BalanceCard
+      periodLabel={periodLabel(selected.period, selected.date)}
+      totals={totals}
+      note={offlineNote}
+      plan={plan}
+      profile={moneyProfile.data}
+      onPlanChanged={() => {
+        reloadPlan();
+        moneyProfile.reload();
+      }}
+      hidden={hidden}
+      onToggleHidden={toggleHidden}
+    />
+  );
+
   return (
     <>
       <PageHeader
@@ -141,21 +157,18 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
-          {plan && <MoneyPlanCard plan={plan} hidden={hidden} />}
+          {empty && plan && balanceCard}
           {setupPending && <MoneySetupLink />}
           {empty ? (
-            <DashboardEmpty />
+            <>
+              {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
+              <DashboardEmpty />
+            </>
           ) : (
             <>
               {welcomePending && <MoneyInvite onDone={moneyProfile.reload} />}
               <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
-              <BalanceCard
-                periodLabel={periodLabel(selected.period, selected.date)}
-                totals={totals}
-                note={offlineNote}
-                hidden={hidden}
-                onToggleHidden={toggleHidden}
-              />
+              {balanceCard}
               {summary.error && online && (
                 <p role="alert" className="-mt-2 text-sm text-negative">
                   No pudimos calcular el balance: {summary.error}{' '}
@@ -164,6 +177,7 @@ export default function Dashboard() {
                   </button>
                 </p>
               )}
+              {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
               <QuickActions />
               {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
               <IncomeExpenseChart
