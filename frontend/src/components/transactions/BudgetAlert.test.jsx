@@ -22,8 +22,11 @@ describe('BudgetAlert (FT-0006)', () => {
     expect(html).toContain('text-negative');
   });
 
-  it('exactamente en el límite (100 %) también es "superado"', () => {
-    expect(render({ level: 'exceeded_100', percentage: 100 })).toContain('Presupuesto superado');
+  it('exactamente en el límite (100 %) dice que lo usó todo, no que lo superó', () => {
+    const html = render({ level: 'exceeded_100', percentage: 100 });
+    expect(html).toContain('Ya usaste todo tu presupuesto');
+    expect(html).not.toContain('Presupuesto superado');
+    expect(html).toContain('text-caution');
   });
 
   it('sin nombre de categoría no deja un hueco en el texto', () => {

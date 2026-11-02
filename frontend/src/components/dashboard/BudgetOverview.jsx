@@ -3,6 +3,7 @@ import { ChevronRight, CircleCheck, TriangleAlert } from 'lucide-react';
 import CategoryIcon from '@/components/categories/CategoryIcon';
 import Panel from '@/components/layout/Panel';
 import { formatMoney } from '@/components/transactions/format';
+import { displayLevel, isAtLimit } from '@/lib/budgetLevel';
 import { cn } from '@/lib/utils';
 
 const BAR = { none: 'bg-positive', warning_80: 'bg-caution', exceeded_100: 'bg-negative' };
@@ -12,23 +13,33 @@ const percent = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const VISIBLE = 4;
 
 /**
- * Aviso destacado cuando algún presupuesto llegó al 80 % o se pasó (RN-04).
+ * Aviso destacado cuando algún presupuesto llegó al 80 %, se acabó o se pasó (RN-04).
  * @param {{ budgets: import('@/services/budgetService').Budget[], names: Record<string, string> }} props
  */
 export function BudgetAlert({ budgets, names }) {
-  const exceeded = budgets.filter((b) => b.alert.level === 'exceeded_100');
+  const atLimit = budgets.filter((b) => isAtLimit(b.alert));
+  const exceeded = budgets.filter((b) => displayLevel(b.alert) === 'exceeded_100');
   const warning = budgets.filter((b) => b.alert.level === 'warning_80');
-  if (exceeded.length === 0 && warning.length === 0) return null;
+  if (exceeded.length === 0 && atLimit.length === 0 && warning.length === 0) return null;
 
   const name = (b) => names[b.category] ?? b.category;
-  const message =
-    exceeded.length > 0
-      ? exceeded.length === 1
+  let message;
+  if (exceeded.length > 0) {
+    message =
+      exceeded.length === 1
         ? `Te pasaste del presupuesto de ${name(exceeded[0])}.`
-        : `Te pasaste en ${exceeded.length} presupuestos.`
-      : warning.length === 1
+        : `Te pasaste en ${exceeded.length} presupuestos.`;
+  } else if (atLimit.length > 0) {
+    message =
+      atLimit.length === 1
+        ? `Ya usaste todo tu presupuesto de ${name(atLimit[0])}.`
+        : `Ya usaste todo el presupuesto en ${atLimit.length} categorías.`;
+  } else {
+    message =
+      warning.length === 1
         ? `${name(warning[0])} va en ${percent.format(warning[0].percentage)} % del límite.`
         : `${warning.length} presupuestos pasaron del 80 %.`;
+  }
 
   return (
     <Link
@@ -120,7 +131,7 @@ export default function BudgetOverview({ budgets, names, monthLabel, error, note
                       className="mt-1.5 h-1.5 rounded-full bg-ink/10"
                     >
                       <div
-                        className={cn('h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500', BAR[b.alert.level])}
+                        className={cn('h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500', BAR[displayLevel(b.alert)])}
                         style={{ width: `${Math.min(b.percentage, 100)}%` }}
                       />
                     </div>

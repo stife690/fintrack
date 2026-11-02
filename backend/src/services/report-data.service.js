@@ -153,7 +153,8 @@ export async function buildReport(userId, { from, to }) {
       spent: b.consumed,
       available: cents(b.amount - b.consumed),
       usage: b.amount > 0 ? b.consumed / b.amount : 0,
-      level: b.alert.level,
+      // RN-04 avisa desde el 100 %, pero en el reporte gastar justo el límite no es excederlo.
+      level: b.consumed === b.amount ? 'at_limit' : b.alert.level,
     }));
   }
 

@@ -54,6 +54,7 @@ const CATEGORY_COLORS = {
 const LEVEL = {
   none: { label: 'Bien', color: C.positive },
   warning_80: { label: 'Cerca del límite', color: C.caution },
+  at_limit: { label: 'En el límite', color: C.caution },
   exceeded_100: { label: 'Excedido', color: C.negative },
 };
 

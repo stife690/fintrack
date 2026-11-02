@@ -26,7 +26,14 @@ export function buildMonthHighlights({ summary, budgets, names }) {
   const tightest = [...budgets].sort((a, b) => b.percentage - a.percentage)[0];
   if (tightest) {
     const percent = `${Math.round(tightest.percentage)} %`;
-    if (tightest.percentage >= 100) {
+    if (tightest.percentage === 100) {
+      highlights.push({
+        kind: 'budget',
+        tone: 'caution',
+        title: `Ya usaste todo tu presupuesto de ${name(tightest.category)}`,
+        detail: `Llevas ${formatMoney(tightest.consumed)} de ${formatMoney(tightest.amount)}`,
+      });
+    } else if (tightest.percentage > 100) {
       highlights.push({
         kind: 'budget',
         tone: 'negative',

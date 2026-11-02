@@ -40,6 +40,7 @@ const SOURCE_LABELS = { manual: 'Manual', ia: 'IA', sin_clasificar: 'Sin clasifi
 const LEVEL = {
   none: { label: 'Bien', color: COLORS.positive, fill: COLORS.positiveSoft },
   warning_80: { label: 'Cerca del límite', color: COLORS.caution, fill: COLORS.cautionSoft },
+  at_limit: { label: 'En el límite', color: COLORS.caution, fill: COLORS.cautionSoft },
   exceeded_100: { label: 'Excedido', color: COLORS.negative, fill: COLORS.negativeSoft },
 };
 

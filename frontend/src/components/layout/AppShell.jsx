@@ -173,8 +173,8 @@ const BOTTOM_ITEM =
 
 /**
  * Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area): Inicio,
- * Movimientos e Insights. El botón flotante abre el resto; va fuera de la barra porque su
- * `backdrop-blur` encerraría cualquier elemento `fixed` dentro de ella.
+ * Movimientos e Insights. El botón flotante abre el resto. El color se prolonga por debajo con
+ * `after`: en iPhone, `bottom-0` puede quedar por encima del borde real y dejar una franja.
  */
 function BottomNav() {
   const { pathname } = useLocation();
@@ -183,7 +183,7 @@ function BottomNav() {
     <>
       <nav
         aria-label="Principal"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface pb-[env(safe-area-inset-bottom)] after:absolute after:inset-x-0 after:top-full after:h-24 after:bg-surface md:hidden"
       >
         <ul className="mx-auto grid max-w-md grid-cols-3">
           <BottomLink {...HOME} />

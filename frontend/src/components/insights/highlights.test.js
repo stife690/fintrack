@@ -47,6 +47,15 @@ describe('buildMonthHighlights', () => {
     expect(balance).toMatchObject({ tone: 'negative', title: 'Gastaste más de lo que entró' });
   });
 
+  it('justo en el límite dice que lo usó todo, no que se pasó', () => {
+    const [limit] = buildMonthHighlights({
+      summary: summary(100000, [food]),
+      budgets: [budget(100, 300000, 300000)],
+      names,
+    });
+    expect(limit).toMatchObject({ tone: 'caution', title: 'Ya usaste todo tu presupuesto de Alimentación' });
+  });
+
   it('presupuestos holgados se muestran en positivo', () => {
     const [first] = buildMonthHighlights({ summary: summary(0, [food]), budgets: [budget(40, 80000, 200000)], names });
     expect(first).toMatchObject({ tone: 'positive', title: 'Tus presupuestos van bien' });
