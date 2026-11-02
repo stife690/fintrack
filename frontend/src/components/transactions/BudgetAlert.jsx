@@ -1,4 +1,5 @@
 import { OctagonAlert, TriangleAlert } from 'lucide-react';
+import { isAtLimit } from '@/lib/budgetLevel';
 import { cn } from '@/lib/utils';
 
 const percent = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
@@ -17,13 +18,16 @@ const LEVELS = {
   },
 };
 
+/** Gastó exactamente el límite: no se pasó, pero ya no le queda presupuesto. */
+const AT_LIMIT = { ...LEVELS.warning_80, title: 'Ya usaste todo tu presupuesto' };
+
 /**
  * Aviso que se muestra tras registrar o editar un gasto cuando la categoría llegó
  * al 80 % o al 100 % de su presupuesto del mes. No renderiza nada si no hay alerta (FT-0006).
  * @param {{ alert: import('@/services/transactionService').TransactionAlert|null, categoryName?: string, className?: string }} props
  */
 export default function BudgetAlert({ alert, categoryName, className }) {
-  const level = alert && LEVELS[alert.level];
+  const level = alert && (isAtLimit(alert) ? AT_LIMIT : LEVELS[alert.level]);
   if (!level) return null;
   const { Icon, title, style } = level;
   const of = categoryName ? ` de ${categoryName}` : '';

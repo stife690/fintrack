@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import CategoryIcon from '@/components/categories/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/components/transactions/format';
+import { displayLevel, isAtLimit } from '@/lib/budgetLevel';
 import { cn } from '@/lib/utils';
 
 /** Umbral de advertencia (RN-04): se dibuja como una marca fija sobre cada barra. */
@@ -31,11 +32,8 @@ const LEVEL_STYLES = {
  * @returns {string}
  */
 function statusText({ amount, consumed, alert }) {
-  if (alert.level === 'exceeded_100') {
-    return consumed === amount
-      ? 'Llegaste al límite'
-      : `Te pasaste por ${formatMoney(consumed - amount)}`;
-  }
+  if (isAtLimit(alert)) return 'Ya usaste todo tu presupuesto';
+  if (alert.level === 'exceeded_100') return `Te pasaste por ${formatMoney(consumed - amount)}`;
   const left = `Quedan ${formatMoney(amount - consumed)}`;
   return alert.level === 'warning_80' ? `${left}, cerca del límite` : left;
 }
@@ -61,7 +59,7 @@ function Meter({ budget, label }) {
       <div
         className={cn(
           'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500',
-          LEVEL_STYLES[budget.alert.level].bar,
+          LEVEL_STYLES[displayLevel(budget.alert)].bar,
         )}
         style={{ width: `${filled}%` }}
       />
@@ -115,7 +113,7 @@ function Row({ budget, name, disabled, onEdit, onDelete }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <p className={cn('text-sm', LEVEL_STYLES[budget.alert.level].text)}>
+        <p className={cn('text-sm', LEVEL_STYLES[displayLevel(budget.alert)].text)}>
           <span className="font-semibold tabular-nums">{formatPercent(budget.percentage)}</span>{' '}
           <span className="text-ink/60">{statusText(budget)}</span>
         </p>

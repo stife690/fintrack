@@ -200,6 +200,17 @@ test('el resumen incluye el top de gastos y los presupuestos con su estado', asy
   assert.ok(texts.includes('Excedido'));
 });
 
+test('un presupuesto justo en el límite no sale como excedido', async () => {
+  const report = sampleReport({
+    budgets: [{ category: 'Vivienda', limit: 300000, spent: 300000, available: 0, usage: 1, level: 'at_limit' }],
+  });
+  const ws = (await roundTrip(report)).getWorksheet('Resumen');
+  const texts = [];
+  ws.eachRow((row) => row.eachCell((cell) => typeof cell.value === 'string' && texts.push(cell.value)));
+  assert.ok(texts.includes('En el límite'));
+  assert.ok(!texts.includes('Excedido'));
+});
+
 test('la hoja Por mes aparece solo si el periodo abarca varios meses', async () => {
   const twoMonths = sampleReport({
     from: '2026-09-01',
