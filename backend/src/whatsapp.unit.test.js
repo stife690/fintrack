@@ -59,6 +59,13 @@ test('la copia del analizador es igual a la del frontend', async () => {
   assert.equal(clean(backend), clean(frontend));
 });
 
+test('el analizador toma "me entraron" como ingreso', () => {
+  const parsed = parseSpokenTransaction('me entraron 15palos de un trabajo');
+  assert.equal(parsed.type, 'ingreso');
+  assert.equal(parsed.amount, 15_000_000);
+  assert.equal(parsed.description, 'Un trabajo');
+});
+
 test('el analizador entiende un gasto y un ingreso', () => {
   const now = new Date('2026-11-02T12:00:00');
   assert.deepEqual(

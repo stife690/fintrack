@@ -25,6 +25,31 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('almuerzo 15 mil').type).toBe('gasto');
   });
 
+  it('entiende otras formas de decir que entró plata', () => {
+    expect(parseSpokenTransaction('me entraron 15palos de un trabajo')).toMatchObject({
+      type: 'ingreso',
+      amount: 15_000_000,
+      description: 'Un trabajo',
+    });
+    for (const text of [
+      'me entró 200 mil',
+      'gané 500 mil',
+      'cobré 80 mil',
+      'me transfirieron 50 mil',
+      'me depositaron 50 mil',
+      'me giraron 50 mil',
+      'me abonaron 50 mil',
+      'me devolvieron 20 mil',
+    ]) {
+      expect(parseSpokenTransaction(text)).toMatchObject({ type: 'ingreso', description: 'Pago recibido' });
+    }
+  });
+
+  it('no confunde con un ingreso lo que le cobraron al usuario', () => {
+    expect(parseSpokenTransaction('me cobraron 80 mil de la tarjeta').type).toBe('gasto');
+    expect(parseSpokenTransaction('me llegó la factura de 80 mil').type).toBe('gasto');
+  });
+
   it('reconoce las palabras con tilde ("recibí")', () => {
     expect(parseSpokenTransaction('recibí 300 mil de mi mamá')).toMatchObject({
       type: 'ingreso',
