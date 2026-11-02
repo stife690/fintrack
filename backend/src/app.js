@@ -16,6 +16,7 @@ import voiceRoutes from './routes/voice.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
 import vacasRoutes from './routes/vacas.routes.js';
 import negociosRoutes from './routes/negocios.routes.js';
+import ideasRoutes from './routes/ideas.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -87,6 +88,7 @@ export function createApp() {
   app.use('/api/v1/assistant', assistantRoutes);
   app.use('/api/v1/vacas', vacasRoutes);
   app.use('/api/v1/businesses', negociosRoutes);
+  app.use('/api/v1/ideas', ideasRoutes);
   app.use(notFound);
   app.use(errorHandler);
 

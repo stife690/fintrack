@@ -7,6 +7,7 @@ import {
   House,
   Landmark,
   LayoutGrid,
+  Lightbulb,
   Loader2,
   PiggyBank,
   Sparkles,
@@ -53,6 +54,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/app/invitar', label: 'Invitar amigos', icon: UserPlus },
       { to: '/app/planes', label: 'Planes', icon: Crown },
+      { to: '/app/lo-que-viene', label: 'Lo que viene', icon: Lightbulb },
     ],
   },
 ];

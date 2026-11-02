@@ -57,7 +57,7 @@ jobs:
           for f in db/init/*.sql; do
             psql -h localhost -U fintrack -d fintrack -v ON_ERROR_STOP=1 -q -f "$f"
           done
-          test "$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from information_schema.tables where table_schema='public'")" -eq 16
+          test "$(psql -h localhost -U fintrack -d fintrack -Atc "select count(*) from information_schema.tables where table_schema='public'")" -eq 18
           test "$(psql -h localhost -U fintrack -d fintrack -Atc 'select count(*) from categorias')" -eq 15
 
   frontend:
