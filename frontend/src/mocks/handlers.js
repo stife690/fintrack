@@ -1,5 +1,6 @@
 import { http, HttpResponse, delay } from 'msw';
 import { API_V1 } from '@/lib/api';
+import { plainText } from '@/lib/plainText';
 
 /**
  * Handlers de MSW que simulan auth, categorías y transacciones mientras se desarrolla sin backend.
@@ -334,7 +335,7 @@ export const handlers = [
     const rows = (transactions.get(user.id) ?? [])
       .filter((t) => (!q.get('type') || t.type === q.get('type')))
       .filter((t) => (!q.get('category') || t.category === q.get('category')))
-      .filter((t) => (!q.get('q') || t.description.toLowerCase().includes(q.get('q').toLowerCase())))
+      .filter((t) => (!q.get('q') || plainText(t.description).includes(plainText(q.get('q')))))
       .filter((t) => (!q.get('from') || t.date >= q.get('from')))
       .filter((t) => (!q.get('to') || t.date <= q.get('to')))
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));

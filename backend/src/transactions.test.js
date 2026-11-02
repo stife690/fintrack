@@ -170,6 +170,8 @@ test('GET lista solo las transacciones propias, con filtros y paginación', opti
     const search = await api('/transactions?q=n%C3%B3mi', { token: alice });
     assert.equal(search.body.total, 1);
     assert.equal(search.body.data[0].description, 'Nómina');
+    const noAccent = await api('/transactions?q=NOMI', { token: alice });
+    assert.equal(noAccent.body.total, 1, 'encuentra "Nómina" sin tilde y en mayúsculas');
     const noMatch = await api('/transactions?q=%25', { token: alice });
     assert.equal(noMatch.body.total, 0, 'el % se busca como texto literal, no como comodín');
 

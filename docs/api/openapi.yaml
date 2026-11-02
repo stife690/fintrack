@@ -372,7 +372,7 @@ paths:
         - { name: category, in: query, description: Clave de la categoría, schema: { $ref: "#/components/schemas/CategoryKey" } }
         - { name: from, in: query, schema: { type: string, format: date } }
         - { name: to, in: query, schema: { type: string, format: date } }
-        - { name: q, in: query, description: Búsqueda por texto en la descripción, schema: { type: string } }
+        - { name: q, in: query, description: "Búsqueda por texto en la descripción, sin distinguir tildes ni mayúsculas", schema: { type: string, maxLength: 100 } }
         - { $ref: "#/components/parameters/Page" }
         - { $ref: "#/components/parameters/PageSize" }
       responses:

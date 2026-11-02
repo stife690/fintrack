@@ -13,6 +13,7 @@
 import { db } from './db';
 import { clearVacaCache, flushContributions } from './vacaQueue';
 import { apiRequest } from '@/lib/apiRequest';
+import { plainText } from '@/lib/plainText';
 import { getSession } from '@/auth/tokenStorage';
 
 /**
@@ -430,11 +431,11 @@ export async function listCached({ type, category, q, from, to, page = 1, pageSi
   const userId = currentUserId();
   if (!userId) return { data: [], page, pageSize, total: 0, syncedAt: null };
 
-  const text = q?.toLowerCase();
+  const text = q && plainText(q);
   const rows = (await db.transactions.where('userId').equals(userId).toArray())
     .filter((t) => !type || t.type === type)
     .filter((t) => !category || t.category === category)
-    .filter((t) => !text || t.description.toLowerCase().includes(text))
+    .filter((t) => !text || plainText(t.description).includes(text))
     .filter((t) => !from || t.date >= from)
     .filter((t) => !to || t.date <= to)
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
