@@ -1,10 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import { lockScroll } from '@/lib/scrollLock';
 
 const EASE_DRAWER = [0.32, 0.72, 0, 1];
+
+/** Al soltar la ventana se cierra si bajó esto (px) o iba así de rápido (px/s). */
+const CLOSE_OFFSET = 100;
+const CLOSE_VELOCITY = 500;
 
 /**
  * Ventana que sube desde abajo en el celular y aparece centrada desde tablet. La usan las vacas y
@@ -17,15 +21,14 @@ const EASE_DRAWER = [0.32, 0.72, 0, 1];
  * @param {string} [props.description] Una línea bajo el título.
  * @param {() => void} props.onClose
  * @param {React.ReactNode} props.children
- * @param {number} [props.keyboardInset] Alto del teclado del celular, para subir la ventana sobre él.
  */
-export default function Sheet({ open, title, description, onClose, children, keyboardInset }) {
+export default function Sheet({ open, title, description, onClose, children }) {
   // Portal al contenedor con `data-theme`: queda encima de todo y conserva el tema.
   return createPortal(
     <MotionConfig reducedMotion="user">
       <AnimatePresence>
         {open && (
-          <Panel key="sheet" title={title} description={description} onClose={onClose} keyboardInset={keyboardInset}>
+          <Panel key="sheet" title={title} description={description} onClose={onClose}>
             {children}
           </Panel>
         )}
@@ -36,11 +39,12 @@ export default function Sheet({ open, title, description, onClose, children, key
 }
 
 /**
- * @param {{ title: string, description?: string, onClose: () => void, children: React.ReactNode, keyboardInset?: number }} props
+ * @param {{ title: string, description?: string, onClose: () => void, children: React.ReactNode }} props
  */
-function Panel({ title, description, onClose, children, keyboardInset }) {
+function Panel({ title, description, onClose, children }) {
   const titleId = useId();
   const panelRef = useRef(null);
+  const dragControls = useDragControls();
   // Se guarda al montar, antes de mover el foco dentro de la ventana.
   const [opener] = useState(() => document.activeElement);
   const onCloseRef = useRef(onClose);
@@ -80,10 +84,7 @@ function Panel({ title, description, onClose, children, keyboardInset }) {
   }, [opener]);
 
   return (
-    <div
-      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
-      className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6"
-    >
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
       <motion.div
         aria-hidden="true"
         className="absolute inset-0 bg-black/60"
@@ -99,13 +100,28 @@ function Panel({ title, description, onClose, children, keyboardInset }) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        // Se arrastra solo desde la rayita: así el contenido sigue desplazándose con el dedo.
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.8 }}
+        onDragEnd={(_event, { offset, velocity }) => {
+          if (offset.y > CLOSE_OFFSET || velocity.y > CLOSE_VELOCITY) onClose();
+        }}
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 24, transition: { duration: 0.18 } }}
         transition={{ duration: 0.32, ease: EASE_DRAWER }}
         className="relative max-h-[92dvh] w-full min-w-0 max-w-md overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-3xl bg-canvas px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 text-ink shadow-2xl ring-1 ring-ink/10 focus:outline-none md:rounded-3xl md:px-6 md:pb-6 md:pt-6"
       >
-        <div aria-hidden="true" className="mx-auto mb-4 h-1 w-10 rounded-full bg-ink/20 md:hidden" />
+        <div
+          aria-hidden="true"
+          onPointerDown={(event) => dragControls.start(event)}
+          className="-mx-5 -mt-3 mb-2 cursor-grab touch-none py-4 md:hidden"
+        >
+          <div className="mx-auto h-1 w-10 rounded-full bg-ink/20" />
+        </div>
         <button
           type="button"
           onClick={onClose}

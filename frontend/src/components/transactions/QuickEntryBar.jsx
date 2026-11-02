@@ -12,7 +12,7 @@ import { getCategories } from '@/services/transactionService';
  * elementos fijos de abajo en vez de empujarlos: con esto la barra se sube justo encima.
  * @returns {number} Píxeles.
  */
-export function useKeyboardInset() {
+function useKeyboardInset() {
   const [inset, setInset] = useState(0);
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -30,22 +30,21 @@ export function useKeyboardInset() {
 }
 
 /**
- * Lógica de anotar rápido (FT-0013), compartida por la barra del computador y la ventana del
- * botón [+] del celular. Se escribe la frase ("almuerzo 15 mil") o se toca el micrófono; en los
- * dos casos se abre la misma tarjeta para revisar y guardar.
- *
- * @param {{ onFinish?: () => void }} [options] `onFinish`: la tarjeta terminó (se cerró o llevó al
- *   formulario). No se llama con "Escribir en vez de hablar", que vuelve al campo.
- * @returns {{ form: object, voice: object }} Props de `QuickEntryForm` y de `VoiceEntry`.
+ * Barra rápida para anotar un movimiento (FT-0013), fija abajo en Inicio y Movimientos. Se
+ * escribe la frase ("almuerzo 15 mil") o se toca el micrófono; en los dos casos se abre la misma
+ * tarjeta para revisar y guardar. Sin texto el botón es el micrófono; con texto, la flecha de enviar.
+ * Escribir funciona sin conexión: se guarda en el dispositivo y se sincroniza después.
  */
-export function useQuickEntry({ onFinish } = {}) {
+export default function QuickEntryBar() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const [text, setText] = useState('');
   // Qué abre la ventana: la frase escrita, o el micrófono escuchando de una vez.
   const [entry, setEntry] = useState(null);
-  // "Escribir en vez de hablar": el cursor va al campo cuando la ventana termina de cerrarse.
+  // "Escribir en vez de hablar": el cursor va a la barra cuando la ventana termina de cerrarse.
   const focusOnClose = useRef(false);
+  const keyboard = useKeyboardInset();
+  const canDictate = browserCanDictate();
   const hasText = text.trim().length > 0;
 
   const categories = useAsync(getCategories, []);
@@ -64,100 +63,71 @@ export function useQuickEntry({ onFinish } = {}) {
     setEntry({ text });
   };
 
-  // "Editar antes de guardar" lleva al formulario de Movimientos; "Escribir" vuelve al campo.
+  // "Editar antes de guardar" lleva al formulario de Movimientos; "Escribir" vuelve a la barra.
   const edit = (draft) => {
     setEntry(null);
-    if (draft) {
-      navigate('/app/transacciones', { state: { voiceDraft: draft } });
-      onFinish?.();
-    } else focusOnClose.current = true;
+    if (draft) navigate('/app/transacciones', { state: { voiceDraft: draft } });
+    else focusOnClose.current = true;
   };
 
-  return {
-    form: { inputRef, text, onTextChange: setText, onSubmit: submit, onDictate: () => setEntry({ autoStart: true }) },
-    voice: {
-      open: entry !== null,
-      onClose: () => {
-        setEntry(null);
-        onFinish?.();
-      },
-      onEdit: edit,
-      onSaved: () => setText(''),
-      names,
-      text: entry?.text,
-      autoStart: entry?.autoStart,
-      onClosed: () => {
-        if (!focusOnClose.current) return;
-        focusOnClose.current = false;
-        inputRef.current?.focus();
-      },
-    },
-  };
-}
-
-/**
- * Campo para anotar. Sin texto el botón es el micrófono; con texto, la flecha de enviar.
- * Escribir funciona sin conexión: se guarda en el dispositivo y se sincroniza después.
- */
-export function QuickEntryForm({ inputRef, text, onTextChange, onSubmit, onDictate, className, style }) {
-  const canDictate = browserCanDictate();
-  const hasText = text.trim().length > 0;
-  return (
-    <form
-      onSubmit={onSubmit}
-      aria-label="Anotar un movimiento"
-      style={style}
-      className={cn(
-        'flex items-center gap-2 rounded-full bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 transition-[box-shadow,background-color] duration-200 focus-within:ring-brand/50',
-        className,
-      )}
-    >
-      <Zap className="size-4 shrink-0 text-brand" aria-hidden="true" />
-      <input
-        ref={inputRef}
-        value={text}
-        onChange={(event) => onTextChange(event.target.value)}
-        placeholder="Anota: almuerzo 15 mil"
-        aria-label="Anota un gasto o ingreso"
-        autoComplete="off"
-        enterKeyHint="send"
-        maxLength={200}
-        className="min-w-0 flex-1 bg-transparent py-2 text-base text-ink placeholder:text-ink/45 focus:outline-none"
-      />
-      {hasText || !canDictate ? (
-        <button
-          type="submit"
-          aria-label="Revisar y guardar"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-white transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95"
-        >
-          <ArrowUp className="size-5" aria-hidden="true" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onDictate}
-          aria-label="Dictar un movimiento"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition-[transform,background-color] duration-150 hover:bg-brand/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95"
-        >
-          <Mic className="size-5" aria-hidden="true" />
-        </button>
-      )}
-    </form>
-  );
-}
-
-/** Barra rápida fija abajo en Inicio y Movimientos, desde tablet. En el celular está en el botón [+]. */
-export default function QuickEntryBar() {
-  const { form, voice } = useQuickEntry();
-  const keyboard = useKeyboardInset();
   return (
     <>
-      <QuickEntryForm
-        {...form}
-        style={keyboard > 80 ? { bottom: keyboard + 8 } : undefined}
-        className="fixed right-8 z-40 mx-auto hidden max-w-2xl backdrop-blur-xl md:bottom-6 md:left-[calc(76px+2rem)] md:flex lg:left-[calc(16rem+2rem)]"
+      <form
+        onSubmit={submit}
+        aria-label="Anotar un movimiento"
+        style={keyboard > 80 ? { bottom: keyboard + 8, right: 12 } : undefined}
+        className={cn(
+          // En el celular deja libre la esquina derecha para el botón flotante de "Más".
+          'fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-2 rounded-full max-md:right-20',
+          'bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 backdrop-blur-xl transition-[box-shadow,background-color] duration-200',
+          'focus-within:ring-brand/50 md:bottom-6 md:left-[calc(76px+2rem)] md:right-8 lg:left-[calc(16rem+2rem)]',
+        )}
+      >
+        <Zap className="size-4 shrink-0 text-brand" aria-hidden="true" />
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Anota: almuerzo 15 mil"
+          aria-label="Anota un gasto o ingreso"
+          autoComplete="off"
+          enterKeyHint="send"
+          maxLength={200}
+          className="min-w-0 flex-1 bg-transparent py-2 text-base text-ink placeholder:text-ink/45 focus:outline-none"
+        />
+        {hasText || !canDictate ? (
+          <button
+            type="submit"
+            aria-label="Revisar y guardar"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-brand text-white transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95"
+          >
+            <ArrowUp className="size-5" aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEntry({ autoStart: true })}
+            aria-label="Dictar un movimiento"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition-[transform,background-color] duration-150 hover:bg-brand/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95"
+          >
+            <Mic className="size-5" aria-hidden="true" />
+          </button>
+        )}
+      </form>
+      <VoiceEntry
+        open={entry !== null}
+        onClose={() => setEntry(null)}
+        onEdit={edit}
+        onSaved={() => setText('')}
+        names={names}
+        text={entry?.text}
+        autoStart={entry?.autoStart}
+        onClosed={() => {
+          if (!focusOnClose.current) return;
+          focusOnClose.current = false;
+          inputRef.current?.focus();
+        }}
       />
-      <VoiceEntry {...voice} />
     </>
   );
 }

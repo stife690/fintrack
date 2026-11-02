@@ -7,16 +7,18 @@ import {
   Download,
   Landmark,
   PiggyBank,
+  Plus,
   Target,
   UserPlus,
 } from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
 
-/** Lo que no cabe en la barra del celular. Solo van secciones que ya funcionan. */
+/** Lo que no está en la barra del celular. Solo van secciones que ya funcionan. */
 export const MORE_GROUPS = [
   {
     label: 'Mi dinero',
     items: [
+      { to: '/app/transacciones?nuevo=gasto', label: 'Agregar movimiento', detail: 'Abre el formulario', icon: Plus },
       { to: '/app/presupuestos', label: 'Presupuestos', detail: 'Límites por categoría', icon: Target },
       { to: '/app/renta', label: 'Renta y DIAN', detail: 'Si debes declarar y cuándo', icon: Landmark },
       { to: '/app/transacciones/exportar', label: 'Exportar reportes', detail: 'Excel, PDF o CSV', icon: Download },
@@ -53,7 +55,7 @@ export function isMorePath(pathname) {
   );
 }
 
-/** Pestaña "Más" del celular: el resto de las secciones, por grupos. */
+/** Menú del botón flotante del celular: el resto de las secciones, por grupos. */
 export default function MoreSheet({ open, onClose }) {
   return (
     <Sheet open={open} title="Más" onClose={onClose}>
