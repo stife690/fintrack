@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ArrowLeftRight,
   Briefcase,
+  Crown,
   House,
   Landmark,
   Loader2,
@@ -50,7 +51,10 @@ const NAV_GROUPS = [
   },
   {
     label: 'FinTrack',
-    items: [{ to: '/app/invitar', label: 'Invitar amigos', icon: UserPlus }],
+    items: [
+      { to: '/app/invitar', label: 'Invitar amigos', icon: UserPlus },
+      { to: '/app/planes', label: 'Planes', icon: Crown },
+    ],
   },
 ];
 

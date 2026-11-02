@@ -1,5 +1,15 @@
 import { Link } from 'react-router-dom';
-import { Briefcase, ChevronRight, CircleUserRound, Download, Landmark, PiggyBank, Target, UserPlus } from 'lucide-react';
+import {
+  Briefcase,
+  ChevronRight,
+  CircleUserRound,
+  Crown,
+  Download,
+  Landmark,
+  PiggyBank,
+  Target,
+  UserPlus,
+} from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
 
 /** Lo que no cabe en la barra del celular. Solo van secciones que ya funcionan. */
@@ -21,7 +31,10 @@ export const MORE_GROUPS = [
   },
   {
     label: 'FinTrack',
-    items: [{ to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus }],
+    items: [
+      { to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus },
+      { to: '/app/planes', label: 'Planes', detail: 'Beta: aún no se cobra', icon: Crown },
+    ],
   },
   {
     label: 'Mi cuenta',
