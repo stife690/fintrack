@@ -13,6 +13,7 @@ import { currentMonth } from '@/components/budgets/month';
 import PageHeader from '@/components/layout/PageHeader';
 import MoneyInvite from '@/components/money/MoneyInvite';
 import MoneyPlanCard from '@/components/money/MoneyPlanCard';
+import MoneySetupLink from '@/components/money/MoneySetupLink';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
@@ -44,7 +45,7 @@ function monthName(month) {
  * Sin conexión, los últimos movimientos salen de la copia del dispositivo (FT-0009) y el balance y los
  * presupuestos avisan que se actualizan al volver internet; al reconectar, todo se recarga.
  * Quien no ha visto la bienvenida (FT-0036) va a ella si no tiene movimientos; si ya tiene, se le invita.
- * Con la bienvenida respondida, lo primero es la tarjeta de Mi plata (FT-0037).
+ * Con la bienvenida respondida, lo primero es la tarjeta de Mi plata (FT-0037); si la omitió, un acceso para configurarla.
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -127,6 +128,7 @@ export default function Dashboard() {
 
   // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.
   const plan = online && moneyPlan.data?.ready ? moneyPlan.data : null;
+  const setupPending = online && moneyProfile.data?.welcomeDone === true && moneyPlan.data?.ready === false;
 
   if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
@@ -140,6 +142,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
           {plan && <MoneyPlanCard plan={plan} hidden={hidden} />}
+          {setupPending && <MoneySetupLink />}
           {empty ? (
             <DashboardEmpty />
           ) : (
