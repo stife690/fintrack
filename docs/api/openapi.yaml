@@ -53,6 +53,8 @@ tags:
     description: Analítica del mes sin IA — proyección, gastos hormiga y puntaje de salud financiera (FT-0019)
   - name: Ideas
     description: Lo que viene — ideas de los usuarios y sus votos (FT-0026)
+  - name: WhatsApp
+    description: Registro de movimientos por WhatsApp (FT-0029)
   - name: Sync
     description: Sincronización offline (F8, F9 — REQ-022 a REQ-025)
   - name: Push
@@ -1003,6 +1005,85 @@ paths:
           description: Voto quitado
         '404':
           description: El id no es válido
+  /whatsapp/webhook:
+    get:
+      tags: [WhatsApp]
+      summary: Verificación del webhook por parte de Meta
+      security: []
+      parameters:
+        - { name: hub.mode, in: query, required: true, schema: { type: string } }
+        - { name: hub.verify_token, in: query, required: true, schema: { type: string } }
+        - { name: hub.challenge, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Devuelve `hub.challenge` en texto plano
+        '403':
+          description: Token de verificación incorrecto
+    post:
+      tags: [WhatsApp]
+      summary: Avisos de Meta
+      description: Lo protege la firma `X-Hub-Signature-256`. Responde antes de procesar.
+      security: []
+      responses:
+        '200':
+          description: Aviso recibido
+        '400':
+          description: El cuerpo no es JSON válido
+        '401':
+          description: Firma ausente o incorrecta
+  /whatsapp/link:
+    get:
+      tags: [WhatsApp]
+      summary: Estado de la conexión del número
+      responses:
+        '200':
+          description: Estado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available, linked, phone, botNumber]
+                properties:
+                  available:
+                    type: boolean
+                    description: Si el bot está configurado
+                  linked:
+                    type: boolean
+                  phone:
+                    type: string
+                    nullable: true
+                    description: Solo los últimos cuatro dígitos
+                  botNumber:
+                    type: string
+                    nullable: true
+    post:
+      tags: [WhatsApp]
+      summary: Generar el código para vincular el número
+      description: El código dura 10 minutos, sirve una vez y se le envía al bot.
+      responses:
+        '201':
+          description: Código generado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt, botNumber]
+                properties:
+                  code:
+                    type: string
+                    example: FT-AB23CD45
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  botNumber:
+                    type: string
+                    nullable: true
+    delete:
+      tags: [WhatsApp]
+      summary: Desconectar el número
+      responses:
+        '204':
+          description: Número desconectado
   /sync/batch:
     post:
       tags: [Sync]

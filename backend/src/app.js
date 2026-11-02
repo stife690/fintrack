@@ -17,6 +17,7 @@ import assistantRoutes from './routes/assistant.routes.js';
 import vacasRoutes from './routes/vacas.routes.js';
 import negociosRoutes from './routes/negocios.routes.js';
 import ideasRoutes from './routes/ideas.routes.js';
+import { linkRouter, webhookRouter } from './routes/whatsapp.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
@@ -44,6 +45,8 @@ export function createApp() {
       exposedHeaders: ['Content-Disposition'],
     }),
   );
+  // Va antes de `express.json()`: la firma de Meta se valida sobre el cuerpo original (FT-0029).
+  app.use('/api/v1/whatsapp/webhook', webhookRouter);
   app.use(express.json());
   app.use(healthRoutes);
   app.use(
@@ -74,6 +77,8 @@ export function createApp() {
   app.get('/api/v1/vacas/:id/advice', aiRateLimit);
   // Invitar a un negocio también manda un correo (FT-0016).
   app.post('/api/v1/businesses/:id/invitations', aiRateLimit);
+  // Limita cuántos códigos para conectar WhatsApp se pueden pedir.
+  app.post('/api/v1/whatsapp/link', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
@@ -89,6 +94,7 @@ export function createApp() {
   app.use('/api/v1/vacas', vacasRoutes);
   app.use('/api/v1/businesses', negociosRoutes);
   app.use('/api/v1/ideas', ideasRoutes);
+  app.use('/api/v1/whatsapp/link', linkRouter);
   app.use(notFound);
   app.use(errorHandler);
 

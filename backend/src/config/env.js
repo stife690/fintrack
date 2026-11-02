@@ -84,6 +84,12 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string} sttModel Modelo de Whisper en Groq (`STT_MODEL`, por defecto whisper-large-v3-turbo).
  * @property {string} assistantModel Modelo del asistente financiero (`ASSISTANT_MODEL`).
  * @property {number} assistantDailyMax Preguntas al asistente por usuario y día (`ASSISTANT_DAILY_MAX`, por defecto 20).
+ * @property {string|undefined} whatsappAccessToken Token de la Cloud API de Meta (`WHATSAPP_ACCESS_TOKEN`).
+ * @property {string|undefined} whatsappPhoneNumberId Id del número del bot (`WHATSAPP_PHONE_NUMBER_ID`).
+ * @property {string|undefined} whatsappAppSecret Clave secreta de la app, valida la firma del webhook (`WHATSAPP_APP_SECRET`).
+ * @property {string|undefined} whatsappVerifyToken Texto con el que Meta verifica el webhook (`WHATSAPP_VERIFY_TOKEN`).
+ * @property {string|undefined} whatsappBotNumber Número del bot con indicativo, solo dígitos (`WHATSAPP_BOT_NUMBER`); arma el enlace para abrir el chat.
+ * @property {number} whatsappDailyMax Mensajes al bot por usuario y día (`WHATSAPP_DAILY_MAX`, por defecto 100).
  */
 export const env = {
   aiProvider,
@@ -118,6 +124,12 @@ export const env = {
   groqApiKey: process.env.GROQ_API_KEY?.trim() || undefined,
   sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo',
   sttTimeoutMs: Number(process.env.STT_TIMEOUT_MS) || 15_000,
+  whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN?.trim() || undefined,
+  whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() || undefined,
+  whatsappAppSecret: process.env.WHATSAPP_APP_SECRET?.trim() || undefined,
+  whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN?.trim() || undefined,
+  whatsappBotNumber: process.env.WHATSAPP_BOT_NUMBER?.replace(/\D/g, '') || undefined,
+  whatsappDailyMax: Number(process.env.WHATSAPP_DAILY_MAX) || 100,
 };
 
 /**

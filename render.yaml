@@ -30,3 +30,13 @@ services:
         sync: false # secreto; se pega solo en el dashboard de Render
       - key: VAPID_SUBJECT
         sync: false # mailto:correo-del-equipo
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false # secreto; token de la Cloud API de Meta
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false # id del número del bot
+      - key: WHATSAPP_APP_SECRET
+        sync: false # secreto; clave secreta de la app de Meta
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false # secreto; el mismo texto configurado en el webhook de Meta
+      - key: WHATSAPP_BOT_NUMBER
+        sync: false # número del bot con indicativo, solo dígitos

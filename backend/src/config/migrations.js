@@ -192,6 +192,25 @@ export const MIGRATIONS = [
        )`,
     ],
   },
+  {
+    id: '010_whatsapp',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS whatsapp_vinculos (
+         usuario_id UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+         telefono VARCHAR(20) UNIQUE NULL,
+         codigo_hash VARCHAR(64) UNIQUE NULL,
+         codigo_expira TIMESTAMPTZ NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE TABLE IF NOT EXISTS whatsapp_mensajes (
+         mensaje_id VARCHAR(128) PRIMARY KEY,
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_whatsapp_mensajes_usuario
+         ON whatsapp_mensajes(usuario_id, created_at DESC)`,
+    ],
+  },
 ];
 
 /**
