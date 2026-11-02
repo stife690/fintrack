@@ -47,6 +47,36 @@ export async function create(userId, title) {
 }
 
 /**
+ * Todas las ideas, para el panel del equipo.
+ * @returns {Promise<{ ideas: object[] }>}
+ */
+export async function listAll() {
+  return { ideas: await repo.listAll() };
+}
+
+/**
+ * Agrega una idea del equipo.
+ * @param {{ title: string, status: string }} idea
+ * @returns {Promise<{ id: string, title: string, status: string }>}
+ */
+export async function createFromTeam({ title, status }) {
+  return repo.insertAdminIdea(title, status);
+}
+
+/**
+ * Cambia el título y/o el estado de una idea.
+ * @param {string} id
+ * @param {{ title?: string, status?: string }} changes
+ * @returns {Promise<{ id: string, title: string, status: string }>}
+ * @throws {AppError} 404 si no existe.
+ */
+export async function update(id, changes) {
+  const idea = UUID_RE.test(id) ? await repo.updateIdea(id, changes) : undefined;
+  if (!idea) throw notFound();
+  return idea;
+}
+
+/**
  * Vota por una idea. Votar dos veces deja un solo voto.
  * @param {string} userId
  * @param {string} id

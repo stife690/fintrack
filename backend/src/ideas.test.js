@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { env } from './config/env.js';
 import { pool } from './config/db.js';
 import { MAX_IDEAS_PER_DAY } from './services/ideas.service.js';
 
@@ -50,11 +51,19 @@ async function withApi(fn) {
 }
 
 async function newUser(api) {
+  const email = `u-${randomUUID()}${TEST_DOMAIN}`;
   const { body } = await api('/auth/register', {
     method: 'POST',
-    body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: 'clave-segura-1' },
+    body: { email, password: 'clave-segura-1' },
   });
-  return { token: body.accessToken, id: body.user.id };
+  return { token: body.accessToken, id: body.user.id, email };
+}
+
+/** Un usuario en la lista de administradores, como si estuviera en `ADMIN_EMAILS`. */
+async function newAdmin(api) {
+  const user = await newUser(api);
+  env.adminEmails.push(user.email);
+  return user;
 }
 
 /** Publica una idea directo en la base, como lo hace el equipo. */
@@ -153,5 +162,80 @@ test('un título inválido responde 422 y el exceso de ideas 429', options, asyn
     const limited = await send(`${TEST_MARK} de más`);
     assert.equal(limited.status, 429);
     assert.equal(limited.body.error.code, 'RATE_LIMITED');
+  });
+});
+
+test('quien no es administrador recibe 403 en todo el panel', options, async () => {
+  await withApi(async (api) => {
+    const user = await newUser(api);
+    const id = await publishedIdea();
+    const calls = [
+      await api('/ideas/admin', { token: user.token }),
+      await api('/ideas/admin', { method: 'POST', token: user.token, body: { title: `${TEST_MARK} intruso` } }),
+      await api(`/ideas/admin/${id}`, { method: 'PATCH', token: user.token, body: { status: 'lista' } }),
+    ];
+    for (const { status, body } of calls) {
+      assert.equal(status, 403);
+      assert.equal(body.error.code, 'FORBIDDEN');
+    }
+    assert.equal((await api('/ideas/admin')).status, 401);
+  });
+});
+
+test('el perfil dice quién es administrador', options, async () => {
+  await withApi(async (api) => {
+    const user = await newUser(api);
+    const admin = await newAdmin(api);
+    assert.equal((await api('/users/me', { token: user.token })).body.isAdmin, false);
+    assert.equal((await api('/users/me', { token: admin.token })).body.isAdmin, true);
+  });
+});
+
+test('el administrador ve lo enviado, lo publica y no ve quién lo envió', options, async () => {
+  await withApi(async (api) => {
+    const user = await newUser(api);
+    const admin = await newAdmin(api);
+    const sent = await api('/ideas', {
+      method: 'POST',
+      token: user.token,
+      body: { title: `${TEST_MARK} aviso de pagos` },
+    });
+
+    const panel = await api('/ideas/admin', { token: admin.token });
+    assert.equal(panel.status, 200);
+    const seen = panel.body.ideas.find(({ id }) => id === sent.body.id);
+    assert.deepEqual(Object.keys(seen).sort(), ['createdAt', 'id', 'status', 'title', 'votes']);
+
+    const changed = await api(`/ideas/admin/${sent.body.id}`, {
+      method: 'PATCH',
+      token: admin.token,
+      body: { status: 'planeada', title: `${TEST_MARK} avisos de pago` },
+    });
+    assert.equal(changed.status, 200);
+    assert.equal(changed.body.status, 'planeada');
+
+    const { body } = await api('/ideas', { token: user.token });
+    assert.equal(find(body, sent.body.id).title, `${TEST_MARK} avisos de pago`);
+  });
+});
+
+test('el administrador agrega ideas y un id inexistente responde 404', options, async () => {
+  await withApi(async (api) => {
+    const admin = await newAdmin(api);
+    const created = await api('/ideas/admin', {
+      method: 'POST',
+      token: admin.token,
+      body: { title: `${TEST_MARK} del equipo`, status: 'en_progreso' },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.status, 'en_progreso');
+    for (const id of [randomUUID(), 'no-es-un-id']) {
+      const { status } = await api(`/ideas/admin/${id}`, {
+        method: 'PATCH',
+        token: admin.token,
+        body: { status: 'lista' },
+      });
+      assert.equal(status, 404);
+    }
   });
 });

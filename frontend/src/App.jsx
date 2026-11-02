@@ -22,6 +22,7 @@ const Renta = lazy(() => import('@/pages/app/Renta'));
 const Invite = lazy(() => import('@/pages/app/Invite'));
 const Plans = lazy(() => import('@/pages/app/Plans'));
 const Roadmap = lazy(() => import('@/pages/app/Roadmap'));
+const IdeasAdmin = lazy(() => import('@/pages/app/IdeasAdmin'));
 const Vacas = lazy(() => import('@/pages/app/Vacas'));
 const VacaDetail = lazy(() => import('@/pages/app/VacaDetail'));
 const VacaJoin = lazy(() => import('@/pages/app/VacaJoin'));
@@ -66,7 +67,7 @@ function RouteFallback() {
  * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
  * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión ·
  * `/app/renta` enlaces a la DIAN · `/app/invitar` compartir FinTrack · `/app/planes` planes de ejemplo ·
- * `/app/lo-que-viene` ideas y votos ·
+ * `/app/lo-que-viene` ideas y votos · `/app/lo-que-viene/admin` panel del equipo ·
  * `/app/vacas` metas de ahorro en grupo · `/app/vacas/:id` seguimiento de aportes · `/app/vacas/unirse/:code`
  * enlace de invitación (FT-0014/FT-0015) · `/app/negocios` emprendimientos compartidos · `/app/negocios/:id`
  * socios y roles · `/app/negocios/unirse/:code` enlace de invitación (FT-0016).
@@ -101,6 +102,7 @@ export default function App() {
                 <Route path="/app/invitar" element={<Invite />} />
                 <Route path="/app/planes" element={<Plans />} />
                 <Route path="/app/lo-que-viene" element={<Roadmap />} />
+                <Route path="/app/lo-que-viene/admin" element={<IdeasAdmin />} />
                 <Route path="/app/vacas" element={<Vacas />} />
                 <Route path="/app/vacas/unirse/:code" element={<VacaJoin />} />
                 <Route path="/app/vacas/:id" element={<VacaDetail />} />

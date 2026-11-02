@@ -9,6 +9,7 @@ import { apiRequest } from '@/lib/apiRequest';
  * @property {string} email
  * @property {string|null} name Nombre visible; `null` si no lo ha puesto.
  * @property {string} timezone
+ * @property {boolean} isAdmin Si administra Lo que viene.
  */
 
 /** Largo máximo del nombre (igual que `usuarios.nombre` en la base). */

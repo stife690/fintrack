@@ -1,3 +1,4 @@
+import { isAdminEmail } from '../config/env.js';
 import { AppError } from '../errors/app-error.js';
 import { findUserById, updateUserName } from '../repositories/users.repository.js';
 
@@ -15,7 +16,13 @@ import { findUserById, updateUserName } from '../repositories/users.repository.j
  * @returns {Profile}
  */
 function toProfile(user) {
-  return { id: user.id, email: user.email, name: user.name, timezone: user.timezone };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    timezone: user.timezone,
+    isAdmin: isAdminEmail(user.email),
+  };
 }
 
 /** @returns {AppError} 401: el token es válido pero la cuenta ya no existe. */
