@@ -55,6 +55,8 @@ tags:
     description: Lo que viene — ideas de los usuarios y sus votos (FT-0026)
   - name: WhatsApp
     description: Registro de movimientos por WhatsApp (FT-0029)
+  - name: MoneyProfile
+    description: Mi plata — cómo le entra la plata al usuario y sus compromisos mensuales (FT-0036)
   - name: Sync
     description: Sincronización offline (F8, F9 — REQ-022 a REQ-025)
   - name: Push
@@ -670,6 +672,122 @@ paths:
     delete:
       tags: [Budgets]
       summary: Elimina un presupuesto
+      responses:
+        "204": { description: Eliminado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- Mi plata
+  /money-profile:
+    get:
+      tags: [MoneyProfile]
+      summary: Perfil del usuario con sus compromisos (vacío si aún no responde)
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MoneyProfile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [MoneyProfile]
+      summary: Cambia cómo le entra la plata y cuánta tiene
+      description: "`balanceAt` solo cambia si cambia `balance`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MoneyProfileInput" }
+      responses:
+        "200":
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MoneyProfile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /money-profile/welcome:
+    post:
+      tags: [MoneyProfile]
+      summary: Guarda la bienvenida de una vez; sin datos, la marca como omitida
+      description: Reintentar no repite compromisos. Omitir no borra lo que ya estaba guardado.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/MoneyProfileInput" }
+                - type: object
+                  properties:
+                    commitments:
+                      type: array
+                      maxItems: 30
+                      items: { $ref: "#/components/schemas/CommitmentInput" }
+      responses:
+        "200":
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MoneyProfile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /money-profile/commitments:
+    post:
+      tags: [MoneyProfile]
+      summary: Crea un compromiso mensual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitmentInput" }
+      responses:
+        "201":
+          description: Compromiso creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Commitment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: "COMMITMENT_EXISTS — el nombre ya existe · COMMITMENT_LIMIT — ya tiene 30"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /money-profile/commitments/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      tags: [MoneyProfile]
+      summary: Cambia un compromiso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitmentInput" }
+      responses:
+        "200":
+          description: Compromiso actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Commitment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "COMMITMENT_EXISTS — el nombre ya lo usa otro compromiso"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [MoneyProfile]
+      summary: Elimina un compromiso
       responses:
         "204": { description: Eliminado }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -1760,6 +1878,44 @@ components:
         category: { $ref: "#/components/schemas/ExpenseCategoryKey" }
         month: { $ref: "#/components/schemas/Month" }
         amount: { $ref: "#/components/schemas/Amount" }
+    MoneyProfileInput:
+      type: object
+      properties:
+        incomeType: { type: string, nullable: true, enum: [fecha_fija, sin_fecha] }
+        payDays:
+          description: Días de pago; obligatorios con `fecha_fija` y se ignoran sin ella.
+          type: array
+          maxItems: 4
+          items: { type: integer, minimum: 1, maximum: 31 }
+        balance: { type: number, nullable: true, minimum: 0 }
+    MoneyProfile:
+      type: object
+      required: [incomeType, payDays, balance, balanceAt, welcomeDone, commitments]
+      properties:
+        incomeType: { type: string, nullable: true, enum: [fecha_fija, sin_fecha] }
+        payDays:
+          type: array
+          items: { type: integer, minimum: 1, maximum: 31 }
+        balance: { type: number, nullable: true }
+        balanceAt: { type: string, format: date-time, nullable: true }
+        welcomeDone: { type: boolean }
+        commitments:
+          type: array
+          items: { $ref: "#/components/schemas/Commitment" }
+    CommitmentInput:
+      type: object
+      required: [name, amount, dayOfMonth]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        amount: { $ref: "#/components/schemas/Amount" }
+        dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
+    Commitment:
+      allOf:
+        - { $ref: "#/components/schemas/CommitmentInput" }
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
     Budget:
       allOf:
         - { $ref: "#/components/schemas/BudgetCreated" }

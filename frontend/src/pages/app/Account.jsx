@@ -7,6 +7,7 @@ import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import MoneyProfileSettings from '@/components/money/MoneyProfileSettings';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
@@ -38,8 +39,8 @@ function Group({ label, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), preferencias (tema de la app
- * y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
+ * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), Mi plata, preferencias (tema
+ * de la app y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
  */
 export default function Account() {
   usePageTitle('Cuenta');
@@ -59,6 +60,7 @@ export default function Account() {
 
       <div className="flex flex-col gap-8">
         <ProfileCard />
+        <MoneyProfileSettings />
 
         <Group label="Preferencias">
           <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">

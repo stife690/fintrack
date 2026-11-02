@@ -211,6 +211,31 @@ export const MIGRATIONS = [
          ON whatsapp_mensajes(usuario_id, created_at DESC)`,
     ],
   },
+  {
+    id: '011_mi_plata',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS perfiles_financieros (
+         usuario_id UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+         tipo_ingreso VARCHAR(10) NULL CHECK (tipo_ingreso IN ('fecha_fija','sin_fecha')),
+         dias_pago SMALLINT[] NOT NULL DEFAULT '{}',
+         saldo_inicial NUMERIC(12,2) NULL CHECK (saldo_inicial IS NULL OR saldo_inicial >= 0),
+         saldo_at TIMESTAMPTZ NULL,
+         bienvenida_at TIMESTAMPTZ NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE TABLE IF NOT EXISTS compromisos (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         nombre VARCHAR(60) NOT NULL,
+         monto NUMERIC(12,2) NOT NULL CHECK (monto > 0),
+         dia_mes SMALLINT NOT NULL CHECK (dia_mes BETWEEN 1 AND 31),
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_compromisos_usuario_nombre
+         ON compromisos(usuario_id, lower(nombre))`,
+    ],
+  },
 ];
 
 /**
