@@ -6,8 +6,8 @@ import {
   Crown,
   House,
   Landmark,
+  LayoutGrid,
   Loader2,
-  Menu,
   PiggyBank,
   Sparkles,
   Target,
@@ -16,7 +16,6 @@ import {
 import { LogoMark } from '@/components/common/Logo';
 import MoreSheet, { isMorePath } from '@/components/layout/MoreSheet';
 import SyncStatus from '@/components/layout/SyncStatus';
-import QuickAdd from '@/components/transactions/QuickAdd';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
 import { useAuth } from '@/auth/AuthContext';
 import useOfflineSync from '@/hooks/useOfflineSync';
@@ -171,39 +170,40 @@ const BOTTOM_ITEM =
   'flex min-h-14 w-full flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium transition-colors';
 
 /**
- * Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area):
- * Inicio, Movimientos, [+] para anotar, Insights y Más.
+ * Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area): Inicio,
+ * Movimientos e Insights. El botón flotante abre el resto; va fuera de la barra porque su
+ * `backdrop-blur` encerraría cualquier elemento `fixed` dentro de ella.
  */
 function BottomNav() {
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   return (
-    <nav
-      aria-label="Principal"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
-    >
-      <ul className="mx-auto grid max-w-md grid-cols-5">
-        <BottomLink {...HOME} />
-        {/* `end`: Exportar cuelga de Movimientos pero se abre desde "Más". */}
-        <BottomLink {...MOVEMENTS} end />
-        <li className="grid min-w-0 place-items-center">
-          <QuickAdd />
-        </li>
-        <BottomLink {...INSIGHTS} />
-        <li className="min-w-0">
-          <button
-            type="button"
-            onClick={() => setMoreOpen(true)}
-            aria-haspopup="dialog"
-            className={cn(BOTTOM_ITEM, isMorePath(pathname) ? 'text-brand' : 'text-ink/60 hover:text-ink')}
-          >
-            <Menu className="size-[22px] shrink-0" aria-hidden="true" />
-            Más
-          </button>
-        </li>
-      </ul>
+    <>
+      <nav
+        aria-label="Principal"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
+      >
+        <ul className="mx-auto grid max-w-md grid-cols-3">
+          <BottomLink {...HOME} />
+          {/* `end`: Exportar cuelga de Movimientos pero se abre desde "Más". */}
+          <BottomLink {...MOVEMENTS} end />
+          <BottomLink {...INSIGHTS} />
+        </ul>
+      </nav>
+      <button
+        type="button"
+        onClick={() => setMoreOpen(true)}
+        aria-label="Más"
+        aria-haspopup="dialog"
+        className={cn(
+          'fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-3 z-40 grid size-14 place-items-center rounded-full bg-brand text-white shadow-lg transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95 md:hidden',
+          isMorePath(pathname) && 'ring-2 ring-brand/40 ring-offset-2 ring-offset-canvas',
+        )}
+      >
+        <LayoutGrid className="size-6" aria-hidden="true" />
+      </button>
       <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
-    </nav>
+    </>
   );
 }
 
@@ -280,11 +280,11 @@ function Shell() {
           syncing={syncing}
         />
 
-        {/* Abajo va la barra del celular; desde tablet, la barra rápida: que no tapen el último elemento. */}
+        {/* Abajo van la barra y el botón flotante del celular; desde tablet, la barra rápida: que no tapen el final. */}
         <main
           id="contenido"
           className={cn(
-            'flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pt-8',
+            'flex-1 px-4 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pt-8',
             quickEntry ? 'md:pb-28' : 'md:pb-12',
           )}
         >
