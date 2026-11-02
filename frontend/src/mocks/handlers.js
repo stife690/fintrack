@@ -165,6 +165,14 @@ function mockAlert({ type, amount }) {
   return { level: 'none', percentage: 20 };
 }
 
+/** Ideas de ejemplo de Lo que viene (FT-0026). */
+const ideas = [
+  { id: 'idea-1', title: 'Registrar gastos por WhatsApp', status: 'en_progreso', votes: 12 },
+  { id: 'idea-2', title: 'Metas de ahorro personales', status: 'planeada', votes: 7 },
+  { id: 'idea-3', title: 'Registro por voz', status: 'lista', votes: 20 },
+];
+const ideaVotes = new Set();
+
 export const handlers = [
   http.post(`${API_V1}/auth/register`, async ({ request }) => {
     const body = await readJson(request);
@@ -589,6 +597,42 @@ export const handlers = [
     const list = transactions.get(user.id) ?? [];
     if (!list.some((t) => t.id === params.id)) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
     transactions.set(user.id, list.filter((t) => t.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/ideas`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const shown = ideas
+      .map((idea) => {
+        const voted = ideaVotes.has(idea.id);
+        return { ...idea, votes: idea.votes + (voted ? 1 : 0), voted };
+      })
+      .sort((a, b) => b.votes - a.votes);
+    return HttpResponse.json({
+      upcoming: shown.filter((idea) => idea.status !== 'lista'),
+      done: shown.filter((idea) => idea.status === 'lista'),
+    });
+  }),
+
+  http.post(`${API_V1}/ideas`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const { title } = await readJson(request);
+    return HttpResponse.json({ id: crypto.randomUUID(), title, status: 'revision' }, { status: 201 });
+  }),
+
+  http.post(`${API_V1}/ideas/:id/vote`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    ideaVotes.add(params.id);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete(`${API_V1}/ideas/:id/vote`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    ideaVotes.delete(params.id);
     return new HttpResponse(null, { status: 204 });
   }),
 ];

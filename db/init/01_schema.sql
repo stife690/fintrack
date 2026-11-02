@@ -204,3 +204,25 @@ CREATE TABLE negocio_invitaciones (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX ux_negocio_invitaciones_email ON negocio_invitaciones(negocio_id, lower(email));
+
+-- Lo que viene (FT-0026). revision: solo la ve el equipo · planeada y en_progreso: públicas, se
+-- votan · lista: ya disponible · descartada: no se muestra. El equipo cambia el estado con SQL.
+CREATE TABLE ideas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  titulo VARCHAR(120) NOT NULL,
+  estado VARCHAR(12) NOT NULL DEFAULT 'revision'
+    CHECK (estado IN ('revision','planeada','en_progreso','lista','descartada')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_ideas_estado ON ideas(estado);
+CREATE INDEX idx_ideas_usuario ON ideas(usuario_id, created_at DESC);
+
+-- Un voto por persona: la llave primaria impide votar dos veces.
+CREATE TABLE idea_votos (
+  idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (idea_id, usuario_id)
+);

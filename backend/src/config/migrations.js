@@ -170,6 +170,28 @@ export const MIGRATIONS = [
          ON negocio_invitaciones(negocio_id, lower(email))`,
     ],
   },
+  {
+    id: '009_ideas',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS ideas (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         usuario_id UUID NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+         titulo VARCHAR(120) NOT NULL,
+         estado VARCHAR(12) NOT NULL DEFAULT 'revision'
+           CHECK (estado IN ('revision','planeada','en_progreso','lista','descartada')),
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      'CREATE INDEX IF NOT EXISTS idx_ideas_estado ON ideas(estado)',
+      'CREATE INDEX IF NOT EXISTS idx_ideas_usuario ON ideas(usuario_id, created_at DESC)',
+      `CREATE TABLE IF NOT EXISTS idea_votos (
+         idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+         PRIMARY KEY (idea_id, usuario_id)
+       )`,
+    ],
+  },
 ];
 
 /**

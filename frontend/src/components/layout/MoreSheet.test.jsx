@@ -8,6 +8,7 @@ describe('isMorePath', () => {
     expect(isMorePath('/app/transacciones/exportar')).toBe(true);
     expect(isMorePath('/app/renta')).toBe(true);
     expect(isMorePath('/app/invitar')).toBe(true);
+    expect(isMorePath('/app/lo-que-viene')).toBe(true);
   });
 
   it('no marca las secciones que están en la barra', () => {

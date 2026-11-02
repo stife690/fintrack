@@ -6,6 +6,7 @@ import {
   Crown,
   Download,
   Landmark,
+  Lightbulb,
   PiggyBank,
   Plus,
   Target,
@@ -36,6 +37,7 @@ export const MORE_GROUPS = [
     items: [
       { to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus },
       { to: '/app/planes', label: 'Planes', detail: 'Beta: aún no se cobra', icon: Crown },
+      { to: '/app/lo-que-viene', label: 'Lo que viene', detail: 'Vota y pide funciones', icon: Lightbulb },
     ],
   },
   {

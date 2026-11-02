@@ -51,6 +51,8 @@ tags:
     description: Insights financieros por IA (F7 — REQ-020, REQ-021)
   - name: Analytics
     description: Analítica del mes sin IA — proyección, gastos hormiga y puntaje de salud financiera (FT-0019)
+  - name: Ideas
+    description: Lo que viene — ideas de los usuarios y sus votos (FT-0026)
   - name: Sync
     description: Sincronización offline (F8, F9 — REQ-022 a REQ-025)
   - name: Push
@@ -838,6 +840,92 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ---------------------------------------------------------------- Sync
+  /ideas:
+    get:
+      tags: [Ideas]
+      summary: Ideas públicas de Lo que viene
+      description: |
+        `upcoming` trae las planeadas y en progreso; `done`, las ya disponibles. Van de la más
+        votada a la menos. No incluye quién envió cada idea.
+      responses:
+        '200':
+          description: Ideas públicas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [upcoming, done]
+                properties:
+                  upcoming:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Idea'
+                  done:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Idea'
+    post:
+      tags: [Ideas]
+      summary: Enviar una idea
+      description: Queda en revisión y no se muestra hasta que el equipo la publique. Máximo 5 cada 24 horas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 5
+                  maxLength: 120
+      responses:
+        '201':
+          description: Idea recibida
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, title, status]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  status:
+                    type: string
+                    enum: [revision]
+        '422':
+          description: Título inválido
+        '429':
+          description: Ya envió el máximo de ideas del día
+  /ideas/{id}/vote:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Ideas]
+      summary: Votar por una idea
+      description: Votar dos veces deja un solo voto.
+      responses:
+        '204':
+          description: Voto registrado
+        '404':
+          description: La idea no existe o ya no se puede votar
+    delete:
+      tags: [Ideas]
+      summary: Quitar el voto
+      responses:
+        '204':
+          description: Voto quitado
+        '404':
+          description: El id no es válido
   /sync/batch:
     post:
       tags: [Sync]
@@ -1153,6 +1241,23 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+    Idea:
+      type: object
+      required: [id, title, status, votes, voted]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [planeada, en_progreso, lista]
+        votes:
+          type: integer
+        voted:
+          type: boolean
+          description: Si el usuario ya votó por ella.
     # ---------- Errores
     Error:
       type: object
