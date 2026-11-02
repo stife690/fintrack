@@ -1070,7 +1070,7 @@ paths:
                 properties:
                   available:
                     type: boolean
-                    description: Si el bot está configurado
+                    description: Si el bot está configurado y el usuario está en la lista autorizada
                   linked:
                     type: boolean
                   phone:
@@ -1102,6 +1102,8 @@ paths:
                   botNumber:
                     type: string
                     nullable: true
+        '403':
+          description: El usuario no está en la lista autorizada
     delete:
       tags: [WhatsApp]
       summary: Desconectar el número

@@ -40,3 +40,5 @@ services:
         sync: false # secreto; el mismo texto configurado en el webhook de Meta
       - key: WHATSAPP_BOT_NUMBER
         sync: false # número del bot con indicativo, solo dígitos
+      - key: WHATSAPP_ALLOWED_EMAILS
+        sync: false # correos que pueden conectar el bot, separados por coma
