@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Briefcase, ChevronRight, CircleUserRound, Download, PiggyBank, Target } from 'lucide-react';
+import { Briefcase, ChevronRight, CircleUserRound, Download, Landmark, PiggyBank, Target, UserPlus } from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
 
 /** Lo que no cabe en la barra del celular. Solo van secciones que ya funcionan. */
@@ -8,6 +8,7 @@ export const MORE_GROUPS = [
     label: 'Mi dinero',
     items: [
       { to: '/app/presupuestos', label: 'Presupuestos', detail: 'Límites por categoría', icon: Target },
+      { to: '/app/renta', label: 'Renta y DIAN', detail: 'Si debes declarar y cuándo', icon: Landmark },
       { to: '/app/transacciones/exportar', label: 'Exportar reportes', detail: 'Excel, PDF o CSV', icon: Download },
     ],
   },
@@ -17,6 +18,10 @@ export const MORE_GROUPS = [
       { to: '/app/vacas', label: 'Vacas', detail: 'Ahorren juntos para una meta', icon: PiggyBank },
       { to: '/app/negocios', label: 'Negocios', detail: 'Cuentas con tus socios', icon: Briefcase },
     ],
+  },
+  {
+    label: 'FinTrack',
+    items: [{ to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus }],
   },
   {
     label: 'Mi cuenta',
