@@ -13,6 +13,7 @@ const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
+const Welcome = lazy(() => import('@/pages/app/Welcome'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
 const Insights = lazy(() => import('@/pages/app/Insights'));
@@ -72,6 +73,7 @@ function RouteFallback() {
  * enlace de invitación (FT-0014/FT-0015) · `/app/negocios` emprendimientos compartidos · `/app/negocios/:id`
  * socios y roles · `/app/negocios/unirse/:code` enlace de invitación (FT-0016).
  * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
+ * Fuera del marco: `/app/bienvenida` preguntas de la primera vez (FT-0036).
  */
 export default function App() {
   const { pathname } = useLocation();
@@ -91,6 +93,7 @@ export default function App() {
             <Route path="/recuperar" element={<ForgotPassword />} />
             <Route path="/restablecer" element={<ResetPassword />} />
             <Route element={<ProtectedRoute />}>
+              <Route path="/app/bienvenida" element={<Welcome />} />
               <Route element={<AppShell />}>
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/transacciones" element={<Transactions />} />

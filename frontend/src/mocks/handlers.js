@@ -175,6 +175,24 @@ const ideas = [
 ];
 const ideaVotes = new Set();
 
+/** Perfil de Mi plata por usuario. */
+const moneyProfiles = new Map();
+
+/** @returns {object} El perfil del usuario; vacío si todavía no tiene. */
+function moneyProfileOf(userId) {
+  if (!moneyProfiles.has(userId)) {
+    moneyProfiles.set(userId, {
+      incomeType: null,
+      payDays: [],
+      balance: null,
+      balanceAt: null,
+      welcomeDone: false,
+      commitments: [],
+    });
+  }
+  return moneyProfiles.get(userId);
+}
+
 export const handlers = [
   http.post(`${API_V1}/auth/register`, async ({ request }) => {
     const body = await readJson(request);
@@ -602,6 +620,61 @@ export const handlers = [
     const list = transactions.get(user.id) ?? [];
     if (!list.some((t) => t.id === params.id)) return error(404, 'NOT_FOUND', 'Transacción no encontrada');
     transactions.set(user.id, list.filter((t) => t.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/money-profile`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json(moneyProfileOf(user.id));
+  }),
+
+  http.put(`${API_V1}/money-profile`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const profile = moneyProfileOf(user.id);
+    const { incomeType = null, payDays = [], balance = null } = await readJson(request);
+    Object.assign(profile, { incomeType, payDays, balance, balanceAt: balance === null ? null : new Date().toISOString() });
+    return HttpResponse.json(profile);
+  }),
+
+  http.post(`${API_V1}/money-profile/welcome`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const profile = moneyProfileOf(user.id);
+    const { commitments = [], ...answers } = (await readJson(request)) ?? {};
+    Object.assign(profile, answers, { welcomeDone: true });
+    for (const item of commitments) profile.commitments.push({ id: crypto.randomUUID(), ...item });
+    return HttpResponse.json(profile);
+  }),
+
+  http.post(`${API_V1}/money-profile/commitments`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const profile = moneyProfileOf(user.id);
+    const body = await readJson(request);
+    if (profile.commitments.some((c) => c.name.toLowerCase() === body.name.toLowerCase())) {
+      return error(409, 'COMMITMENT_EXISTS', 'Ya tienes un compromiso con ese nombre');
+    }
+    const commitment = { id: crypto.randomUUID(), ...body };
+    profile.commitments.push(commitment);
+    return HttpResponse.json(commitment, { status: 201 });
+  }),
+
+  http.put(`${API_V1}/money-profile/commitments/:id`, async ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const commitment = moneyProfileOf(user.id).commitments.find((c) => c.id === params.id);
+    if (!commitment) return error(404, 'NOT_FOUND', 'Compromiso no encontrado');
+    Object.assign(commitment, await readJson(request));
+    return HttpResponse.json(commitment);
+  }),
+
+  http.delete(`${API_V1}/money-profile/commitments/:id`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const profile = moneyProfileOf(user.id);
+    profile.commitments = profile.commitments.filter((c) => c.id !== params.id);
     return new HttpResponse(null, { status: 204 });
   }),
 

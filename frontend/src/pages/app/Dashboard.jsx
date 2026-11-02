@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
@@ -10,6 +11,7 @@ import QuickActions from '@/components/dashboard/QuickActions';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import { currentMonth } from '@/components/budgets/month';
 import PageHeader from '@/components/layout/PageHeader';
+import MoneyInvite from '@/components/money/MoneyInvite';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
@@ -20,6 +22,7 @@ import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
+import { getMoneyProfile } from '@/services/moneyProfileService';
 import { getSummary } from '@/services/summaryService';
 import { getCategories, listTransactions } from '@/services/transactionService';
 
@@ -39,6 +42,7 @@ function monthName(month) {
  * Sin ningún movimiento, el balance y los gráficos se reemplazan por un estado vacío (FT-0004).
  * Sin conexión, los últimos movimientos salen de la copia del dispositivo (FT-0009) y el balance y los
  * presupuestos avisan que se actualizan al volver internet; al reconectar, todo se recarga.
+ * Quien no ha visto la bienvenida (FT-0036) va a ella si no tiene movimientos; si ya tiene, se le invita.
  */
 export default function Dashboard() {
   usePageTitle('Inicio');
@@ -70,6 +74,7 @@ export default function Dashboard() {
     [online],
   );
   const categories = useAsync(getCategories, []);
+  const moneyProfile = useAsync(getMoneyProfile, [online]);
 
   const names = useMemo(() => {
     const all = categories.data ? [...categories.data.expense, ...categories.data.income] : [];
@@ -112,6 +117,9 @@ export default function Dashboard() {
   // Si hay pendientes offline el usuario ya registró algo: no se le dice que no tiene movimientos.
   // Sin conexión la copia local puede estar vacía aunque el servidor tenga datos: no se afirma que no hay.
   const empty = online && recent.data?.total === 0 && pending === 0;
+  const welcomePending = online && moneyProfile.data?.welcomeDone === false;
+
+  if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
   return (
     <>
@@ -126,6 +134,7 @@ export default function Dashboard() {
             <DashboardEmpty />
           ) : (
             <>
+              {welcomePending && <MoneyInvite onDone={moneyProfile.reload} />}
               <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
               <BalanceCard
                 periodLabel={periodLabel(selected.period, selected.date)}
