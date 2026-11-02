@@ -74,27 +74,30 @@ export default function IncomeExpenseChart({ period, date, timeSeries, hidden, c
             </Suspense>
           </div>
 
-          <table className="sr-only">
-            <caption>Ingresos y gastos {period === 'year' ? 'por mes' : 'por día'}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Fecha</th>
-                <th scope="col">Ingresos</th>
-                <th scope="col">Gastos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data
-                .filter((p) => p.income || p.expense)
-                .map((p) => (
-                  <tr key={p.date}>
-                    <th scope="row">{p.fullLabel}</th>
-                    <td>{hidden ? 'oculto' : formatMoney(p.income)}</td>
-                    <td>{hidden ? 'oculto' : formatMoney(p.expense)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          {/* sr-only va en un div: en una tabla el ancho de 1 px no aplica y la página se desbordaba en celular. */}
+          <div className="sr-only">
+            <table>
+              <caption>Ingresos y gastos {period === 'year' ? 'por mes' : 'por día'}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Ingresos</th>
+                  <th scope="col">Gastos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data
+                  .filter((p) => p.income || p.expense)
+                  .map((p) => (
+                    <tr key={p.date}>
+                      <th scope="row">{p.fullLabel}</th>
+                      <td>{hidden ? 'oculto' : formatMoney(p.income)}</td>
+                      <td>{hidden ? 'oculto' : formatMoney(p.expense)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </section>
