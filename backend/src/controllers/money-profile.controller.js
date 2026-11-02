@@ -1,3 +1,4 @@
+import { getPlan as buildPlan } from '../services/money-plan.service.js';
 import * as moneyProfile from '../services/money-profile.service.js';
 import { parseCommitment, parseProfile, parseWelcome } from '../validators/money-profile.validator.js';
 
@@ -9,6 +10,16 @@ import { parseCommitment, parseProfile, parseWelcome } from '../validators/money
  */
 export async function getProfile(req, res) {
   res.json(await moneyProfile.get(req.userId));
+}
+
+/**
+ * `GET /api/v1/money-profile/plan`: cuánto puede gastar o necesita ganar el usuario hoy.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getPlan(req, res) {
+  res.json(await buildPlan(req.userId));
 }
 
 /**

@@ -17,9 +17,11 @@ const TEXT = { positive: 'text-positive', caution: 'text-caution', negative: 'te
  * Carga sus propios datos; si falla (p. ej. sin conexión) o el mes no tiene movimientos, no se
  * muestra: no es imprescindible en el inicio.
  *
- * @param {{ hidden: boolean }} props `hidden`: ocultar montos, como el resto del inicio.
+ * Con Mi plata activa (FT-0037) no dice cuánto gastar: esa tarjeta lo calcula con la plata real.
+ *
+ * @param {{ hidden: boolean, showAllowance?: boolean }} props `hidden`: ocultar montos, como el resto del inicio.
  */
-export default function HealthCard({ hidden }) {
+export default function HealthCard({ hidden, showAllowance = true }) {
   const { data, error, reload } = useAsync(getAnalytics, []);
 
   // Un movimiento nuevo desde la barra rápida cambia el puntaje.
@@ -47,19 +49,21 @@ export default function HealthCard({ hidden }) {
             <HeartPulse className="size-4" aria-hidden="true" />
             Salud financiera · <span className={cn('font-semibold', TEXT[tone])}>{label}</span>
           </span>
-          <span className="mt-1 block text-sm">
-            {perDay > 0 ? (
-              <>
-                Puedes gastar{' '}
-                <span className="font-semibold tabular-nums">{hidden ? '$ ••••••' : formatMoney(perDay)}</span> por día
-                hasta fin de mes
-              </>
-            ) : data.projection.income === 0 ? (
-              'Aún no registras ingresos este mes'
-            ) : (
-              'Ya gastaste lo que ingresó este mes'
-            )}
-          </span>
+          {showAllowance && (
+            <span className="mt-1 block text-sm">
+              {perDay > 0 ? (
+                <>
+                  Puedes gastar{' '}
+                  <span className="font-semibold tabular-nums">{hidden ? '$ ••••••' : formatMoney(perDay)}</span> por día
+                  hasta fin de mes
+                </>
+              ) : data.projection.income === 0 ? (
+                'Aún no registras ingresos este mes'
+              ) : (
+                'Ya gastaste lo que ingresó este mes'
+              )}
+            </span>
+          )}
         </span>
         <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
         <span className="sr-only">Ver el detalle en Insights</span>

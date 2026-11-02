@@ -221,7 +221,7 @@ function WelcomeSteps() {
             <>
               <Button onClick={finish} disabled={saving}>
                 {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {saving ? 'Guardando…' : 'Terminar'}
+                {saving ? 'Guardando…' : 'Ver mi plata'}
               </Button>
               {items.length === 0 && (
                 <Button variant="ghost" disabled={saving} onClick={() => save(profile())}>

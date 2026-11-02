@@ -193,6 +193,29 @@ test('no deja ver ni tocar los compromisos de otro usuario', options, async () =
   });
 });
 
+test('el plan empieza sin datos y se calcula con lo registrado después del saldo', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken(api);
+    assert.deepEqual((await api('/money-profile/plan', { token })).body, { ready: false });
+
+    await api('/money-profile', { method: 'PUT', token, body: { incomeType: 'sin_fecha', balance: 500000 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const add = (type, amount, date) =>
+      api('/transactions', {
+        method: 'POST',
+        token,
+        body: { type, amount, date, description: 'Prueba', category: type === 'gasto' ? 'otros' : 'otros_ingresos' },
+      });
+    assert.equal((await add('gasto', 100000, today)).status, 201);
+    await add('ingreso', 30000, today);
+    await add('gasto', 70000, '2020-01-15');
+
+    const { status, body } = await api('/money-profile/plan', { token });
+    assert.equal(status, 200);
+    assert.equal(body.money, 430000, 'el gasto con fecha vieja ya estaba en el saldo');
+  });
+});
+
 test('limita los compromisos por usuario', options, async () => {
   await withApi(async (api) => {
     const token = await newUserToken(api);

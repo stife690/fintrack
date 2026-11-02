@@ -630,6 +630,11 @@ export const handlers = [
     return HttpResponse.json(moneyProfileOf(user.id));
   }),
 
+  http.get(`${API_V1}/money-profile/plan`, ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ ready: false });
+  }),
+
   http.put(`${API_V1}/money-profile`, async ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
