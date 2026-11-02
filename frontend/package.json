@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:sync": "node scripts/sync-cases.mjs",
     "lighthouse": "node scripts/lighthouse.mjs",
-    "test:offline": "node scripts/offline-cases.mjs"
+    "test:offline": "node scripts/offline-cases.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter-tight": "^5.3.0",
