@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
 import { loginSchema } from '@/lib/validation/auth';
 import { useAuth } from '@/auth/AuthContext';
-import { getReturnTo, isInvitation } from '@/auth/returnTo';
+import { getReturnTo, invitationKind } from '@/auth/returnTo';
 
 /**
  * Pantalla de inicio de sesión. Valida en el cliente (zod), inicia la sesión con `signIn`
@@ -27,6 +27,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
   const [serverError, setServerError] = useState('');
+  const invitation = invitationKind(getReturnTo(location.state?.from));
 
   const {
     register,
@@ -77,9 +78,9 @@ export default function Login() {
           Cuenta creada. Ya puedes iniciar sesión.
         </p>
       )}
-      {isInvitation(getReturnTo(location.state?.from)) && (
+      {invitation && (
         <p className="rounded-xl bg-violet/15 px-4 py-3 text-sm text-violet-light" role="status">
-          Te invitaron a una vaca. Inicia sesión o crea tu cuenta y te llevamos a la invitación.
+          Te invitaron a {invitation === 'vaca' ? 'una vaca' : 'un negocio'}. Inicia sesión o crea tu cuenta y te llevamos a la invitación.
         </p>
       )}
       {location.state?.passwordReset && (

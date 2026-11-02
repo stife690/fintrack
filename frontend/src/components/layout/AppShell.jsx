@@ -1,6 +1,6 @@
 import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeftRight, CircleUserRound, House, Loader2, PiggyBank, Sparkles, Target } from 'lucide-react';
+import { ArrowLeftRight, Briefcase, CircleUserRound, House, Loader2, PiggyBank, Sparkles, Target } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import SyncStatus from '@/components/layout/SyncStatus';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
@@ -12,12 +12,16 @@ import { cn } from '@/lib/utils';
 import { getProfile } from '@/services/userService';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
-/** Secciones de la zona privada. `end` evita que "Inicio" quede activo en las subrutas. */
+/**
+ * Secciones de la zona privada. `end` evita que "Inicio" quede activo en las subrutas; `short` es
+ * la etiqueta de la barra inferior del celular, donde los nombres largos no caben.
+ */
 const NAV_ITEMS = [
   { to: '/app', label: 'Inicio', icon: House, end: true },
-  { to: '/app/transacciones', label: 'Movimientos', icon: ArrowLeftRight },
-  { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
+  { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
+  { to: '/app/presupuestos', label: 'Presupuestos', short: 'Presup.', icon: Target },
   { to: '/app/vacas', label: 'Vacas', icon: PiggyBank },
+  { to: '/app/negocios', label: 'Negocios', icon: Briefcase },
   { to: '/app/insights', label: 'Insights', icon: Sparkles },
   { to: '/app/cuenta', label: 'Cuenta', icon: CircleUserRound },
 ];
@@ -94,12 +98,13 @@ function BottomNav() {
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-6">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+      <ul className="mx-auto grid max-w-md grid-cols-7">
+        {NAV_ITEMS.map(({ to, label, short, icon: Icon, end }) => (
           <li key={to}>
             <NavLink
               to={to}
               end={end}
+              aria-label={short ? label : undefined}
               className={({ isActive }) =>
                 cn(
                   'flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
@@ -108,7 +113,7 @@ function BottomNav() {
               }
             >
               <Icon className="size-[22px]" aria-hidden="true" />
-              {label}
+              <span aria-hidden={short ? true : undefined}>{short ?? label}</span>
             </NavLink>
           </li>
         ))}

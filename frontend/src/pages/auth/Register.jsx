@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getReturnTo, isInvitation } from '@/auth/returnTo';
+import { getReturnTo, invitationKind } from '@/auth/returnTo';
 import usePageTitle from '@/hooks/usePageTitle';
 import { registerSchema } from '@/lib/validation/auth';
 import { register as registerUser } from '@/services/authService';
@@ -25,6 +25,7 @@ export default function Register() {
   usePageTitle('Crear cuenta');
   const navigate = useNavigate();
   const location = useLocation();
+  const invitation = invitationKind(getReturnTo(location.state?.from));
   const [serverError, setServerError] = useState('');
 
   const {
@@ -71,9 +72,9 @@ export default function Register() {
         </>
       }
     >
-      {isInvitation(getReturnTo(location.state?.from)) && (
+      {invitation && (
         <p className="rounded-xl bg-violet/15 px-4 py-3 text-sm text-violet-light" role="status">
-          Te invitaron a una vaca. Al crear tu cuenta e iniciar sesión te llevamos a la invitación.
+          Te invitaron a {invitation === 'vaca' ? 'una vaca' : 'un negocio'}. Al crear tu cuenta e iniciar sesión te llevamos a la invitación.
         </p>
       )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
