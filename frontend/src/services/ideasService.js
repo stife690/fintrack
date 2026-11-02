@@ -27,6 +27,33 @@ export function sendIdea(title) {
 }
 
 /**
+ * Todas las ideas, para el panel del equipo.
+ * @returns {Promise<{ ideas: Array<{ id: string, title: string, status: string, votes: number, createdAt: string }> }>}
+ */
+export function getAdminIdeas() {
+  return apiRequest('/ideas/admin');
+}
+
+/**
+ * Agrega una idea del equipo.
+ * @param {{ title: string, status: string }} idea
+ * @returns {Promise<object>}
+ */
+export function createAdminIdea(idea) {
+  return apiRequest('/ideas/admin', { method: 'POST', body: idea });
+}
+
+/**
+ * Cambia el título o el estado de una idea.
+ * @param {string} id
+ * @param {{ title?: string, status?: string }} changes
+ * @returns {Promise<object>}
+ */
+export function updateAdminIdea(id, changes) {
+  return apiRequest(`/ideas/admin/${id}`, { method: 'PATCH', body: changes });
+}
+
+/**
  * Pone o quita el voto.
  * @param {string} id
  * @param {boolean} voted `true` para votar, `false` para quitar el voto.

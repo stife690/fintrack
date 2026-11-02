@@ -14,6 +14,16 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .map((origin) => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
+/**
+ * Correos del equipo que administran Lo que viene (`ADMIN_EMAILS`, separados por coma).
+ * Vacío significa que nadie es administrador.
+ * @type {string[]}
+ */
+const adminEmails = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
 const DEFAULT_MODELS = {
   gemini: 'gemini-flash-lite-latest',
@@ -51,6 +61,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {number} port Puerto HTTP (`PORT`, por defecto 3000).
  * @property {string} nodeEnv Entorno de ejecución (`NODE_ENV`, por defecto "development").
  * @property {string[]} corsOrigins Orígenes permitidos por CORS.
+ * @property {string[]} adminEmails Correos administradores (`ADMIN_EMAILS`).
  * @property {string|undefined} databaseUrl Cadena de conexión a PostgreSQL (`DATABASE_URL`).
  * @property {number} dbPoolMax Máximo de conexiones del pool (`DB_POOL_MAX`, por defecto 10).
  * @property {string} jwtSecret Secreto que firma los access tokens (`JWT_SECRET`; obligatorio en producción).
@@ -85,6 +96,7 @@ export const env = {
   port: Number(process.env.PORT) || 3000,
   nodeEnv,
   corsOrigins,
+  adminEmails,
   databaseUrl: process.env.DATABASE_URL,
   dbPoolMax: Number(process.env.DB_POOL_MAX) || 10,
   jwtSecret: process.env.JWT_SECRET || 'secreto-solo-para-desarrollo-local',
@@ -107,3 +119,12 @@ export const env = {
   sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo',
   sttTimeoutMs: Number(process.env.STT_TIMEOUT_MS) || 15_000,
 };
+
+/**
+ * ¿Este correo administra FinTrack? No distingue mayúsculas.
+ * @param {string} email
+ * @returns {boolean}
+ */
+export function isAdminEmail(email) {
+  return env.adminEmails.includes(email.toLowerCase());
+}

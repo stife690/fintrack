@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ChevronUp, Lightbulb, Loader2, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronUp, Lightbulb, Loader2, Plus, Settings2 } from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -8,6 +9,7 @@ import useAsync from '@/hooks/useAsync';
 import usePageTitle from '@/hooks/usePageTitle';
 import { cn } from '@/lib/utils';
 import { getIdeas, sendIdea, setVote } from '@/services/ideasService';
+import { getProfile } from '@/services/userService';
 
 export const MIN_IDEA_LENGTH = 5;
 export const MAX_IDEA_LENGTH = 120;
@@ -139,6 +141,7 @@ function IdeaRow({ idea, busy, onVote }) {
 export default function Roadmap() {
   usePageTitle('Lo que viene');
   const { data, error, loading, reload } = useAsync(getIdeas, []);
+  const profile = useAsync(getProfile, []);
   const [tab, setTab] = useState('upcoming');
   const [asking, setAsking] = useState(false);
   const [voting, setVoting] = useState(null);
@@ -164,10 +167,20 @@ export default function Roadmap() {
         title="Lo que viene"
         description="Vota por lo que quieres primero."
         actions={
-          <Button onClick={() => setAsking(true)}>
-            <Plus aria-hidden="true" />
-            Pedir una función
-          </Button>
+          <>
+            {profile.data?.isAdmin && (
+              <Button asChild variant="outline">
+                <Link to="/app/lo-que-viene/admin">
+                  <Settings2 aria-hidden="true" />
+                  Administrar
+                </Link>
+              </Button>
+            )}
+            <Button onClick={() => setAsking(true)}>
+              <Plus aria-hidden="true" />
+              Pedir una función
+            </Button>
+          </>
         }
       />
 

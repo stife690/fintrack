@@ -170,6 +170,7 @@ const ideas = [
   { id: 'idea-1', title: 'Registrar gastos por WhatsApp', status: 'en_progreso', votes: 12 },
   { id: 'idea-2', title: 'Metas de ahorro personales', status: 'planeada', votes: 7 },
   { id: 'idea-3', title: 'Registro por voz', status: 'lista', votes: 20 },
+  { id: 'idea-4', title: 'Dividir gastos con amigos', status: 'revision', votes: 0 },
 ];
 const ideaVotes = new Set();
 
@@ -230,7 +231,7 @@ export const handlers = [
   http.get(`${API_V1}/users/me`, ({ request }) => {
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
-    return HttpResponse.json({ id: user.id, email: user.email, timezone: user.timezone });
+    return HttpResponse.json({ id: user.id, email: user.email, timezone: user.timezone, isAdmin: true });
   }),
 
   http.get(`${API_V1}/categories`, ({ request }) => {
@@ -604,6 +605,7 @@ export const handlers = [
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const shown = ideas
+      .filter((idea) => ['planeada', 'en_progreso', 'lista'].includes(idea.status))
       .map((idea) => {
         const voted = ideaVotes.has(idea.id);
         return { ...idea, votes: idea.votes + (voted ? 1 : 0), voted };
@@ -620,6 +622,26 @@ export const handlers = [
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const { title } = await readJson(request);
     return HttpResponse.json({ id: crypto.randomUUID(), title, status: 'revision' }, { status: 201 });
+  }),
+
+  http.get(`${API_V1}/ideas/admin`, ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ ideas: ideas.map((idea) => ({ ...idea, createdAt: new Date().toISOString() })) });
+  }),
+
+  http.post(`${API_V1}/ideas/admin`, async ({ request }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const idea = { id: crypto.randomUUID(), votes: 0, status: 'planeada', ...(await readJson(request)) };
+    ideas.unshift(idea);
+    return HttpResponse.json(idea, { status: 201 });
+  }),
+
+  http.patch(`${API_V1}/ideas/admin/:id`, async ({ request, params }) => {
+    if (!authUser(request)) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const idea = ideas.find(({ id }) => id === params.id);
+    if (!idea) return error(404, 'NOT_FOUND', 'Idea no encontrada');
+    Object.assign(idea, await readJson(request));
+    return HttpResponse.json(idea);
   }),
 
   http.post(`${API_V1}/ideas/:id/vote`, ({ request, params }) => {

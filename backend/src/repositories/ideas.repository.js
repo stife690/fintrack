@@ -28,6 +28,52 @@ export async function listPublished(userId) {
 }
 
 /**
+ * Todas las ideas, de la más nueva a la más vieja, para el panel. Tampoco incluye el autor.
+ * @returns {Promise<Array<{ id: string, title: string, status: string, votes: number, createdAt: string }>>}
+ */
+export async function listAll() {
+  const { rows } = await pool.query(
+    `SELECT i.id, i.titulo AS title, i.estado AS status, count(v.usuario_id)::int AS votes,
+            i.created_at AS "createdAt"
+     FROM ideas i LEFT JOIN idea_votos v ON v.idea_id = i.id
+     GROUP BY i.id
+     ORDER BY i.created_at DESC`,
+  );
+  return rows;
+}
+
+/**
+ * Crea una idea del equipo, sin autor.
+ * @param {string} title
+ * @param {string} status
+ * @returns {Promise<{ id: string, title: string, status: string }>}
+ */
+export async function insertAdminIdea(title, status) {
+  const { rows } = await pool.query(
+    `INSERT INTO ideas (titulo, estado) VALUES ($1, $2)
+     RETURNING id, titulo AS title, estado AS status`,
+    [title, status],
+  );
+  return rows[0];
+}
+
+/**
+ * Cambia el título y/o el estado. Lo que no se envía queda igual.
+ * @param {string} id
+ * @param {{ title?: string, status?: string }} changes
+ * @returns {Promise<{ id: string, title: string, status: string }|undefined>} `undefined` si no existe.
+ */
+export async function updateIdea(id, { title, status }) {
+  const { rows } = await pool.query(
+    `UPDATE ideas SET titulo = COALESCE($2, titulo), estado = COALESCE($3, estado), updated_at = now()
+     WHERE id = $1
+     RETURNING id, titulo AS title, estado AS status`,
+    [id, title ?? null, status ?? null],
+  );
+  return rows[0];
+}
+
+/**
  * Cuántas ideas envió el usuario en las últimas 24 horas.
  * @param {string} userId
  * @returns {Promise<number>}

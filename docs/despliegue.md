@@ -41,6 +41,7 @@ Variables de entorno en producción:
 | Vercel | `VITE_API_URL` | URL del backend en Render, sin barra final |
 | Render | `NODE_VERSION` | `20` |
 | Render | `CORS_ORIGIN` | URL del frontend en Vercel, sin barra final |
+| Render | `ADMIN_EMAILS` | Correos del equipo que administran Lo que viene, separados por coma |
 | Render | `JWT_SECRET` | Secreto aleatorio (el blueprint lo genera). Obligatorio: sin él el servidor no arranca |
 | Render | `DATABASE_URL` | Cadena del **Session pooler** de Supabase, terminada en `?sslmode=no-verify` |
 | Render | `AI_PROVIDER` | `gemini` |

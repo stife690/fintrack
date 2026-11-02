@@ -901,6 +901,83 @@ paths:
           description: Título inválido
         '429':
           description: Ya envió el máximo de ideas del día
+  /ideas/admin:
+    get:
+      tags: [Ideas]
+      summary: Todas las ideas, para el equipo
+      description: Solo para los correos de `ADMIN_EMAILS`. No incluye quién envió cada idea.
+      responses:
+        '200':
+          description: Todas las ideas, de la más nueva a la más vieja
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ideas]
+                properties:
+                  ideas:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminIdea'
+        '403':
+          description: No es administrador
+    post:
+      tags: [Ideas]
+      summary: Agregar una idea del equipo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 5
+                  maxLength: 120
+                status:
+                  $ref: '#/components/schemas/IdeaStatus'
+      responses:
+        '201':
+          description: Idea creada
+        '403':
+          description: No es administrador
+        '422':
+          description: Datos inválidos
+  /ideas/admin/{id}:
+    patch:
+      tags: [Ideas]
+      summary: Cambiar el título o el estado de una idea
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 5
+                  maxLength: 120
+                status:
+                  $ref: '#/components/schemas/IdeaStatus'
+      responses:
+        '200':
+          description: Idea actualizada
+        '403':
+          description: No es administrador
+        '404':
+          description: La idea no existe
+        '422':
+          description: Datos inválidos
   /ideas/{id}/vote:
     parameters:
       - name: id
@@ -1241,6 +1318,25 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+    IdeaStatus:
+      type: string
+      enum: [revision, planeada, en_progreso, lista, descartada]
+    AdminIdea:
+      type: object
+      required: [id, title, status, votes, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/IdeaStatus'
+        votes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
     Idea:
       type: object
       required: [id, title, status, votes, voted]
@@ -1381,7 +1477,7 @@ components:
         refreshToken: { type: string }
     User:
       type: object
-      required: [id, email, name, timezone]
+      required: [id, email, name, timezone, isAdmin]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -1392,6 +1488,9 @@ components:
           description: Nombre visible. `null` si el usuario no lo ha puesto.
           example: Felipe
         timezone: { type: string, example: America/Bogota }
+        isAdmin:
+          type: boolean
+          description: Si administra Lo que viene (`ADMIN_EMAILS`).
     UpdateProfileRequest:
       type: object
       required: [name]

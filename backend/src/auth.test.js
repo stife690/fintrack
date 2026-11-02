@@ -156,7 +156,13 @@ test('users/me exige un access token válido y vigente', options, async () => {
 
     const me = await api('/users/me', { token: session.accessToken });
     assert.equal(me.status, 200);
-    assert.deepEqual(me.body, { id: session.user.id, email, name: null, timezone: 'America/Bogota' });
+    assert.deepEqual(me.body, {
+      id: session.user.id,
+      email,
+      name: null,
+      timezone: 'America/Bogota',
+      isAdmin: false,
+    });
 
     const noToken = await api('/users/me');
     assert.equal(noToken.status, 401);
