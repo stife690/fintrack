@@ -1,6 +1,6 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowLeftRight, Briefcase, CircleUserRound, House, Loader2, PiggyBank, Sparkles, Target } from 'lucide-react';
+import { ArrowLeftRight, Briefcase, House, Loader2, PiggyBank, Sparkles, Target, Users } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import SyncStatus from '@/components/layout/SyncStatus';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
@@ -13,18 +13,46 @@ import { getProfile } from '@/services/userService';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 /**
- * Secciones de la zona privada. `end` evita que "Inicio" quede activo en las subrutas; `short` es
- * la etiqueta de la barra inferior del celular, donde los nombres largos no caben.
+ * Secciones de la zona privada, en dos grupos: las finanzas propias y lo que se maneja con otras
+ * personas. `end` evita que "Inicio" quede activo en las subrutas. Cuenta va aparte (el usuario,
+ * abajo en el menú lateral, y el avatar arriba en el celular).
  */
-const NAV_ITEMS = [
-  { to: '/app', label: 'Inicio', icon: House, end: true },
-  { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
-  { to: '/app/presupuestos', label: 'Presupuestos', short: 'Presup.', icon: Target },
-  { to: '/app/vacas', label: 'Vacas', icon: PiggyBank },
-  { to: '/app/negocios', label: 'Negocios', icon: Briefcase },
-  { to: '/app/insights', label: 'Insights', icon: Sparkles },
-  { to: '/app/cuenta', label: 'Cuenta', icon: CircleUserRound },
+const NAV_GROUPS = [
+  {
+    label: 'Mis finanzas',
+    items: [
+      { to: '/app', label: 'Inicio', icon: House, end: true },
+      { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
+      { to: '/app/presupuestos', label: 'Presupuestos', short: 'Presup.', icon: Target },
+      { to: '/app/insights', label: 'Insights', icon: Sparkles },
+    ],
+  },
+  {
+    label: 'En grupo',
+    items: [
+      { to: '/app/vacas', label: 'Vacas', icon: PiggyBank },
+      { to: '/app/negocios', label: 'Negocios', icon: Briefcase },
+    ],
+  },
 ];
+
+/** Secciones que la barra del celular junta en "Grupos" (se cambia entre ellas con `GroupSwitch`). */
+const GROUP_PATHS = ['/app/vacas', '/app/negocios'];
+const LAST_GROUP_KEY = 'fintrack:ultimoGrupo';
+
+/**
+ * Barra del celular: cinco botones. Vacas y Negocios comparten "Grupos", que vuelve a la última
+ * de las dos que se abrió.
+ * @param {string} lastGroup
+ */
+function bottomItems(lastGroup) {
+  const [mine] = NAV_GROUPS;
+  return [
+    ...mine.items.slice(0, 3),
+    { to: lastGroup, label: 'Grupos', icon: Users, match: GROUP_PATHS },
+    mine.items[3],
+  ];
+}
 
 /** Círculo con la inicial del usuario. */
 function Avatar({ user, className }) {
@@ -42,8 +70,8 @@ function Avatar({ user, className }) {
 }
 
 /**
- * Menú lateral para tablet y computador. En tablet (md) muestra solo íconos;
- * desde lg, íconos con nombre y el usuario abajo.
+ * Menú lateral para tablet y computador, con las secciones agrupadas. En tablet (md) muestra
+ * solo íconos (los grupos se separan con una línea); desde lg, íconos con nombre y el usuario abajo.
  */
 function Sidebar({ user }) {
   return (
@@ -57,66 +85,123 @@ function Sidebar({ user }) {
         <span className="max-lg:sr-only">FinTrack</span>
       </Link>
 
-      <nav aria-label="Principal" className="mt-8 flex flex-col gap-1">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            title={label}
-            className={({ isActive }) =>
-              cn(
-                'flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors max-lg:justify-center',
-                isActive ? 'bg-brand-soft text-brand' : 'text-ink/60 hover:bg-ink/5 hover:text-ink',
-              )
-            }
-          >
-            <Icon className="size-5 shrink-0" aria-hidden="true" />
-            <span className="max-lg:sr-only">{label}</span>
-          </NavLink>
+      <nav aria-label="Principal" className="mt-8 flex flex-col gap-6">
+        {NAV_GROUPS.map((group, index) => (
+          <div key={group.label} className={cn(index > 0 && 'max-lg:border-t max-lg:border-ink/10 max-lg:pt-6')}>
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-ink/40 max-lg:sr-only">
+              {group.label}
+            </p>
+            <ul className="flex flex-col gap-1">
+              {group.items.map(({ to, label, icon: Icon, end }) => (
+                <li key={to}>
+                  <NavLink
+                    to={to}
+                    end={end}
+                    title={label}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors max-lg:justify-center',
+                        isActive ? 'bg-brand-soft text-brand' : 'text-ink/60 hover:bg-ink/5 hover:text-ink',
+                      )
+                    }
+                  >
+                    <Icon className="size-5 shrink-0" aria-hidden="true" />
+                    <span className="max-lg:sr-only">{label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
       </nav>
 
-      <Link
+      <NavLink
         to="/app/cuenta"
-        className="mt-auto flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-ink/5 max-lg:justify-center"
+        title="Cuenta"
+        className={({ isActive }) =>
+          cn(
+            'mt-auto flex items-center gap-3 rounded-xl p-2 transition-colors max-lg:justify-center',
+            isActive ? 'bg-brand-soft' : 'hover:bg-ink/5',
+          )
+        }
       >
         <Avatar user={user} />
         <span className="min-w-0 max-lg:sr-only">
           <span className="block truncate text-sm font-medium">{getDisplayName(user) || 'Tu cuenta'}</span>
           <span className="block truncate text-xs text-ink/60">{user.email}</span>
         </span>
-      </Link>
+      </NavLink>
     </aside>
   );
 }
 
+/**
+ * Última sección de grupo abierta (Vacas o Negocios), para que "Grupos" vuelva a ella.
+ * @param {string} pathname
+ * @returns {string}
+ */
+function useLastGroup(pathname) {
+  const current = GROUP_PATHS.find((path) => pathname.startsWith(path));
+  const [last, setLast] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(LAST_GROUP_KEY);
+      return GROUP_PATHS.includes(saved) ? saved : GROUP_PATHS[0];
+    } catch {
+      return GROUP_PATHS[0];
+    }
+  });
+  useEffect(() => {
+    if (!current) return;
+    setLast(current);
+    try {
+      sessionStorage.setItem(LAST_GROUP_KEY, current);
+    } catch {
+      // Sin almacenamiento: "Grupos" abre Vacas.
+    }
+  }, [current]);
+  return last;
+}
+
 /** Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area). */
 function BottomNav() {
+  const { pathname } = useLocation();
+  const lastGroup = useLastGroup(pathname);
   return (
     <nav
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-7">
-        {NAV_ITEMS.map(({ to, label, short, icon: Icon, end }) => (
-          <li key={to}>
-            <NavLink
-              to={to}
-              end={end}
-              aria-label={short ? label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
-                  isActive ? 'text-brand' : 'text-ink/60 hover:text-ink',
-                )
-              }
-            >
-              <Icon className="size-[22px]" aria-hidden="true" />
-              <span aria-hidden={short ? true : undefined}>{short ?? label}</span>
-            </NavLink>
-          </li>
-        ))}
+      <ul className="mx-auto grid max-w-md grid-cols-5">
+        {bottomItems(lastGroup).map(({ to, label, short, icon: Icon, end, match }) => {
+          const groupActive = match?.some((path) => pathname.startsWith(path));
+          return (
+            <li key={label} className="min-w-0">
+              <NavLink
+                to={to}
+                end={end}
+                aria-label={short ? label : undefined}
+                aria-current={groupActive ? 'page' : undefined}
+                className={({ isActive }) =>
+                  cn(
+                    'flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium transition-colors',
+                    isActive || groupActive ? 'text-brand' : 'text-ink/60 hover:text-ink',
+                  )
+                }
+              >
+                <Icon className="size-[22px] shrink-0" aria-hidden="true" />
+                {/* En pantallas muy angostas (320 px) los nombres largos no caben: se acortan. */}
+                <span className={cn('max-w-full truncate', short && 'max-[359px]:hidden')} aria-hidden={short ? true : undefined}>
+                  {label}
+                </span>
+                {short && (
+                  <span className="hidden max-[359px]:inline" aria-hidden="true">
+                    {short}
+                  </span>
+                )}
+              </NavLink>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

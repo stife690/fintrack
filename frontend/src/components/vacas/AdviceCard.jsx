@@ -93,20 +93,21 @@ export default function AdviceCard({ vaca, online, onRemind }) {
 
       {vaca.role === 'admin' && vaca.status !== 'completada' && (
         <div>
-          <Button variant="outline" onClick={remind} disabled={!online || remindState.busy || behind === 0}>
-            {remindState.busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <BellRing aria-hidden="true" />}
-            Recordar a quienes les falta
-          </Button>
-          <p role="status" className="mt-2 min-h-5 text-sm text-positive">
+          {behind > 0 || remindState.message ? (
+            <Button variant="outline" className="w-full sm:w-auto" onClick={remind} disabled={!online || remindState.busy}>
+              {remindState.busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <BellRing aria-hidden="true" />}
+              Recordar a quienes les falta
+            </Button>
+          ) : (
+            <p className="text-sm text-ink/60">Todos van al día o ya cumplieron.</p>
+          )}
+          <p role="status" className={cn('text-sm text-positive', remindState.message && 'mt-2')}>
             {remindState.message}
           </p>
           {remindState.error && (
-            <p role="alert" className="text-sm text-negative">
+            <p role="alert" className="mt-2 text-sm text-negative">
               {remindState.error}
             </p>
-          )}
-          {behind === 0 && !remindState.message && (
-            <p className="text-sm text-ink/60">Todos van al día o ya cumplieron.</p>
           )}
         </div>
       )}

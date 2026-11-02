@@ -30,16 +30,17 @@ describe('MemberList (FT-0015)', () => {
     expect(html).toContain('Ana');
     expect(html).toContain('Atrasado');
     expect(html).toMatch(/40\.000/);
-    expect(html).toMatch(/le faltan \$\s?60\.000/);
-    expect(html).not.toContain('Sacar');
+    expect(html).toMatch(/Le faltan \$\s?60\.000/);
+    expect(html).not.toContain('Gestionar');
   });
 
-  it('el administrador puede sacar a otros y, con cuotas a medida, editarlas', () => {
+  it('el administrador gestiona a cada miembro desde su botón, sin llenar la lista de acciones', () => {
     const html = render({ isAdmin: true, split: 'personalizado' });
-    expect(html).toContain('Sacar');
-    expect(html).toContain('Hacer admin');
-    expect(html).toContain('Cuota');
-    expect(render({ isAdmin: true, members: [member({ isMe: true })] })).not.toContain('Sacar');
+    expect(html).toContain('Gestionar a Ana');
+    expect(html).not.toContain('Hacer admin');
+    // Con partes iguales, a sí mismo no tiene nada que gestionarse.
+    expect(render({ isAdmin: true, members: [member({ isMe: true })] })).not.toContain('Gestionar');
+    expect(render({ isAdmin: true, split: 'personalizado', members: [member({ isMe: true })] })).toContain('Gestionar');
   });
 });
 

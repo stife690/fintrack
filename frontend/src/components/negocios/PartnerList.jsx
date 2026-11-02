@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Percent, UserMinus } from 'lucide-react';
+import { MoreVertical, Percent, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -68,8 +68,8 @@ function ShareEditor({ partner, onSave, onClose }) {
 }
 
 /**
- * Fila de un socio: nombre, rol, participación y, para los dueños, cambiar el rol, la
- * participación o sacarlo.
+ * Fila de un socio: nombre, rol y participación. Los dueños cambian el rol, la participación o
+ * lo sacan desde el botón de gestionar, para no llenar la lista de controles.
  * @param {object} props
  * @param {import('@/services/negocioService').Partner} props.partner
  * @param {boolean} props.isOwner Si quien mira es dueño.
@@ -78,6 +78,7 @@ function ShareEditor({ partner, onSave, onClose }) {
  * @param {() => Promise<void>} props.onRemove
  */
 function PartnerRow({ partner, isOwner, online, onUpdate, onRemove }) {
+  const [managing, setManaging] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -107,11 +108,26 @@ function PartnerRow({ partner, isOwner, online, onUpdate, onRemove }) {
           {partner.name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="truncate font-medium">
-              {partner.name}
-              {partner.isMe && <span className="text-ink/60"> (tú)</span>}
+          <div className="flex items-start gap-2">
+            <p className="flex min-w-0 flex-1 gap-1 font-medium">
+              <span className="truncate">{partner.name}</span>
+              {partner.isMe && <span className="shrink-0 text-ink/60">(tú)</span>}
             </p>
+            {isOwner && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="-my-1.5 -mr-2 size-9 shrink-0"
+                aria-expanded={managing}
+                aria-label={`Gestionar a ${partner.name}`}
+                onClick={() => setManaging((v) => !v)}
+              >
+                <MoreVertical aria-hidden="true" />
+              </Button>
+            )}
+          </div>
+          {partner.email && <p className="truncate text-sm text-ink/60">{partner.email}</p>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', role.chip)}>{role.label}</span>
             {partner.share !== null && (
               <span className="rounded-full bg-ink/10 px-2 py-0.5 text-xs font-medium tabular-nums text-ink/70">
@@ -119,13 +135,14 @@ function PartnerRow({ partner, isOwner, online, onUpdate, onRemove }) {
               </span>
             )}
           </div>
-          {partner.email && <p className="mt-0.5 truncate text-sm text-ink/60">{partner.email}</p>}
 
-          {isOwner && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+          {managing && (
+            <div className="mt-3 space-y-2 rounded-xl bg-ink/5 p-3">
+              <label className="block text-sm font-medium" htmlFor={`role-${partner.userId}`}>
+                Rol
+              </label>
               <Select
-                aria-label={`Rol de ${partner.name}`}
-                className="h-9 w-auto rounded-lg px-3 text-sm"
+                id={`role-${partner.userId}`}
                 value={partner.role}
                 disabled={!online || busy}
                 onChange={(e) => run(() => onUpdate({ role: e.target.value }))}
@@ -136,27 +153,29 @@ function PartnerRow({ partner, isOwner, online, onUpdate, onRemove }) {
                   </option>
                 ))}
               </Select>
-              {!editing && (
-                <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setEditing(true)}>
-                  <Percent aria-hidden="true" /> Participación
-                </Button>
-              )}
-              {!partner.isMe &&
-                (confirming ? (
-                  <>
-                    <span className="ml-1 text-sm text-ink/60">¿Sacar del negocio?</span>
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => run(onRemove)}>
-                      Sí, sacar
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
-                      No
-                    </Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setConfirming(true)}>
-                    <UserMinus aria-hidden="true" /> Sacar
+              <div className="flex flex-wrap items-center gap-1">
+                {!editing && (
+                  <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setEditing(true)}>
+                    <Percent aria-hidden="true" /> Participación
                   </Button>
-                ))}
+                )}
+                {!partner.isMe &&
+                  (confirming ? (
+                    <span className="flex flex-wrap items-center gap-1">
+                      <span className="px-2 text-sm text-ink/60">¿Sacar del negocio?</span>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => run(onRemove)}>
+                        Sí, sacar
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+                        No
+                      </Button>
+                    </span>
+                  ) : (
+                    <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setConfirming(true)}>
+                      <UserMinus aria-hidden="true" /> Sacar
+                    </Button>
+                  ))}
+              </div>
             </div>
           )}
           {error && (

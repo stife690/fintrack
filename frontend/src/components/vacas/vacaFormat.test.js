@@ -23,6 +23,7 @@ describe('vacaFormat (FT-0014/FT-0015)', () => {
   it('plazo: sin fecha, días que faltan, hoy y vencida', () => {
     expect(deadlineText({ deadline: null, projection, status: 'activa' })).toBe('Sin fecha límite');
     expect(deadlineText({ deadline: '2026-11-10', projection, status: 'activa' })).toMatch(/^Faltan 10 días/);
+    expect(deadlineText({ deadline: '2026-11-10', projection, status: 'activa' }, { withDate: false })).toBe('Faltan 10 días');
     expect(deadlineText({ deadline: '2026-11-10', projection: { ...projection, daysLeft: 1 }, status: 'activa' })).toMatch(
       /^Falta 1 día/,
     );

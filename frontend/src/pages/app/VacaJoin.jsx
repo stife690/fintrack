@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loader2, PiggyBank, Users } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
-import { formatDate, formatMoney } from '@/components/transactions/format';
+import { formatDate } from '@/components/transactions/format';
+import { formatPesos } from '@/components/vacas/vacaFormat';
 import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
@@ -78,11 +79,11 @@ export default function VacaJoin() {
             <dl className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-ink/5 p-4 text-sm">
               <div>
                 <dt className="text-ink/60">Meta</dt>
-                <dd className="font-semibold tabular-nums">{formatMoney(preview.goal)}</dd>
+                <dd className="font-semibold tabular-nums">{formatPesos(preview.goal)}</dd>
               </div>
               <div>
                 <dt className="text-ink/60">Reunido</dt>
-                <dd className="font-semibold tabular-nums">{formatMoney(preview.total)}</dd>
+                <dd className="font-semibold tabular-nums">{formatPesos(preview.total)}</dd>
               </div>
               <div>
                 <dt className="text-ink/60">Miembros</dt>

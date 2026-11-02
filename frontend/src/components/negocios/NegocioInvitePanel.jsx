@@ -89,7 +89,7 @@ export default function NegocioInvitePanel({ business, online, onInvite, onCance
       <div>
         <p className="text-sm font-medium text-ink/80">Enlace para unirse</p>
         <div className="mt-2 flex gap-2">
-          <Input readOnly value={link} aria-label="Enlace de invitación" onFocus={(e) => e.target.select()} />
+          <Input readOnly value={link} aria-label="Enlace de invitación" className="min-w-0 text-sm" onFocus={(e) => e.target.select()} />
           <Button type="button" variant="outline" size="icon" className="size-12 shrink-0" onClick={copy} aria-label="Copiar enlace">
             {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
           </Button>
@@ -120,20 +120,17 @@ export default function NegocioInvitePanel({ business, online, onInvite, onCance
           onChange={(e) => setEmail(e.target.value)}
           disabled={!online}
         />
-        <div className="flex gap-2">
-          <Select aria-label="Rol de la persona invitada" value={role} onChange={(e) => setRole(e.target.value)} disabled={!online}>
-            {ROLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" className="h-12 shrink-0" disabled={!online || busy || !email}>
-            {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
-            Invitar
-          </Button>
-        </div>
-        <p className="text-sm text-ink/60">{ROLES[role].hint}.</p>
+        <Select aria-label="Rol de la persona invitada" value={role} onChange={(e) => setRole(e.target.value)} disabled={!online}>
+          {ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}: {ROLES[option.value].hint.toLowerCase()}
+            </option>
+          ))}
+        </Select>
+        <Button type="submit" size="lg" variant="outline" className="w-full" disabled={!online || busy || !email}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
+          Enviar invitación
+        </Button>
       </form>
 
       <p role="status" className="min-h-5 text-sm text-positive">
@@ -151,7 +148,7 @@ export default function NegocioInvitePanel({ business, online, onInvite, onCance
           <ul className="mt-2 divide-y divide-ink/10">
             {business.invitations.map((inv) => (
               <li key={inv.email} className="flex items-center justify-between gap-2 py-2">
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{inv.email}</span>
                   <span className="text-xs text-ink/60">
                     {ROLES[inv.role].label} · enviada: {formatRelativeDay(inv.sentAt.slice(0, 10))}

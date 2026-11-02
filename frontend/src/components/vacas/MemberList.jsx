@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Crown, Pencil, UserMinus } from 'lucide-react';
+import { Crown, MoreVertical, Pencil, UserMinus } from 'lucide-react';
 import MoneyInput from '@/components/common/MoneyInput';
-import { formatMoney } from '@/components/transactions/format';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import VacaProgress from './VacaProgress';
-import { MEMBER_STATUS, formatPercent } from './vacaFormat';
+import { MEMBER_STATUS, formatPercent, formatPesos } from './vacaFormat';
 
 /**
  * Editor en línea de la cuota de un miembro (reparto personalizado).
@@ -67,7 +67,8 @@ function QuotaEditor({ member, onSave, onClose }) {
 }
 
 /**
- * Fila de un miembro: nombre, estado, cuánto lleva de su cuota y acciones de administrador.
+ * Fila de un miembro: nombre, estado y cuánto lleva de su cuota. Las acciones de administrador
+ * (cuota, rol, sacar) quedan detrás del botón de gestionar para no llenar la lista.
  * @param {object} props
  * @param {import('@/services/vacaService').VacaMember} props.member
  * @param {boolean} props.isAdmin Si quien mira es administrador.
@@ -77,6 +78,7 @@ function QuotaEditor({ member, onSave, onClose }) {
  * @param {() => Promise<void>} props.onRemove
  */
 function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove }) {
+  const [managing, setManaging] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,6 +98,8 @@ function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove })
     }
   };
 
+  const canManage = isAdmin && (customSplit || !member.isMe);
+
   return (
     <li className="py-4">
       <div className="flex items-start gap-3">
@@ -106,11 +110,25 @@ function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove })
           {member.name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="truncate font-medium">
-              {member.name}
-              {member.isMe && <span className="text-ink/60"> (tú)</span>}
+          <div className="flex items-start gap-2">
+            <p className="flex min-w-0 flex-1 gap-1 font-medium">
+              <span className="truncate">{member.name}</span>
+              {member.isMe && <span className="shrink-0 text-ink/60">(tú)</span>}
             </p>
+            {canManage && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="-my-1.5 -mr-2 size-9 shrink-0"
+                aria-expanded={managing}
+                aria-label={`Gestionar a ${member.name}`}
+                onClick={() => setManaging((v) => !v)}
+              >
+                <MoreVertical aria-hidden="true" />
+              </Button>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {member.role === 'admin' && (
               <span className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-medium text-ink/70">
                 <Crown className="size-3" aria-hidden="true" /> Admin
@@ -118,11 +136,10 @@ function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove })
             )}
             <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', status.chip)}>{status.label}</span>
           </div>
-          <p className="mt-1 text-sm tabular-nums text-ink/60">
-            <span className="font-semibold text-ink">{formatMoney(member.contributed)}</span> de{' '}
-            {formatMoney(member.quota)}
-            {member.customQuota !== null && ' (cuota a medida)'}
-            {member.remaining > 0 && ` · le faltan ${formatMoney(member.remaining)}`}
+          <p className="mt-2 text-sm tabular-nums text-ink/60">
+            <span className="font-semibold text-ink">{formatPesos(member.contributed)}</span> de {formatPesos(member.quota)}
+            {member.customQuota !== null && ' (a medida)'}
+            {member.remaining > 0 && <span className="block">Le faltan {formatPesos(member.remaining)}</span>}
           </p>
           <div className="mt-2">
             <VacaProgress
@@ -134,8 +151,8 @@ function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove })
             />
           </div>
 
-          {isAdmin && (
-            <div className="mt-2 flex flex-wrap items-center gap-1">
+          {managing && (
+            <div className="mt-3 flex flex-wrap items-center gap-1 rounded-xl bg-ink/5 p-1.5">
               {customSplit && !editing && (
                 <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setEditing(true)}>
                   <Pencil aria-hidden="true" /> Cuota
@@ -153,15 +170,15 @@ function MemberRow({ member, isAdmin, customSplit, online, onUpdate, onRemove })
               )}
               {!member.isMe &&
                 (confirming ? (
-                  <>
-                    <span className="ml-1 text-sm text-ink/60">¿Sacar de la vaca?</span>
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span className="px-2 text-sm text-ink/60">¿Sacar de la vaca?</span>
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => run(onRemove)}>
                       Sí, sacar
                     </Button>
                     <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
                       No
                     </Button>
-                  </>
+                  </span>
                 ) : (
                   <Button size="sm" variant="ghost" disabled={!online || busy} onClick={() => setConfirming(true)}>
                     <UserMinus aria-hidden="true" /> Sacar
