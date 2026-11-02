@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PAY_DAYS, readCommitmentForm, toProfileData, togglePayDay } from '@/lib/moneyProfile';
+import {
+  MAX_PAY_DAYS,
+  balanceProposal,
+  incomeSummary,
+  readCommitmentForm,
+  toProfileData,
+  togglePayDay,
+} from '@/lib/moneyProfile';
 
 describe('togglePayDay', () => {
   it('agrega en orden y quita lo que ya estaba', () => {
@@ -32,6 +39,26 @@ describe('toProfileData', () => {
       payDays: [],
       balance: 900000,
     });
+  });
+});
+
+describe('balanceProposal', () => {
+  it('propone lo que suman los movimientos', () => {
+    expect(balanceProposal({ income: 7000000, expense: 1500000 })).toBe(5500000);
+  });
+
+  it('no propone nada si solo hay gastos o el total es negativo', () => {
+    expect(balanceProposal({ income: 0, expense: 90000 })).toBeNull();
+    expect(balanceProposal({ income: 0, expense: 0 })).toBeNull();
+  });
+});
+
+describe('incomeSummary', () => {
+  it('resume cómo le entra la plata', () => {
+    expect(incomeSummary({ incomeType: 'fecha_fija', payDays: [18] })).toBe('Con fecha fija, el día 18');
+    expect(incomeSummary({ incomeType: 'fecha_fija', payDays: [1, 15, 30] })).toBe('Con fecha fija, los días 1, 15 y 30');
+    expect(incomeSummary({ incomeType: 'sin_fecha', payDays: [] })).toBe('Sin fecha fija');
+    expect(incomeSummary({ incomeType: null, payDays: [] })).toBe('Aún no nos has dicho');
   });
 });
 

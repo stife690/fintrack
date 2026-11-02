@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Plus, X } from 'lucide-react';
 import MoneyInput from '@/components/common/MoneyInput';
@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
-import { SUGGESTED_COMMITMENTS, readCommitmentForm, toProfileData } from '@/lib/moneyProfile';
+import { SUGGESTED_COMMITMENTS, balanceProposal, readCommitmentForm, toProfileData } from '@/lib/moneyProfile';
 import { cn } from '@/lib/utils';
-import { finishWelcome } from '@/services/moneyProfileService';
+import { finishWelcome, getMoneyProfile } from '@/services/moneyProfileService';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 const STEPS = 3;
@@ -28,6 +28,16 @@ function WelcomeSteps() {
   const [items, setItems] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Quien ya registró movimientos no empieza con un número de memoria: se le propone lo que suman.
+  useEffect(() => {
+    getMoneyProfile()
+      .then(({ totals }) => {
+        const proposal = balanceProposal(totals);
+        if (proposal !== null) setBalance((current) => current || String(proposal));
+      })
+      .catch(() => {});
+  }, []);
 
   const save = async (answers) => {
     setSaving(true);

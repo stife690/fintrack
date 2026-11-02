@@ -30,6 +30,29 @@ export function toProfileData({ incomeType, payDays, balance }) {
 }
 
 /**
+ * Cuánta plata dicen tener los movimientos. Si solo hay gastos, o gastó más de lo registrado como
+ * ingreso, no dicen nada útil y no se propone ningún número.
+ * @param {{ income: number, expense: number }} totals
+ * @returns {number|null}
+ */
+export function balanceProposal({ income, expense }) {
+  const total = Math.round(income - expense);
+  return total > 0 ? total : null;
+}
+
+/**
+ * Cómo le entra la plata al usuario, en una línea.
+ * @param {{ incomeType: string|null, payDays: number[] }} profile
+ * @returns {string}
+ */
+export function incomeSummary({ incomeType, payDays }) {
+  if (incomeType === 'sin_fecha') return 'Sin fecha fija';
+  if (incomeType !== 'fecha_fija') return 'Aún no nos has dicho';
+  const days = payDays.join(', ').replace(/, (\d+)$/, ' y $1');
+  return `Con fecha fija, ${payDays.length === 1 ? 'el día' : 'los días'} ${days}`;
+}
+
+/**
  * Revisa un compromiso escrito en un formulario.
  * @param {{ name: string, amount: string, dayOfMonth: string }} form
  * @returns {{ data?: { name: string, amount: number, dayOfMonth: number }, error?: string }}

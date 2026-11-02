@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildMoneyPlan,
+  currentMoney,
   dailyRhythm,
   dateInMonth,
   nextPayDate,
   pendingCommitments,
+  saveAdvice,
 } from './services/money-plan.service.js';
 
 const TODAY = '2026-11-16';
@@ -182,4 +184,114 @@ test('un saldo de 0 sí es un saldo', () => {
     today: TODAY,
   });
   assert.equal(plan.ready, true);
+});
+
+test('la plata sale de los movimientos, salvo que el usuario la haya corregido', () => {
+  const totals = { income: 7000000, expense: 1500000 };
+  const changes = { income: 20000, expense: 5000 };
+  const profile = { balance: 1000000 };
+  assert.equal(currentMoney({ profile, changes, totals }), 5500000);
+  assert.equal(currentMoney({ profile: { ...profile, balanceCorrected: true }, changes, totals }), 1015000);
+  assert.equal(currentMoney({ profile: null, changes: NO_CHANGES, totals }), 5500000);
+});
+
+test('si los movimientos no dicen nada útil, usa el saldo que dio', () => {
+  const totals = { income: 0, expense: 90000 };
+  assert.equal(currentMoney({ profile: { balance: 500000 }, changes: { income: 0, expense: 90000 }, totals }), 410000);
+  assert.equal(currentMoney({ profile: { balance: null }, changes: NO_CHANGES, totals }), null);
+  assert.equal(currentMoney({ profile: null, changes: NO_CHANGES, totals: { income: 0, expense: 0 } }), null);
+});
+
+/** Plan de fecha fija: 160.000 libres antes de hoy, 16 días hasta el pago, $10.000 al día. */
+const dayPlan = (spent, extra = {}) =>
+  buildMoneyPlan({
+    profile: { incomeType: 'fecha_fija', payDays: [2], balance: 160000 - spent, balanceCorrected: true, ...extra },
+    commitments: [],
+    changes: NO_CHANGES,
+    todayExpenses: [{ description: 'Almuerzo', amount: spent }],
+    movements: [],
+    today: TODAY,
+  });
+
+test('el límite del día no baja con cada gasto', () => {
+  assert.equal(dayPlan(0).perDay, 10000);
+  assert.equal(dayPlan(4000).perDay, 10000);
+  assert.equal(dayPlan(4000).leftToday, 6000);
+  assert.equal(dayPlan(4000).dayStatus, 'ok');
+});
+
+test('avisa al 80 % del límite y cuando se pasa', () => {
+  assert.equal(dayPlan(7900).dayStatus, 'ok');
+  assert.equal(dayPlan(8000).dayStatus, 'near');
+  assert.equal(dayPlan(10000).dayStatus, 'near');
+  const over = dayPlan(13000);
+  assert.equal(over.dayStatus, 'over');
+  assert.equal(over.overBy, 3000);
+  assert.equal(over.leftToday, 0);
+});
+
+test('pagar un compromiso no cuenta como gasto del día', () => {
+  const plan = buildMoneyPlan({
+    profile: { incomeType: 'fecha_fija', payDays: [30], balance: 140000, balanceCorrected: true },
+    commitments: [{ id: 'c', name: 'Celular', amount: 50000, dayOfMonth: 10 }],
+    changes: NO_CHANGES,
+    todayExpenses: [{ description: 'Celular', amount: 50000 }],
+    movements: [gasto(50000, TODAY, 'Celular')],
+    today: TODAY,
+  });
+  assert.equal(plan.spentToday, 0);
+  assert.equal(plan.perDay, 10000);
+});
+
+test('lo gastado antes de corregir el saldo ya estaba en él', () => {
+  const balanceAt = new Date('2026-11-16T15:00:00Z');
+  const plan = buildMoneyPlan({
+    profile: { incomeType: 'fecha_fija', payDays: [30], balance: 140000, balanceAt, balanceCorrected: true },
+    commitments: [],
+    changes: { income: 0, expense: 2000 },
+    todayExpenses: [
+      { description: 'Antes', amount: 5000, createdAt: new Date('2026-11-16T14:00:00Z') },
+      { description: 'Después', amount: 2000, createdAt: new Date('2026-11-16T16:00:00Z') },
+    ],
+    movements: [],
+    today: TODAY,
+  });
+  assert.equal(plan.spentToday, 2000);
+});
+
+test('aconseja apartar la mitad de lo que sobra sobre el gasto normal', () => {
+  assert.equal(saveAdvice({ free: 1000000, pace: 20000, days: 10 }), 380000);
+  assert.equal(saveAdvice({ free: 300000, pace: 20000, days: 10 }), 0, 'sobra menos de 100.000');
+});
+
+test('sin historial solo aconseja si hay bastante plata libre', () => {
+  assert.equal(saveAdvice({ free: 5370000, pace: null, days: 16 }), 1070000);
+  assert.equal(saveAdvice({ free: 400000, pace: null, days: 16 }), 0);
+});
+
+test('no aconseja ahorrar a quien hoy va en el límite o ya se pasó', () => {
+  const plan = (spent) =>
+    buildMoneyPlan({
+      profile: { incomeType: 'fecha_fija', payDays: [2], balance: 1600000 - spent, balanceCorrected: true },
+      commitments: [],
+      changes: NO_CHANGES,
+      todayExpenses: [{ description: 'Almuerzo', amount: spent }],
+      movements: [],
+      today: TODAY,
+    });
+  assert.ok(plan(0).saveAdvice > 0);
+  assert.equal(plan(90000).saveAdvice, 0);
+  assert.equal(plan(150000).saveAdvice, 0);
+});
+
+test('no aconseja ahorrar a quien necesita ganar para cubrir sus pagos', () => {
+  const plan = buildMoneyPlan({
+    profile: { incomeType: 'sin_fecha', payDays: [], balance: 100000, balanceCorrected: true },
+    commitments: [ARRIENDO],
+    changes: NO_CHANGES,
+    movements: [],
+    today: TODAY,
+  });
+  assert.equal(plan.mode, 'goal');
+  assert.equal(plan.saveAdvice, 0);
 });

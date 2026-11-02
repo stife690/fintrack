@@ -187,6 +187,8 @@ function moneyProfileOf(userId) {
       payDays: [],
       balance: null,
       balanceAt: null,
+      money: null,
+      totals: { income: 0, expense: 0 },
       welcomeDone: false,
       commitments: [],
     });
@@ -640,7 +642,13 @@ export const handlers = [
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     const profile = moneyProfileOf(user.id);
     const { incomeType = null, payDays = [], balance = null } = await readJson(request);
-    Object.assign(profile, { incomeType, payDays, balance, balanceAt: balance === null ? null : new Date().toISOString() });
+    Object.assign(profile, {
+      incomeType,
+      payDays,
+      balance,
+      money: balance,
+      balanceAt: balance === null ? null : new Date().toISOString(),
+    });
     return HttpResponse.json(profile);
   }),
 

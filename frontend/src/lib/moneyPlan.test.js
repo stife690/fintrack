@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { dayAndMonth, planHeadline } from '@/lib/moneyPlan';
+import { dayAndMonth, dayMessage, planHeadline } from '@/lib/moneyPlan';
 
 const money = (value) => `$${value}`;
 
 describe('planHeadline', () => {
   it('con fecha fija dice cuánto puede gastar hoy', () => {
-    const plan = { mode: 'daily', shortfall: 0, perDay: 10000, days: 15, nextPay: '2026-12-01' };
+    const plan = { mode: 'daily', shortfall: 0, perDay: 12000, leftToday: 10000, days: 15, nextPay: '2026-12-01' };
     expect(planHeadline(plan, money)).toMatchObject({ label: 'Puedes gastar hoy', value: '$10000' });
-    expect(planHeadline(plan, money).note).toContain('en 15 días');
+    expect(planHeadline(plan, money).note).toBe('Faltan 15 días para tu pago');
   });
 
   it('con fecha fija avisa si no alcanza', () => {
@@ -37,6 +37,17 @@ describe('planHeadline', () => {
   it('nunca dice que alcanza si gastó más de lo que tenía', () => {
     const plan = { mode: 'runway', shortfall: 20000, runwayDays: 0, pace: 40000 };
     expect(planHeadline(plan, money)).toMatchObject({ label: 'Te faltan', warning: true });
+  });
+});
+
+describe('dayMessage', () => {
+  it('no dice nada si va bien', () => {
+    expect(dayMessage({ dayStatus: 'ok', overBy: 0, leftToday: 5000 }, money)).toBe('');
+  });
+
+  it('avisa si ya casi llega o si se pasó', () => {
+    expect(dayMessage({ dayStatus: 'near', overBy: 0, leftToday: 1500 }, money)).toContain('te quedan $1500');
+    expect(dayMessage({ dayStatus: 'over', overBy: 3000, leftToday: 0 }, money)).toContain('Te pasaste $3000');
   });
 });
 

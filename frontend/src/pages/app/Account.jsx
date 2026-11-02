@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronRight, Loader2, LogOut, Wallet } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
-import MoneyProfileSettings from '@/components/money/MoneyProfileSettings';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
@@ -39,8 +38,8 @@ function Group({ label, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), Mi plata, preferencias (tema
- * de la app y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
+ * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), acceso a Mi plata, preferencias
+ * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
  */
 export default function Account() {
   usePageTitle('Cuenta');
@@ -60,7 +59,19 @@ export default function Account() {
 
       <div className="flex flex-col gap-8">
         <ProfileCard />
-        <MoneyProfileSettings />
+        <Panel className="p-0 md:p-0">
+          <Link
+            to="/app/mi-plata"
+            className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
+          >
+            <Wallet className="size-5 shrink-0 text-brand" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Mi plata</span>
+              <span className="block text-sm text-ink/60">Cómo recibes la plata y qué pagas cada mes</span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
+          </Link>
+        </Panel>
 
         <Group label="Preferencias">
           <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">

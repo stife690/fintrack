@@ -1,6 +1,7 @@
 const money = new Intl.NumberFormat('es-CO', {
   style: 'currency',
   currency: 'COP',
+  minimumFractionDigits: 0, // algunos celulares ponen ",00" a todo si no se indica
   maximumFractionDigits: 2,
 });
 

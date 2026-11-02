@@ -714,10 +714,11 @@ paths:
       summary: Cuánto puede gastar o necesita ganar el usuario hoy (FT-0037)
       description: |
         Se calcula con fórmulas fijas, sin IA. `ready` es `false` si falta el tipo de ingreso o el saldo.
-        Plata actual = saldo + ingresos − gastos registrados después de dar el saldo. Libre = plata
-        actual − compromisos pendientes. Un compromiso está pagado si un gasto del mes lleva su nombre.
-        `daily` (fecha fija): `perDay` = libre ÷ días hasta `nextPay`, restando solo lo que vence antes
-        del pago y lo atrasado. `goal` (sin fecha): `goal` = (compromisos + `pace` × días − plata) ÷
+        Plata actual = todos los ingresos − todos los gastos; si el usuario corrigió su saldo, o los
+        movimientos no dan más de 0, saldo + lo registrado después. Libre = plata actual − compromisos
+        pendientes. Un compromiso está pagado si un gasto del mes lleva su nombre.
+        `daily` (fecha fija): `perDay` = (libre + gastado hoy) ÷ días hasta `nextPay`, restando solo lo
+        que vence antes del pago y lo atrasado. `goal` (sin fecha): `goal` = (compromisos + `pace` × días − plata) ÷
         días, hasta el último compromiso pendiente. `runway` (sin fecha, ya cubre todo): `runwayDays`
         = libre ÷ `pace`. `pace` y `usualIncome` piden 14 días de historial. La plata que no ha
         entrado nunca se cuenta.
@@ -1909,9 +1910,12 @@ components:
           maxItems: 4
           items: { type: integer, minimum: 1, maximum: 31 }
         balance: { type: number, nullable: true, minimum: 0 }
+        resetBalance:
+          type: boolean
+          description: "Solo en `PUT`: el usuario corrigió el saldo; lo registrado antes de ahora deja de sumarse."
     MoneyProfile:
       type: object
-      required: [incomeType, payDays, balance, balanceAt, welcomeDone, commitments]
+      required: [incomeType, payDays, balance, balanceAt, money, totals, welcomeDone, commitments]
       properties:
         incomeType: { type: string, nullable: true, enum: [fecha_fija, sin_fecha] }
         payDays:
@@ -1919,6 +1923,13 @@ components:
           items: { type: integer, minimum: 1, maximum: 31 }
         balance: { type: number, nullable: true }
         balanceAt: { type: string, format: date-time, nullable: true }
+        money: { type: number, nullable: true, description: "Plata actual: `balance` más lo registrado después" }
+        totals:
+          description: Todo lo que el usuario ha registrado
+          type: object
+          properties:
+            income: { type: number }
+            expense: { type: number }
         welcomeDone: { type: boolean }
         commitments:
           type: array
@@ -1930,6 +1941,7 @@ components:
         ready: { type: boolean }
         mode: { type: string, enum: [daily, goal, runway] }
         money: { type: number, description: Plata actual }
+        ledger: { type: number, description: "Todos los ingresos menos todos los gastos registrados" }
         pendingTotal: { type: number }
         free: { type: number }
         shortfall: { type: number, description: Lo que falta para los compromisos; 0 si alcanza }
@@ -1946,7 +1958,12 @@ components:
               date: { type: string, format: date }
         nextPay: { type: string, format: date, description: Solo `daily` }
         days: { type: integer, description: "Días del cálculo; `daily` y `goal`" }
-        perDay: { type: number, description: Solo `daily` }
+        perDay: { type: number, description: "Solo `daily`: límite de hoy, fijo todo el día" }
+        spentToday: { type: number, description: "Solo `daily`: gastos de hoy, sin pagos de compromisos" }
+        leftToday: { type: number, description: Solo `daily` }
+        overBy: { type: number, description: "Solo `daily`: cuánto se pasó del límite" }
+        dayStatus: { type: string, enum: [ok, near, over], description: "Solo `daily`: `near` desde el 80 %" }
+        saveAdvice: { type: number, description: Cuánto se sugiere apartar; 0 si no le sobra plata }
         goal: { type: number, description: Solo `goal` }
         until: { type: string, description: "Solo `goal`: el último compromiso pendiente" }
         todayIncome: { type: number, description: Solo `goal` }

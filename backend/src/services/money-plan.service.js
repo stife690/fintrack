@@ -21,6 +21,30 @@ export const PACE_WINDOW_DAYS = 30;
 /** Con menos días de historial no se habla de ritmo: un par de gastos no dicen nada. */
 export const MIN_PACE_DAYS = 14;
 
+/** Desde este porcentaje del límite del día se avisa que ya casi llega. */
+export const DAY_NEAR_LIMIT = 0.8;
+
+/** Margen sobre el gasto normal antes de decir que sobra plata. */
+const SAVE_CUSHION = 1.2;
+
+/** Parte de lo que sobra que se sugiere apartar. */
+const SAVE_SHARE = 0.5;
+
+/** Lo mínimo que debe sobrar para dar el consejo. */
+const SAVE_MIN_SURPLUS = 100000;
+
+/** Sin historial no se sabe cuánto gasta: solo se aconseja desde esta plata libre. */
+const SAVE_MIN_FREE = 500000;
+
+/** Parte de la plata libre que se considera sobrante sin historial. */
+const SAVE_SHARE_NO_PACE = 0.4;
+
+/** El consejo se redondea hacia abajo a este múltiplo. */
+const SAVE_ROUNDING = 10000;
+
+/** Días que se miran hacia adelante cuando no hay fecha de pago. */
+const SAVE_DEFAULT_DAYS = 30;
+
 /** La meta diaria se redondea hacia arriba a este múltiplo, para que no se quede corta. */
 const GOAL_ROUNDING = 100;
 
@@ -115,13 +139,57 @@ export function dailyRhythm({ movements, commitments, today }) {
 }
 
 /**
- * Con fecha fija: `libre ÷ días hasta el pago`.
- * @param {{ free: number, nextPay: string, today: string }} data
- * @returns {{ mode: 'daily', nextPay: string, days: number, perDay: number }}
+ * Plata actual: lo que dicen los movimientos, salvo que el usuario haya fijado su saldo o los
+ * movimientos no digan nada útil (solo gastos, o ninguno).
+ * @param {{ profile: { balance: number|null, balanceCorrected?: boolean }|null, changes: { income: number, expense: number }, totals: { income: number, expense: number } }} data
+ * @returns {number|null} `null` si no hay de dónde sacarla.
  */
-function dailyPlan({ free, nextPay, today }) {
+export function currentMoney({ profile, changes, totals }) {
+  const ledger = totals.income - totals.expense;
+  if (profile?.balanceCorrected || ledger <= 0) {
+    return typeof profile?.balance === 'number' ? profile.balance + changes.income - changes.expense : null;
+  }
+  return ledger;
+}
+
+/**
+ * Con fecha fija: `(libre + gastado hoy) ÷ días hasta el pago`. Lo de hoy se devuelve a la cuenta
+ * para que el límite quede fijo todo el día; si no, bajaría con cada gasto y nunca se pasaría.
+ * @param {{ free: number, spentToday: number, nextPay: string, today: string }} data
+ * @returns {object} `mode` `daily` con `perDay`, `spentToday`, `leftToday`, `overBy` y `dayStatus`.
+ */
+function dailyPlan({ free, spentToday, nextPay, today }) {
   const days = daysBetween(today, nextPay);
-  return { mode: 'daily', nextPay, days, perDay: Math.floor(Math.max(0, free) / days) };
+  const perDay = Math.floor(Math.max(0, free + spentToday) / days);
+  let dayStatus = 'ok';
+  if (spentToday > perDay) dayStatus = 'over';
+  else if (perDay > 0 && spentToday >= perDay * DAY_NEAR_LIMIT) dayStatus = 'near';
+  return {
+    mode: 'daily',
+    nextPay,
+    days,
+    perDay,
+    spentToday: Math.round(spentToday),
+    leftToday: Math.round(Math.max(0, perDay - spentToday)),
+    overBy: Math.round(Math.max(0, spentToday - perDay)),
+    dayStatus,
+  };
+}
+
+/**
+ * Cuánto se le sugiere apartar a quien le sobra plata: la mitad de lo que le queda después de su
+ * gasto normal con un margen. Sin historial, una parte de lo libre.
+ * @param {{ free: number, pace: number|null, days: number }} data
+ * @returns {number} 0 si no le sobra.
+ */
+export function saveAdvice({ free, pace, days }) {
+  if (pace === null) {
+    if (free < SAVE_MIN_FREE) return 0;
+    return Math.floor((free * SAVE_SHARE_NO_PACE * SAVE_SHARE) / SAVE_ROUNDING) * SAVE_ROUNDING;
+  }
+  const surplus = free - pace * days * SAVE_CUSHION;
+  if (surplus < SAVE_MIN_SURPLUS) return 0;
+  return Math.floor((surplus * SAVE_SHARE) / SAVE_ROUNDING) * SAVE_ROUNDING;
 }
 
 /**
@@ -157,12 +225,23 @@ function variablePlan({ money, free, pending, pace, usualIncome, todayIncome, to
  * @param {{ incomeType: string|null, payDays: number[], balance: number|null }|null} data.profile
  * @param {import('../repositories/money-profile.repository.js').CommitmentRecord[]} data.commitments
  * @param {{ income: number, expense: number }} data.changes Lo registrado desde que dijo su saldo.
+ * @param {{ income: number, expense: number }} [data.totals] Todo lo registrado.
+ * @param {Array<{ description: string, amount: number, createdAt?: Date }>} [data.todayExpenses] Gastos de hoy.
  * @param {import('../repositories/analytics.repository.js').AnalyticsMovement[]} data.movements Desde hace `PACE_WINDOW_DAYS` y desde el día 1 del mes.
  * @param {string} data.today AAAA-MM-DD
  * @returns {object} Ver `GET /api/v1/money-profile/plan` en `docs/api/openapi.yaml`.
  */
-export function buildMoneyPlan({ profile, commitments, changes, movements, today }) {
-  if (!profile?.incomeType || profile.balance === null) return { ready: false };
+export function buildMoneyPlan({
+  profile,
+  commitments,
+  changes,
+  totals = { income: 0, expense: 0 },
+  todayExpenses = [],
+  movements,
+  today,
+}) {
+  const money = currentMoney({ profile, changes, totals });
+  if (!profile?.incomeType || money === null) return { ready: false };
 
   const month = today.slice(0, 7);
   const firstRecent = addDays(today, 1 - PACE_WINDOW_DAYS);
@@ -171,25 +250,39 @@ export function buildMoneyPlan({ profile, commitments, changes, movements, today
   const fixed = profile.incomeType === 'fecha_fija';
   const nextPay = fixed ? nextPayDate(profile.payDays, today) : undefined;
 
-  const money = profile.balance + changes.income - changes.expense;
   const pending = pendingCommitments({ commitments, expenses, today, until: nextPay });
   const pendingTotal = sum(pending);
   const free = money - pendingTotal;
   const { pace, usualIncome } = dailyRhythm({ movements: recent, commitments, today });
   const todayIncome = sum(movements.filter((m) => m.type === 'ingreso' && m.date === today));
+  // Pagar un compromiso no es gasto del día, y lo gastado antes de fijar el saldo ya estaba en él.
+  const spentToday = sum(
+    todayExpenses.filter(
+      (e) =>
+        !commitments.some((c) => isPaymentOf(c, e)) &&
+        !(profile.balanceCorrected && e.createdAt && e.createdAt <= profile.balanceAt),
+    ),
+  );
+  const plan = fixed
+    ? dailyPlan({ free, spentToday, nextPay, today })
+    : variablePlan({ money, free, pending, pace, usualIncome, todayIncome, today });
 
   return {
     ready: true,
     money: Math.round(money),
+    ledger: Math.round(totals.income - totals.expense),
     pendingTotal: Math.round(pendingTotal),
     free: Math.round(free),
     shortfall: Math.round(Math.max(0, -free)),
     pace: pace === null ? null : Math.round(pace),
     hasCommitments: commitments.length > 0,
     pending,
-    ...(fixed
-      ? dailyPlan({ free, nextPay, today })
-      : variablePlan({ money, free, pending, pace, usualIncome, todayIncome, today })),
+    // Decirle que le sobra a quien hoy va en el límite o ya se pasó sería contradictorio.
+    saveAdvice:
+      plan.mode === 'goal' || (plan.dayStatus ?? 'ok') !== 'ok'
+        ? 0
+        : saveAdvice({ free, pace, days: plan.days ?? SAVE_DEFAULT_DAYS }),
+    ...plan,
   };
 }
 
@@ -210,13 +303,15 @@ export function createMoneyPlanService(deps = {}) {
     const today = todayIso(now());
     const firstRecent = addDays(today, 1 - PACE_WINDOW_DAYS);
     const firstOfMonth = `${today.slice(0, 7)}-01`;
-    const [profile, commitments, changes, movements] = await Promise.all([
+    const [profile, commitments, changes, totals, todayExpenses, movements] = await Promise.all([
       repo.findProfile(userId),
       repo.listCommitments(userId),
       repo.changesSinceBalance(userId),
+      repo.movementTotals(userId),
+      repo.expensesOfDay(userId, today),
       listMovements(userId, { from: firstRecent < firstOfMonth ? firstRecent : firstOfMonth, to: today }),
     ]);
-    return buildMoneyPlan({ profile, commitments, changes, movements, today });
+    return buildMoneyPlan({ profile, commitments, changes, totals, todayExpenses, movements, today });
   }
 
   return { getPlan };
