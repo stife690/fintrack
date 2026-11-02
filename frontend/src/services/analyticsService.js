@@ -11,7 +11,7 @@ import { apiRequest } from '@/lib/apiRequest';
  * @property {number} day Día de hoy.
  * @property {number} daysInMonth
  * @property {boolean} empty `true` si el mes aún no tiene movimientos.
- * @property {{ available: boolean, spent: number, projected: number, pendingFixed: number, expectedIncome: number, balance: number }} projection
+ * @property {{ available: boolean, spent: number, projected: number, pendingFixed: number, oneOff: number, saved: number, income: number, possibleIncome: number, balance: number }} projection
  * @property {{ threshold: number, count: number, total: number, share: number, yearly: number, flagged: boolean, top: Array<{ description: string, count: number, total: number }> }} smallExpenses
  * @property {{ score: number, level: 'excellent'|'good'|'attention'|'risk', parts: Array<{ key: string, points: number, value: number|null }> }} health
  */

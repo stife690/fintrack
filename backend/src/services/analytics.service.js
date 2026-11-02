@@ -11,6 +11,15 @@ import { todayIso } from './insights.service.js';
 /** Categorías de gasto fijo: se pagan una vez al mes, así que no se proyectan por ritmo diario. */
 export const FIXED_CATEGORIES = ['vivienda', 'servicios_publicos'];
 
+/** Guardar plata no es gastarla: no se proyecta por ritmo diario ni resta en el puntaje. */
+export const SAVINGS_CATEGORY = 'ahorro_inversion';
+
+/** Un gasto variable es grande desde este monto (COP) si además supera `LARGE_EXPENSE_RATIO`. */
+export const LARGE_EXPENSE_MIN = 100000;
+
+/** Cuántas veces lo normal debe valer un gasto para contarlo como compra única. */
+export const LARGE_EXPENSE_RATIO = 3;
+
 /** Días del mes desde los que la proyección es confiable. */
 export const MIN_PROJECTION_DAYS = 3;
 
@@ -30,6 +39,31 @@ const round = (value) => Math.round(value);
 const roundPct = (value) => Math.round(value * 10) / 10;
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const sum = (movements) => movements.reduce((acc, m) => acc + m.amount, 0);
+
+/**
+ * @param {number[]} values Al menos un número.
+ * @returns {number}
+ */
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * Desde qué monto un gasto variable es una compra única: `LARGE_EXPENSE_MIN` o, si es mayor,
+ * `LARGE_EXPENSE_RATIO` veces la mediana de los gastos pequeños. Solo se compara con los pequeños
+ * para que dos compras grandes del mismo mes no se tapen entre sí. Si no hay ninguno pequeño, el
+ * gasto más bajo hace de referencia; un gasto solo no tiene con qué compararse.
+ * @param {number[]} amounts Montos de los gastos variables del mes.
+ * @returns {number}
+ */
+export function largeExpenseLimit(amounts) {
+  if (amounts.length < 2) return LARGE_EXPENSE_MIN;
+  const small = amounts.filter((amount) => amount < LARGE_EXPENSE_MIN);
+  const normal = small.length > 0 ? median(small) : Math.min(...amounts);
+  return Math.max(LARGE_EXPENSE_MIN, normal * LARGE_EXPENSE_RATIO);
+}
 
 /**
  * Días que tiene un mes.
@@ -53,20 +87,25 @@ export function shiftMonth(month, offset) {
 }
 
 /**
- * (1) Proyección de fin de mes. Los gastos fijos cuentan una vez; los variables se proyectan con
- * el ritmo diario: `fijos + pendientes + (variables ÷ días transcurridos) × días del mes`.
+ * (1) Proyección de fin de mes: `gastado + fijos pendientes + ritmo diario × días que faltan`.
+ * Solo el gasto variable normal marca el ritmo: fijos, ahorro y compras grandes cuentan una vez.
  * Un fijo que el mes pasado se pagó y este mes todavía no, se suma como pendiente.
- * Los ingresos esperados son los de este mes o, si todavía son menos, los del mes pasado.
+ * `income` es lo que ya entró este mes y es con lo que se calcula `balance`; lo que falta para
+ * igualar al mes pasado va aparte en `possibleIncome`, porque no es seguro que llegue.
  *
  * @param {{ current: import('../repositories/analytics.repository.js').AnalyticsMovement[], previous: import('../repositories/analytics.repository.js').AnalyticsMovement[], day: number, days: number }} data
  *   `current`: movimientos del mes hasta hoy; `previous`: los del mes pasado completo; `day`: día de hoy.
- * @returns {{ available: boolean, spent: number, projected: number, pendingFixed: number, expectedIncome: number, balance: number }}
+ * @returns {{ available: boolean, spent: number, projected: number, pendingFixed: number, oneOff: number, saved: number, income: number, possibleIncome: number, balance: number }}
  */
 export function projectMonth({ current, previous, day, days }) {
   const expenses = current.filter((m) => m.type === 'gasto');
   const isFixed = (m) => FIXED_CATEGORIES.includes(m.category);
-  const fixed = sum(expenses.filter(isFixed));
-  const variable = sum(expenses.filter((m) => !isFixed(m)));
+  const isSaving = (m) => m.category === SAVINGS_CATEGORY;
+  const variable = expenses.filter((m) => !isFixed(m) && !isSaving(m));
+  const limit = largeExpenseLimit(variable.map((m) => m.amount));
+  const spent = sum(expenses);
+  const oneOff = sum(variable.filter((m) => m.amount >= limit));
+  const normalPace = sum(variable.filter((m) => m.amount < limit)) / day;
 
   let pendingFixed = 0;
   for (const category of FIXED_CATEGORIES) {
@@ -75,18 +114,19 @@ export function projectMonth({ current, previous, day, days }) {
     if (!paidNow) pendingFixed += paidBefore;
   }
 
-  const projected = fixed + pendingFixed + (variable / day) * days;
-  const expectedIncome = Math.max(
-    sum(current.filter((m) => m.type === 'ingreso')),
-    sum(previous.filter((m) => m.type === 'ingreso')),
-  );
+  const projected = spent + pendingFixed + normalPace * (days - day);
+  const income = sum(current.filter((m) => m.type === 'ingreso'));
+  const previousIncome = sum(previous.filter((m) => m.type === 'ingreso'));
   return {
     available: day >= MIN_PROJECTION_DAYS,
-    spent: round(fixed + variable),
+    spent: round(spent),
     projected: round(projected),
     pendingFixed: round(pendingFixed),
-    expectedIncome: round(expectedIncome),
-    balance: round(expectedIncome - projected),
+    oneOff: round(oneOff),
+    saved: round(sum(expenses.filter(isSaving))),
+    income: round(income),
+    possibleIncome: round(Math.max(0, previousIncome - income)),
+    balance: round(income - projected),
   };
 }
 
@@ -183,6 +223,7 @@ export function healthLevel(score) {
 /**
  * (3) Puntaje de salud financiera, de 0 a 100: cuatro partes de 25 puntos.
  * - Ahorro: (ingresos − gastos) ÷ ingresos. 20 % o más (regla 50/30/20) = 25; 0 % o menos = 0.
+ *   Sin ingresos todavía, la mitad: no se puede saber. Lo apartado en ahorro no cuenta como gasto.
  * - Presupuestos: los que no se han pasado del 100 %. Sin presupuestos, la mitad (12,5).
  * - Estabilidad: gasto del mes frente al promedio de los meses anteriores con movimientos.
  *   Igual o menor = 25; 30 % más o peor = 0. Sin meses anteriores, la mitad.
@@ -204,7 +245,7 @@ export function healthScore({
   const half = PART_MAX / 2;
 
   const savingsRate = income > 0 ? ((income - expense) / income) * 100 : null;
-  const savings = savingsRate === null ? 0 : linearPoints(savingsRate, 20, 0);
+  const savings = savingsRate === null ? half : linearPoints(savingsRate, 20, 0);
 
   const kept = monthBudgets.filter((b) => b.percentage < 100).length;
   const budgetsPoints = monthBudgets.length ? (kept / monthBudgets.length) * PART_MAX : half;
@@ -269,7 +310,12 @@ export function createAnalyticsService(deps = {}) {
     const expensesBefore = (target) =>
       Array.from({ length: STABILITY_MONTHS }, (_, i) =>
         sum(
-          movements.filter((m) => m.type === 'gasto' && inMonth(m, shiftMonth(target, -(i + 1)))),
+          movements.filter(
+            (m) =>
+              m.type === 'gasto' &&
+              m.category !== SAVINGS_CATEGORY &&
+              inMonth(m, shiftMonth(target, -(i + 1))),
+          ),
         ),
       );
     const previousExpenses = expensesBefore(month);
@@ -277,8 +323,10 @@ export function createAnalyticsService(deps = {}) {
     const projection = projectMonth({ current, previous, day, days });
     const small = smallExpenses({ current, day, days });
     const health = healthScore({
-      income: projection.expectedIncome,
-      expense: projection.available ? projection.projected : projection.spent,
+      // Con parte del ingreso recibida se cuenta el resto probable: quien cobra por quincena no
+      // debe caer a cero a mitad de mes. Sin ingresos, la parte de ahorro queda neutral.
+      income: projection.income > 0 ? projection.income + projection.possibleIncome : 0,
+      expense: (projection.available ? projection.projected : projection.spent) - projection.saved,
       budgets: monthBudgets,
       previousExpenses,
       smallShare: small.share,
@@ -290,7 +338,9 @@ export function createAnalyticsService(deps = {}) {
       const previousDays = daysInMonth(previousMonth);
       previousScore = healthScore({
         income: sum(previous.filter((m) => m.type === 'ingreso')),
-        expense: sum(previous.filter((m) => m.type === 'gasto')),
+        expense: sum(
+          previous.filter((m) => m.type === 'gasto' && m.category !== SAVINGS_CATEGORY),
+        ),
         budgets: previousBudgets,
         previousExpenses: expensesBefore(previousMonth),
         smallShare: smallExpenses({ current: previous, day: previousDays, days: previousDays })

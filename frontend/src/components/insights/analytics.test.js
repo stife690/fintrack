@@ -20,7 +20,7 @@ describe('projectionMessage', () => {
   });
 
   it('dice si sobra o falta frente a los ingresos', () => {
-    const base = { available: true, projected: 2000000, expectedIncome: 2500000 };
+    const base = { available: true, projected: 2000000, income: 2500000 };
     expect(money(projectionMessage({ ...base, balance: 500000 }))).toMatch(/te sobrarían \$ 500\.000/);
     expect(money(projectionMessage({ ...base, balance: -300000 }))).toMatch(/te faltarían \$ 300\.000/);
   });
@@ -71,7 +71,7 @@ describe('nextAction', () => {
   const base = {
     day: 29,
     daysInMonth: 31,
-    projection: { available: true, spent: 148000, projected: 158207, expectedIncome: 10000, balance: -148207 },
+    projection: { available: true, spent: 148000, projected: 158207, income: 10000, balance: -148207 },
     smallExpenses: { threshold: 20000, total: 53000 },
   };
 
@@ -156,9 +156,9 @@ describe('paceSeries', () => {
 
 describe('dailyAllowance', () => {
   it('reparte lo que queda entre los días que faltan, hoy incluido', () => {
-    const data = { day: 29, daysInMonth: 31, projection: { expectedIncome: 2_000_000, spent: 1_700_000 } };
+    const data = { day: 29, daysInMonth: 31, projection: { income: 2_000_000, spent: 1_700_000 } };
     expect(dailyAllowance(data)).toBe(100_000);
-    expect(dailyAllowance({ ...data, projection: { expectedIncome: 10_000, spent: 148_000 } })).toBe(0);
+    expect(dailyAllowance({ ...data, projection: { income: 10_000, spent: 148_000 } })).toBe(0);
   });
 });
 

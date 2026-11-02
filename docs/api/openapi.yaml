@@ -778,16 +778,40 @@ paths:
                     example: 33
                   projection:
                     type: object
-                    required: [available, spent, projected, pendingFixed, expectedIncome, balance]
+                    required:
+                      - available
+                      - spent
+                      - projected
+                      - pendingFixed
+                      - oneOff
+                      - saved
+                      - income
+                      - possibleIncome
+                      - balance
                     properties:
                       available: { type: boolean }
                       spent: { type: number, example: 1840000 }
                       projected: { type: number, example: 2310000 }
                       pendingFixed: { type: number, example: 0 }
-                      expectedIncome: { type: number, example: 2800000 }
+                      oneOff:
+                        type: number
+                        description: Compras grandes del mes; cuentan una vez, sin marcar el ritmo.
+                        example: 0
+                      saved:
+                        type: number
+                        description: Lo apartado en Ahorro/Inversión; no cuenta como gasto en el puntaje.
+                        example: 0
+                      income:
+                        type: number
+                        description: Ingresos que ya entraron este mes.
+                        example: 2800000
+                      possibleIncome:
+                        type: number
+                        description: Lo que falta para igualar los ingresos del mes pasado; no es seguro.
+                        example: 0
                       balance:
                         type: number
-                        description: Ingresos esperados menos gasto proyectado (negativo si faltaría).
+                        description: Ingresos que ya entraron menos gasto proyectado (negativo si faltaría).
                         example: 490000
                   smallExpenses:
                     type: object

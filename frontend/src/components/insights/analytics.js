@@ -34,7 +34,8 @@ export function savingsDetail(rate) {
 
 /** Cómo se calcula cada parte del puntaje (la misma regla del backend, `analytics.service.js`). */
 export const PART_FORMULAS = {
-  savings: '(Ingresos − gastos) ÷ ingresos. Ahorrar el 20 % o más da 25 puntos (regla 50/30/20); 0 % o menos, 0.',
+  savings:
+    '(Ingresos − gastos) ÷ ingresos. Ahorrar el 20 % o más da 25 puntos (regla 50/30/20); 0 % o menos, 0. Sin ingresos todavía, 12,5. Lo que apartas en Ahorro/Inversión no cuenta como gasto.',
   budgets: 'Presupuestos del mes que no pasan del 100 %. Todos da 25 puntos; sin presupuestos, 12,5.',
   stability:
     'Gasto del mes frente al promedio de tus 3 meses anteriores. Igual o menos da 25 puntos; 30 % más, 0. Sin historial, 12,5.',
@@ -60,10 +61,10 @@ export function nextAction({ health, projection, smallExpenses, day, daysInMonth
   switch (weakest.key) {
     case 'savings': {
       // Ingresos muy por debajo del gasto: lo más probable es que falte registrarlos.
-      if (projection.expectedIncome < projected * 0.25) {
+      if (projection.income < projected * 0.25) {
         return {
           title: 'Registra tus ingresos del mes',
-          detail: `Llevas ${formatMoney(projection.expectedIncome)} en ingresos frente a ${formatMoney(projected)} de gasto. Si ya te pagaron, regístralo: el ahorro cuenta con lo que ingresas.`,
+          detail: `Llevas ${formatMoney(projection.income)} en ingresos frente a ${formatMoney(projected)} de gasto. Si ya te pagaron, regístralo: el ahorro cuenta con lo que ingresas.`,
           gain,
           to: '/app/transacciones?nuevo=ingreso',
           cta: 'Registrar ingreso',
@@ -79,7 +80,7 @@ export function nextAction({ health, projection, smallExpenses, day, daysInMonth
       }
       return {
         title: 'Aparta un poco más',
-        detail: `Ahorrar el 20 % de tus ingresos (${formatMoney(projection.expectedIncome * 0.2)}) te da los 25 puntos.`,
+        detail: `Ahorrar el 20 % de tus ingresos (${formatMoney(projection.income * 0.2)}) te da los 25 puntos.`,
         gain,
       };
     }
@@ -151,13 +152,13 @@ export function describePart({ key, value }) {
  * @param {import('@/services/analyticsService').Analytics['projection']} projection
  * @returns {string}
  */
-export function projectionMessage({ available, projected, expectedIncome, balance }) {
+export function projectionMessage({ available, projected, income, balance }) {
   if (!available) return 'Desde el día 3 del mes te mostramos cuánto gastarás al cierre.';
-  if (expectedIncome === 0) return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos.`;
+  if (income === 0) return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos.`;
   if (balance >= 0) {
-    return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos: te sobrarían ${formatMoney(balance)}.`;
+    return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos: con lo que ha entrado, te sobrarían ${formatMoney(balance)}.`;
   }
-  return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos: te faltarían ${formatMoney(-balance)}.`;
+  return `Al ritmo actual cerrarás el mes con ${formatMoney(projected)} en gastos: con lo que ha entrado, te faltarían ${formatMoney(-balance)}.`;
 }
 
 /**
@@ -195,11 +196,11 @@ export function paceSeries({ daily, day, daysInMonth, projection }) {
 
 /**
  * Cuánto se puede gastar por día lo que queda del mes sin pasar de los ingresos (hoy incluido).
- * @param {{ projection: { expectedIncome: number, spent: number }, day: number, daysInMonth: number }} data
+ * @param {{ projection: { income: number, spent: number }, day: number, daysInMonth: number }} data
  * @returns {number} 0 si ya no queda.
  */
 export function dailyAllowance({ projection, day, daysInMonth }) {
-  const left = projection.expectedIncome - projection.spent;
+  const left = projection.income - projection.spent;
   return Math.max(0, Math.floor(left / (daysInMonth - day + 1)));
 }
 
