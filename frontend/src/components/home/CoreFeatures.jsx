@@ -8,7 +8,7 @@ const QUICK_ACTIONS = [
   { icon: ArrowUpRight, title: 'Registrar gasto', detail: 'La IA le asigna la categoría por ti' },
   { icon: ArrowDownLeft, title: 'Registrar ingreso', detail: 'Salario, mesada o pagos recibidos', active: true },
   { icon: PiggyBank, title: 'Crear presupuesto', detail: 'Un límite mensual por categoría' },
-  { icon: FileDown, title: 'Exportar reporte', detail: 'Descárgalo en PDF o CSV' },
+  { icon: FileDown, title: 'Exportar reporte', detail: 'Descárgalo en Excel, PDF o CSV' },
 ];
 
 /** Presupuestos del mes: consumido vs. límite (FT-0005) con alertas al 80% y 100% (FT-0006). */

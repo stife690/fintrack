@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: '¿Qué hace la inteligencia artificial?',
-    a: 'Dos cosas: asigna automáticamente la categoría de cada gasto a partir de su descripción (siempre puedes corregirla) y, con al menos un mes de historial, analiza tus totales por categoría para darte sugerencias de ahorro.',
+    a: 'Dos cosas: asigna automáticamente la categoría de cada gasto a partir de su descripción (siempre puedes corregirla) y, desde tu primera semana de historial, analiza tus totales por categoría para darte sugerencias de ahorro.',
   },
   {
     q: '¿La IA ve mis datos personales?',
@@ -25,7 +25,7 @@ const FAQS = [
   },
   {
     q: '¿Puedo exportar mis reportes?',
-    a: 'Sí. Puedes descargar tus movimientos o el reporte de un periodo en PDF o CSV para compartirlo o guardarlo como respaldo.',
+    a: 'Sí. Puedes descargar tus movimientos o el reporte de un periodo en Excel, PDF o CSV para compartirlo o guardarlo como respaldo.',
   },
   {
     q: '¿Puedo usarla en varios dispositivos?',
