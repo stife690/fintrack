@@ -21,12 +21,13 @@ import moneyProfileRoutes from './routes/money-profile.routes.js';
 import { linkRouter, webhookRouter } from './routes/whatsapp.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
+import { securityHeaders } from './middlewares/security-headers.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 
 /**
  * Crea y configura la aplicación Express de FinTrack (sin iniciar el servidor).
  *
- * Registra, en orden: CORS, parser JSON, límite de intentos de login/registro,
+ * Registra, en orden: cabeceras de seguridad, CORS, parser JSON, límite de intentos de login/registro,
  * rutas de la API, el manejador 404 y el manejador central de errores.
  * Se separa de `server.js` para poder probarla sin abrir un puerto fijo.
  *
@@ -37,6 +38,9 @@ export function createApp() {
 
   // Detrás de un proxy (Render) la IP real del cliente llega en X-Forwarded-For.
   app.set('trust proxy', env.trustProxy);
+  // No anunciar que el servidor es Express (FT-0042).
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
 
   // Sin CORS_ORIGIN (desarrollo local) se permite cualquier origen.
   app.use(
