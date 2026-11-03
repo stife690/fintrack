@@ -24,15 +24,15 @@ export const TIER_LABELS = {
 const LIGHT = '#ffffff';
 const DARK = '#111827';
 
-// `dominant` es el color de mayor área del degradado: contra él se mide el contraste.
+// El texto va sobre todo el degradado: el contraste se exige contra `from` y `to`.
 const palette = {
-  clasica: { from: '#1e40af', to: '#3b82f6', dominant: '#1e40af', foreground: LIGHT },
-  gold: { from: '#b8860b', to: '#f5d76e', dominant: '#e0b94a', foreground: DARK },
-  platinum: { from: '#9ca3af', to: '#e5e7eb', dominant: '#cbd0d8', foreground: DARK },
-  black: { from: '#0a0a0a', to: '#262626', dominant: '#0a0a0a', foreground: LIGHT },
-  green: { from: '#064e3b', to: '#10b981', dominant: '#065f46', foreground: LIGHT },
-  blue: { from: '#7dd3fc', to: '#e0f2fe', dominant: '#a5dcf8', foreground: DARK },
-  otra: { from: '#374151', to: '#6b7280', dominant: '#374151', foreground: LIGHT },
+  clasica: { from: '#1e3a8a', to: '#2563eb', foreground: LIGHT },
+  gold: { from: '#b8860b', to: '#f5d76e', foreground: DARK },
+  platinum: { from: '#9ca3af', to: '#e5e7eb', foreground: DARK },
+  black: { from: '#0a0a0a', to: '#262626', foreground: LIGHT },
+  green: { from: '#064e3b', to: '#047857', foreground: LIGHT },
+  blue: { from: '#7dd3fc', to: '#e0f2fe', foreground: DARK },
+  otra: { from: '#374151', to: '#6b7280', foreground: LIGHT },
 };
 
 const style = (key, label) => {
@@ -41,7 +41,7 @@ const style = (key, label) => {
     label,
     background: `linear-gradient(135deg, ${p.from}, ${p.to})`,
     foreground: p.foreground,
-    dominant: p.dominant,
+    stops: [p.from, p.to],
   };
 };
 
