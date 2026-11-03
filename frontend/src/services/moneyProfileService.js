@@ -79,3 +79,13 @@ export function updateCommitment(id, data) {
 export function deleteCommitment(id) {
   return apiRequest(`/money-profile/commitments/${id}`, { method: 'DELETE' });
 }
+
+/**
+ * Pagos de un mes y cuánto le queda al usuario después de cada uno (FT-0025).
+ * @param {string} [month] AAAA-MM; sin él, el mes actual.
+ * @returns {Promise<{ month: string, today: string, money: number|null, projectedUntil: string|null, events: object[], totals: { pending: number, paid: number } }>}
+ *   Ver `GET /money-profile/calendar` en la API.
+ */
+export function getPaymentCalendar(month) {
+  return apiRequest(`/money-profile/calendar${month ? `?month=${month}` : ''}`);
+}

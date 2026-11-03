@@ -16,6 +16,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Welcome = lazy(() => import('@/pages/app/Welcome'));
 const MiPlata = lazy(() => import('@/pages/app/MiPlata'));
+const Calendar = lazy(() => import('@/pages/app/Calendar'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
 const Insights = lazy(() => import('@/pages/app/Insights'));
@@ -76,6 +77,7 @@ function RouteFallback() {
  * enlace de invitación (FT-0014/FT-0015) · `/app/negocios` emprendimientos compartidos · `/app/negocios/:id`
  * socios y roles · `/app/negocios/unirse/:code` enlace de invitación (FT-0016).
  * `/app/mi-plata` ingresos, saldo y pagos de cada mes (FT-0041).
+ * `/app/calendario` pagos del mes y cuánto queda después de cada uno (FT-0025).
  * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
  * Fuera del marco: `/app/bienvenida` preguntas de la primera vez (FT-0036).
  */
@@ -107,6 +109,7 @@ export default function App() {
                 <Route path="/app/transacciones/exportar" element={<Export />} />
                 <Route path="/app/cuenta" element={<Account />} />
                 <Route path="/app/mi-plata" element={<MiPlata />} />
+                <Route path="/app/calendario" element={<Calendar />} />
                 <Route path="/app/renta" element={<Renta />} />
                 <Route path="/app/invitar" element={<Invite />} />
                 <Route path="/app/planes" element={<Plans />} />

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ArrowLeftRight,
   Briefcase,
+  CalendarDays,
   Crown,
   House,
   Landmark,
@@ -41,6 +42,7 @@ const NAV_GROUPS = [
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
       { to: '/app/insights', label: 'Insights', icon: Sparkles },
       { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
+      { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
       { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],
   },

@@ -808,6 +808,56 @@ paths:
               schema: { $ref: "#/components/schemas/MoneyPlan" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /money-profile/calendar:
+    get:
+      tags: [MoneyProfile]
+      summary: Pagos de un mes y cuánto le queda al usuario después de cada uno (FT-0025)
+      description: |
+        Eventos del mes: compromisos de Mi plata, días de pago (sin monto: no se sabe cuánto le pagan) y lo
+        que le falta aportar a cada vaca en su fecha límite. No guarda nada nuevo.
+        `balanceAfter` parte de la plata actual (la de `/plan`) y resta en orden de fecha cada pago que
+        falta; lo atrasado se resta hoy. Se proyecta hasta el próximo día de pago (fecha fija) o hasta el
+        fin del mes siguiente (sin fecha); después es `null`, igual que en lo ya pagado o pasado.
+        `risk`: `negativo` si queda menos de 0; `riesgo` si queda menos de 7 días de gasto normal (`pace`).
+      parameters:
+        - name: month
+          in: query
+          required: false
+          description: Mes AAAA-MM. Sin él, el actual.
+          schema: { type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$" }
+      responses:
+        "200":
+          description: Calendario del mes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  month: { type: string, example: "2026-11" }
+                  today: { type: string, format: date }
+                  money: { type: number, nullable: true, description: Plata de hoy; null sin Mi plata configurada }
+                  projectedUntil: { type: string, format: date, nullable: true, description: Hasta qué fecha (sin incluirla) hay saldo proyectado }
+                  totals:
+                    type: object
+                    properties:
+                      pending: { type: number, description: Lo que falta pagar del mes (pendiente o atrasado) }
+                      paid: { type: number }
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date }
+                        kind: { type: string, enum: [compromiso, vaca, ingreso] }
+                        id: { type: string, nullable: true }
+                        name: { type: string }
+                        amount: { type: number, nullable: true }
+                        status: { type: string, nullable: true, enum: [pagado, pendiente, atrasado, sin_registro, null] }
+                        balanceAfter: { type: number, nullable: true }
+                        risk: { type: string, nullable: true, enum: [ok, riesgo, negativo, null] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /money-profile/welcome:
     post:
       tags: [MoneyProfile]
