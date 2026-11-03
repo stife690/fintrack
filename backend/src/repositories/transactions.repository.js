@@ -38,10 +38,11 @@ export const SAVINGS_CATEGORY = 'ahorro_inversion';
 /**
  * Inserta una transacción.
  * @param {{ userId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar', card?: string|null, installments?: number|null }} data `card` ya validada; sin ella no hay cuotas.
+ * @param {import("pg").PoolClient|import("pg").Pool} [client] Cliente de una transacción SQL (por defecto, el pool).
  * @returns {Promise<TransactionRecord>}
  */
-export async function insertTransaction(data) {
-  const { rows } = await pool.query(
+export async function insertTransaction(data, client = pool) {
+  const { rows } = await client.query(
     `WITH ins AS (
        INSERT INTO transacciones
          (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id, tarjeta_id, cuotas)
