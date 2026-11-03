@@ -266,6 +266,9 @@ export function ruleAdvice({ total, status, behindCount, membersCount, projectio
   if (status === 'vencida') {
     return `Pasó la fecha límite y faltan ${money.format(projection.remaining)}. Acuerden una fecha nueva y cuánto pondrá cada uno.`;
   }
+  if (total === 0 && membersCount === 1) {
+    return 'Todavía no hay aportes. Si pones tu parte esta semana, arrancas con buen ritmo; invita a más personas para repartir la meta.';
+  }
   if (total === 0) {
     return `Nadie ha aportado todavía. Si cada uno de los ${membersCount} pone su parte esta semana, arrancan con buen ritmo.`;
   }

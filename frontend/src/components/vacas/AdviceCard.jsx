@@ -26,7 +26,8 @@ export default function AdviceCard({ vaca, online, onRemind }) {
   const [loading, setLoading] = useState(false);
   const [remindState, setRemindState] = useState({ busy: false, message: '', error: '' });
   const reading = projectionText(vaca);
-  const behind = vaca.members?.filter((m) => !m.isMe && m.remaining > 0 && m.status !== 'al_dia').length ?? 0;
+  const others = vaca.members?.filter((m) => !m.isMe) ?? [];
+  const behind = others.filter((m) => m.remaining > 0 && m.status !== 'al_dia').length;
 
   // El consejo depende del total: se vuelve a pedir cuando alguien aporta. El servidor lo guarda,
   // así que pedirlo de nuevo con el mismo total no vuelve a llamar a la IA.
@@ -99,7 +100,11 @@ export default function AdviceCard({ vaca, online, onRemind }) {
               Recordar a quienes les falta
             </Button>
           ) : (
-            <p className="text-sm text-ink/60">Todos van al día o ya cumplieron.</p>
+            <p className="text-sm text-ink/60">
+              {others.length === 0
+                ? 'Aún no hay más miembros: cuando alguien se una, desde aquí le puedes recordar su aporte.'
+                : 'Los demás van al día o ya cumplieron.'}
+            </p>
           )}
           <p role="status" className={cn('text-sm text-positive', remindState.message && 'mt-2')}>
             {remindState.message}

@@ -228,7 +228,11 @@ test('consejo con reglas según el estado del grupo', () => {
     projection: { remaining: 900, onTrack: true, neededPerWeek: 100, estimatedDate: '2026-11-01' },
   };
   assert.match(ruleAdvice({ ...base, status: 'completada' }), /Meta cumplida/);
-  assert.match(ruleAdvice({ ...base, total: 0 }), /Nadie ha aportado/);
+  assert.match(ruleAdvice({ ...base, total: 0 }), /Si cada uno de los 3 pone su parte/);
+  // Con un solo miembro no hay "cada uno de los 1": se le habla a esa persona.
+  const solo = ruleAdvice({ ...base, total: 0, membersCount: 1 });
+  assert.doesNotMatch(solo, /cada uno de los 1/);
+  assert.match(solo, /Si pones tu parte esta semana/);
   assert.match(
     ruleAdvice({ ...base, projection: { ...base.projection, onTrack: false } }),
     /no llegan a tiempo/,
