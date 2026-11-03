@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  calendarCells,
-  dayLabel,
-  filterEvents,
-  groupByDate,
-  monthLabel,
-  shiftMonth,
-  shortMoney,
-} from '@/lib/paymentCalendar';
+import { dayLabel, monthLabel, shiftMonth } from '@/lib/calendar';
+import { calendarCells, filterEvents, groupByDate, shortMoney } from '@/lib/paymentCalendar';
 
 const event = (date, kind, amount, extra = {}) => ({ date, kind, amount, status: 'pendiente', risk: 'ok', ...extra });
 

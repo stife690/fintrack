@@ -4,6 +4,7 @@ import { ArrowLeft, HandCoins, Loader2, LogOut, MoreHorizontal, Pencil, Trash2, 
 import ConfirmButton from '@/components/common/ConfirmButton';
 import Sheet from '@/components/common/Sheet';
 import Tabs from '@/components/common/Tabs';
+import VacaCalendar from '@/components/vacas/VacaCalendar';
 import Panel from '@/components/layout/Panel';
 import { formatDate } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
@@ -343,6 +344,7 @@ export default function VacaDetail() {
             tabs={[
               { value: 'miembros', label: 'Miembros', count: vaca.membersCount },
               { value: 'aportes', label: 'Aportes', count: vaca.contributions.length + pending.length },
+              { value: 'calendario', label: 'Calendario' },
             ]}
           >
             {(current) =>
@@ -364,6 +366,8 @@ export default function VacaDetail() {
                     }}
                   />
                 </>
+              ) : current === 'calendario' ? (
+                <VacaCalendar vaca={vaca} />
               ) : (
                 <ContributionList
                   contributions={vaca.contributions}

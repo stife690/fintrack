@@ -1,27 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import MonthGrid from '@/components/common/MonthGrid';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import { formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import useAsync from '@/hooks/useAsync';
 import usePageTitle from '@/hooks/usePageTitle';
-import {
-  FILTERS,
-  STATUS_TEXT,
-  calendarCells,
-  dayLabel,
-  filterEvents,
-  groupByDate,
-  monthLabel,
-  shiftMonth,
-  shortMoney,
-} from '@/lib/paymentCalendar';
+import { dayLabel, monthLabel, shiftMonth } from '@/lib/calendar';
+import { FILTERS, STATUS_TEXT, calendarCells, filterEvents, groupByDate, shortMoney } from '@/lib/paymentCalendar';
 import { cn } from '@/lib/utils';
 import { getPaymentCalendar } from '@/services/moneyProfileService';
-
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 /** Color de cada tono de la cuadrícula y del saldo. */
 const TONE_CLASS = {
@@ -37,43 +27,18 @@ const RISK_TEXT = {
 };
 
 /**
- * Cuadrícula del mes con el total por pagar de cada día.
+ * Cuadrícula del mes con el total por pagar de cada día, del color de lo más grave.
  * @param {{ month: string, events: object[], today: string }} props
  */
-function MonthGrid({ month, events, today }) {
-  const cells = calendarCells(month, events, today);
+function PaymentGrid({ month, events, today }) {
   return (
-    <Panel aria-label={`Pagos de ${monthLabel(month)}`} className="p-3 md:p-4">
-      <div className="mb-2 grid grid-cols-7 text-center text-xs font-semibold text-ink/50" aria-hidden="true">
-        {WEEKDAYS.map((d, i) => (
-          <span key={i}>{d}</span>
-        ))}
-      </div>
-      <ol className="grid grid-cols-7 gap-y-1">
-        {cells.map((cell, i) =>
-          cell ? (
-            <li key={cell.date} className="flex h-12 flex-col items-center gap-0.5">
-              <span
-                className={cn(
-                  'grid size-7 place-items-center rounded-full text-sm tabular-nums',
-                  cell.isToday && 'bg-violet font-bold text-white',
-                  cell.isPast && !cell.isToday && 'text-ink/40',
-                )}
-              >
-                {cell.day}
-              </span>
-              {cell.tone && (
-                <span className={cn('whitespace-nowrap text-[10px] font-semibold', TONE_CLASS[cell.tone])}>
-                  {cell.total > 0 ? shortMoney(cell.total) : '•'}
-                </span>
-              )}
-            </li>
-          ) : (
-            <li key={`vacio-${i}`} aria-hidden="true" />
-          ),
-        )}
-      </ol>
-    </Panel>
+    <MonthGrid
+      label={`Pagos de ${monthLabel(month)}`}
+      cells={calendarCells(month, events, today)}
+      renderMark={(cell) =>
+        cell.tone && { text: cell.total > 0 ? shortMoney(cell.total) : '•', className: TONE_CLASS[cell.tone] }
+      }
+    />
   );
 }
 
@@ -204,7 +169,7 @@ export default function Calendar() {
             ))}
           </div>
 
-          <MonthGrid month={data.month} events={events} today={data.today} />
+          <PaymentGrid month={data.month} events={events} today={data.today} />
 
           {events.length === 0 ? (
             <Panel className="text-center">
