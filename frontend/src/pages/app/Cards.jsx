@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Plus } from 'lucide-react';
 import CardForm from '@/components/cards/CardForm';
+import { paymentText } from '@/components/cards/cardFormat';
 import CreditCardArt from '@/components/cards/CreditCardArt';
 import Sheet from '@/components/common/Sheet';
 import PageHeader from '@/components/layout/PageHeader';
@@ -14,22 +15,6 @@ import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { createCard, listCards } from '@/services/cardService';
 
-
-/** "15 nov" a partir de AAAA-MM-DD, sin pasar por UTC. */
-function shortDate(iso) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const month = new Date(y, m - 1, d).toLocaleDateString('es-CO', { month: 'short' }).replace('.', '');
-  return `${d} ${month}`;
-}
-
-/** Cuándo toca pagar: "Pagas en 5 días (15 nov)". */
-function paymentText(card) {
-  if (card.paidThisCycle) return 'Pago de este mes al día';
-  const when = card.nextPaymentDate ? ` (${shortDate(card.nextPaymentDate)})` : '';
-  if (card.daysToPayment === 0) return `Pagas hoy${when}`;
-  if (card.daysToPayment === 1) return `Pagas en 1 día${when}`;
-  return `Pagas en ${card.daysToPayment} días${when}`;
-}
 
 /**
  * Lista de tarjetas (o el estado vacío). Separada de la página para poder probarla sin red.

@@ -29,3 +29,15 @@ export const cardSchema = base
 
 /** Editar tarjeta: sin disponible (la deuda solo cambia con pagos o al actualizar con el banco). */
 export const cardEditSchema = base.refine(tierMatchesNetwork, TIER_ISSUE);
+
+const optionalDate = z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Fecha inválida');
+
+/** "Ya pagué": monto y fecha. */
+export const payCardSchema = z.object({ amount: money('El pago debe ser mayor que 0'), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Elige una fecha') });
+
+/** "Actualizar con el banco": el cupo disponible es obligatorio; extracto y fecha límite no. */
+export const bankSyncSchema = z.object({
+  available: filled('Ingresa un monto').pipe(z.coerce.number({ error: 'Ingresa un monto válido' }).min(0, 'No puede ser negativo').max(MAX_AMOUNT, 'El monto es demasiado grande')),
+  statementTotal: z.union([z.literal(''), money('El total debe ser mayor que 0')]),
+  statementDueDate: optionalDate,
+});
