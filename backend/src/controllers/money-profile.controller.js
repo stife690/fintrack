@@ -1,5 +1,7 @@
 import { getPlan as buildPlan } from '../services/money-plan.service.js';
+import { getCalendar as buildCalendar } from '../services/payment-calendar.service.js';
 import * as moneyProfile from '../services/money-profile.service.js';
+import { parseMonthQuery } from '../validators/budgets.validator.js';
 import { parseCommitment, parseProfile, parseWelcome } from '../validators/money-profile.validator.js';
 
 /**
@@ -20,6 +22,17 @@ export async function getProfile(req, res) {
  */
 export async function getPlan(req, res) {
   res.json(await buildPlan(req.userId));
+}
+
+/**
+ * `GET /api/v1/money-profile/calendar?month=AAAA-MM`: pagos del mes y cuánto le queda al usuario
+ * después de cada uno (FT-0025). Sin `month`, el actual.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getCalendar(req, res) {
+  res.json(await buildCalendar(req.userId, parseMonthQuery(req.query)));
 }
 
 /**

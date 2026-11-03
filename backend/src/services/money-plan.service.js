@@ -85,7 +85,7 @@ export function nextPayDate(payDays, today) {
  * @param {{ description: string }} expense
  * @returns {boolean} `true` si el gasto lleva el nombre del compromiso.
  */
-function isPaymentOf(commitment, expense) {
+export function isPaymentOf(commitment, expense) {
   return normalizeDescription(expense.description).includes(normalizeDescription(commitment.name));
 }
 

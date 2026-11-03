@@ -272,3 +272,24 @@ test('limita los compromisos por usuario', options, async () => {
     assert.equal(extra.body.error.code, 'COMMITMENT_LIMIT');
   });
 });
+
+test('el calendario muestra los pagos del mes y cuánto queda después (FT-0025)', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken();
+    assert.equal((await api('/money-profile/calendar')).status, 401);
+    const bad = await api('/money-profile/calendar?month=2026-13', { token });
+    assert.equal(bad.status, 422);
+    assert.equal(bad.body.error.details[0].field, 'month');
+
+    await api('/money-profile', { method: 'PUT', token, body: { incomeType: 'sin_fecha', balance: 3000000 } });
+    await api('/money-profile/commitments', { method: 'POST', token, body: ARRIENDO });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const { status, body } = await api(`/money-profile/calendar?month=${today.slice(0, 7)}`, { token });
+    assert.equal(status, 200);
+    assert.equal(body.money, 3000000);
+    const [event] = body.events;
+    assert.equal(event.kind, 'compromiso');
+    assert.equal(event.name, ARRIENDO.name);
+    assert.equal(event.balanceAfter, 3000000 - ARRIENDO.amount);
+  });
+});
