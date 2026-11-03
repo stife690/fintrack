@@ -9,6 +9,7 @@ import {
   elapsedFraction,
   generateCode,
   memberStatus,
+  advicePrompt,
   ruleAdvice,
   vacaStatus,
 } from './services/vacas.service.js';
@@ -239,6 +240,41 @@ test('consejo con reglas según el estado del grupo', () => {
   );
   assert.match(ruleAdvice({ ...base, behindCount: 2 }), /2 miembros atrasados/);
   assert.match(ruleAdvice(base), /Van al día/);
+});
+
+test('consejo con un solo miembro: le habla a esa persona, nunca al grupo', () => {
+  const solo = {
+    goal: 1000,
+    total: 100,
+    percentage: 10,
+    membersCount: 1,
+    behindCount: 0,
+    doneCount: 0,
+    status: 'activa',
+    projection: {
+      remaining: 900,
+      onTrack: true,
+      neededPerWeek: 100,
+      estimatedDate: '2026-11-01',
+      averagePerDay: 10,
+      daysLeft: 30,
+    },
+  };
+  for (const stats of [
+    solo,
+    { ...solo, projection: { ...solo.projection, onTrack: false } },
+    { ...solo, projection: { ...solo.projection, estimatedDate: null } },
+    { ...solo, behindCount: 1 },
+  ]) {
+    assert.doesNotMatch(ruleAdvice(stats), /entre todos|llegan|Van |Sigan|Registren/);
+  }
+  assert.match(
+    ruleAdvice({ ...solo, projection: { ...solo.projection, onTrack: false } }),
+    /no llegas a tiempo/,
+  );
+  // A la IA también se le pide hablar en singular.
+  assert.match(advicePrompt(solo), /Solo hay un miembro/);
+  assert.doesNotMatch(advicePrompt({ ...solo, membersCount: 3 }), /Solo hay un miembro/);
 });
 
 test('validar una vaca nueva: nombre y meta obligatorios, reparto igual por defecto', () => {

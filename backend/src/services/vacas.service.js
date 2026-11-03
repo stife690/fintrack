@@ -260,6 +260,7 @@ export function vacaStatus(total, goal, deadline, today) {
  * @returns {string}
  */
 export function ruleAdvice({ total, status, behindCount, membersCount, projection }) {
+  const solo = membersCount === 1;
   if (status === 'completada') {
     return '¡Meta cumplida! Ya pueden usar la plata de la vaca. Si quieren seguir ahorrando, suban la meta o creen una nueva.';
   }
@@ -273,23 +274,35 @@ export function ruleAdvice({ total, status, behindCount, membersCount, projectio
     return `Nadie ha aportado todavía. Si cada uno de los ${membersCount} pone su parte esta semana, arrancan con buen ritmo.`;
   }
   if (projection.onTrack === false && projection.neededPerWeek !== null) {
-    return `A este ritmo no llegan a tiempo. Necesitan juntar unos ${money.format(projection.neededPerWeek)} por semana entre todos para cumplir.`;
+    const needed = money.format(projection.neededPerWeek);
+    return solo
+      ? `A este ritmo no llegas a tiempo. Necesitas guardar unos ${needed} por semana para cumplir.`
+      : `A este ritmo no llegan a tiempo. Necesitan juntar unos ${needed} por semana entre todos para cumplir.`;
+  }
+  if (behindCount > 0 && solo) {
+    return 'Vas bien, pero tu cuota va por detrás del plan. Ponerte al día esta semana te ahorra el afán del final.';
   }
   if (behindCount > 0) {
     return `Van bien, pero ${behindCount === 1 ? 'hay 1 miembro atrasado' : `hay ${behindCount} miembros atrasados`}. Un recordatorio amable ayuda a no quedarse cortos al final.`;
   }
   if (projection.estimatedDate) {
-    return `Van al día: a este ritmo completan la meta hacia el ${longDate(projection.estimatedDate)}. Sigan así.`;
+    const date = longDate(projection.estimatedDate);
+    return solo
+      ? `Vas al día: a este ritmo completas la meta hacia el ${date}. Sigue así.`
+      : `Van al día: a este ritmo completan la meta hacia el ${date}. Sigan así.`;
   }
-  return 'Van bien. Registren cada aporte apenas lo hagan para que todos vean el avance.';
+  return solo
+    ? 'Vas bien. Registra cada aporte apenas lo hagas para ver el avance.'
+    : 'Van bien. Registren cada aporte apenas lo hagan para que todos vean el avance.';
 }
 
 /**
- * Prompt del consejo para la IA. Solo lleva cifras agregadas del grupo.
+ * Prompt del consejo para la IA. Solo lleva cifras agregadas del grupo. Con un solo miembro le
+ * pide hablarle a esa persona, no al grupo.
  * @param {AdviceStats} stats
  * @returns {string}
  */
-function advicePrompt({
+export function advicePrompt({
   goal,
   total,
   percentage,
@@ -308,6 +321,9 @@ function advicePrompt({
       : `Días para la fecha límite: ${projection.daysLeft}. Hace falta ${projection.neededPerWeek === null ? 'nada más' : `${money.format(projection.neededPerWeek)} por semana`}.`,
     projection.estimatedDate
       ? `Fecha estimada a este ritmo: ${longDate(projection.estimatedDate)}.`
+      : '',
+    membersCount === 1
+      ? 'Solo hay un miembro: háblale a esa persona en singular (tú), no al grupo, y sugiérele invitar a más gente.'
       : '',
   ]
     .filter(Boolean)

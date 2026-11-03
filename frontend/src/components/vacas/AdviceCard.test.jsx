@@ -6,7 +6,7 @@ vi.mock('@/components/vacas/vacaFormat', () => ({ projectionText: () => ({ text:
 
 const { default: AdviceCard } = await import('@/components/vacas/AdviceCard');
 
-const me = { isMe: true, remaining: 600000, status: 'le_falta' };
+const me = { isMe: true, remaining: 600000, status: 'pendiente' };
 const render = (members) =>
   renderToStaticMarkup(
     <AdviceCard vaca={{ id: 'v1', total: 0, role: 'admin', status: 'activa', members }} online={false} onRemind={vi.fn()} />,
@@ -20,7 +20,7 @@ describe('AdviceCard: recordatorio a los demás miembros', () => {
   });
 
   it('con otros miembros al día lo dice de los demás, no de todos', () => {
-    const html = render([me, { isMe: false, remaining: 0, status: 'cumplio' }]);
+    const html = render([me, { isMe: false, remaining: 0, status: 'cumplido' }]);
     expect(html).toContain('Los demás van al día o ya cumplieron.');
   });
 
