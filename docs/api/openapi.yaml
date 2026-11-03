@@ -548,10 +548,91 @@ paths:
     delete:
       tags: [Transactions]
       summary: Elimina una transacción (borrado lógico, RN-06)
-      description: Marca `deletedAt`; la fila se conserva para reportarla en `/sync/batch`.
+      description: |
+        Marca `deletedAt`; la fila se conserva para reportarla en `/sync/batch`. Sus soportes de pago
+        sí se borran del todo (fila y archivo, FT-0044).
       responses:
         "204": { description: Eliminada }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /transactions/{id}/attachments:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Transactions]
+      summary: Soportes de pago del movimiento (FT-0044)
+      description: |
+        Solo el dueño del movimiento los ve. Activos para los correos de `ATTACHMENTS_ALLOWED_EMAILS`
+        (`*` para todos); si no, 403 `FEATURE_DISABLED` y el frontend no muestra la sección.
+      responses:
+        "200":
+          description: Soportes y límites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Attachment" } }
+                  max: { type: integer, example: 3 }
+                  maxBytes: { type: integer, example: 5242880 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: "FEATURE_DISABLED — el usuario aún no tiene los soportes activos" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Transactions]
+      summary: Adjunta una foto o un PDF (cuerpo binario)
+      description: |
+        El cuerpo es el archivo crudo; el nombre va en `X-File-Name` con `encodeURIComponent`. El tipo
+        se decide por los primeros bytes, no por `Content-Type`: JPG, PNG, WebP o PDF, hasta 5 MB y 3
+        por movimiento. El archivo se guarda con un nombre aleatorio.
+      parameters:
+        - { name: X-File-Name, in: header, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Soporte creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FEATURE_DISABLED }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "ATTACHMENT_LIMIT — el movimiento ya tiene 3 soportes" }
+        "413": { description: "FILE_TOO_LARGE — pesa más de 5 MB" }
+        "415": { description: "UNSUPPORTED_FILE — no es JPG, PNG, WebP ni PDF" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /transactions/{id}/attachments/{attachmentId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Transactions]
+      summary: El archivo del soporte, para verlo
+      description: Responde el archivo con su tipo, `Content-Disposition inline` y `Cache-Control private, no-store`.
+      responses:
+        "200":
+          description: El archivo
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FEATURE_DISABLED }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Transactions]
+      summary: Borra el soporte (la fila y el archivo)
+      responses:
+        "204": { description: Borrado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FEATURE_DISABLED }
         "404": { $ref: "#/components/responses/NotFound" }
 
   # ---------------------------------------------------------------- Categories
@@ -1891,6 +1972,15 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+    Attachment:
+      type: object
+      description: Soporte de pago de un movimiento (FT-0044). Nunca incluye dónde está guardado.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, description: Nombre original, solo para mostrarlo }
+        type: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
+        size: { type: integer, description: Bytes }
+        createdAt: { type: string, format: date-time }
     IdeaStatus:
       type: string
       enum: [revision, planeada, en_progreso, lista, descartada]

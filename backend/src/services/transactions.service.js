@@ -11,6 +11,7 @@ import {
   updateTransaction,
 } from '../repositories/transactions.repository.js';
 import { findByLocalId } from '../repositories/sync.repository.js';
+import { attachments } from './attachments.service.js';
 import { resolveCategory } from './categorization.service.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -90,6 +91,7 @@ function present(record) {
  * @param {typeof listCategories} [deps.listCategories]
  * @param {typeof resolveCategory} [deps.resolveCategory]
  * @param {typeof findCard} [deps.findCard]
+ * @param {(userId: string, id: string) => Promise<void>} [deps.removeAttachments] Borra los soportes del movimiento (FT-0044).
  * @param {{ insertTransaction: typeof insertTransaction, findTransaction: typeof findTransaction, listTransactions: typeof listTransactions, updateTransaction: typeof updateTransaction, softDeleteTransaction: typeof softDeleteTransaction, summarizeTransactions: typeof summarizeTransactions, findByLocalId?: typeof findByLocalId }} [deps.repository]
  * @returns {{
  *   create: (userId: string, input: object) => Promise<object>,
@@ -104,6 +106,7 @@ export function createTransactionService(deps = {}) {
   const getCategories = deps.listCategories ?? listCategories;
   const resolve = deps.resolveCategory ?? resolveCategory;
   const getCard = deps.findCard ?? findCard;
+  const removeAttachments = deps.removeAttachments ?? attachments.removeAllOf;
   const repo = deps.repository ?? {
     insertTransaction,
     findTransaction,
@@ -256,7 +259,8 @@ export function createTransactionService(deps = {}) {
   }
 
   /**
-   * Borrado lógico de una transacción del usuario.
+   * Borrado lógico de una transacción del usuario. Sus soportes de pago sí se borran del todo
+   * (FT-0044). La sincronización offline también borra por aquí.
    * @param {string} userId
    * @param {string} id
    * @returns {Promise<void>}
@@ -266,6 +270,7 @@ export function createTransactionService(deps = {}) {
     if (!UUID_RE.test(id) || !(await repo.softDeleteTransaction(id, userId))) {
       throw notFound();
     }
+    await removeAttachments(userId, id);
   }
 
   /**

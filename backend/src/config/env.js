@@ -30,6 +30,16 @@ const whatsappAllowedEmails = (process.env.WHATSAPP_ALLOWED_EMAILS || '')
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+/**
+ * Correos que pueden adjuntar soportes de pago (FT-0044), separados por coma; `*` es para todos.
+ * Fuera de producción, vacío también es para todos. En producción no se abre a todos hasta que
+ * estén publicados los términos y la política de privacidad.
+ */
+const attachmentsAllowedEmails = (process.env.ATTACHMENTS_ALLOWED_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
 const DEFAULT_MODELS = {
   gemini: 'gemini-flash-lite-latest',
@@ -97,6 +107,11 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string|undefined} whatsappBotNumber Número del bot con indicativo, solo dígitos (`WHATSAPP_BOT_NUMBER`); arma el enlace para abrir el chat.
  * @property {string[]} whatsappAllowedEmails Correos que pueden conectar el bot (`WHATSAPP_ALLOWED_EMAILS`).
  * @property {number} whatsappDailyMax Mensajes al bot por usuario y día (`WHATSAPP_DAILY_MAX`, por defecto 100).
+ * @property {string[]} attachmentsAllowedEmails Quién puede adjuntar soportes (`ATTACHMENTS_ALLOWED_EMAILS`; `*` para todos).
+ * @property {string|undefined} supabaseUrl URL del proyecto de Supabase para guardar los soportes (`SUPABASE_URL`).
+ * @property {string|undefined} supabaseServiceKey Clave `service_role` de Supabase; solo vive en el backend (`SUPABASE_SERVICE_KEY`).
+ * @property {string} attachmentsBucket Espacio privado de Supabase para los soportes (`ATTACHMENTS_BUCKET`, por defecto `soportes`).
+ * @property {string} uploadsDir Carpeta de los soportes en desarrollo, relativa a `backend/` (`UPLOADS_DIR`, por defecto `uploads`).
  */
 export const env = {
   aiProvider,
@@ -138,6 +153,11 @@ export const env = {
   whatsappBotNumber: process.env.WHATSAPP_BOT_NUMBER?.replace(/\D/g, '') || undefined,
   whatsappAllowedEmails,
   whatsappDailyMax: Number(process.env.WHATSAPP_DAILY_MAX) || 100,
+  attachmentsAllowedEmails,
+  supabaseUrl: process.env.SUPABASE_URL?.trim().replace(/\/$/, '') || undefined,
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY?.trim() || undefined,
+  attachmentsBucket: process.env.ATTACHMENTS_BUCKET?.trim() || 'soportes',
+  uploadsDir: process.env.UPLOADS_DIR?.trim() || 'uploads',
 };
 
 /**

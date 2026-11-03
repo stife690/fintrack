@@ -337,6 +337,23 @@ export const MIGRATIONS = [
       `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS recordar_tarjetas BOOLEAN NOT NULL DEFAULT true`,
     ],
   },
+  {
+    id: '015_soportes',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS transaccion_soportes (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         transaccion_id UUID NOT NULL REFERENCES transacciones(id) ON DELETE CASCADE,
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         nombre VARCHAR(120) NOT NULL,
+         tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('image/jpeg','image/png','image/webp','application/pdf')),
+         tamano INTEGER NOT NULL CHECK (tamano > 0),
+         ruta VARCHAR(200) UNIQUE NOT NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_transaccion_soportes_transaccion
+         ON transaccion_soportes(transaccion_id, created_at)`,
+    ],
+  },
 ];
 
 /**

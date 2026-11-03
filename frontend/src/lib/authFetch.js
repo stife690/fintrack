@@ -84,12 +84,13 @@ function expire() {
 /**
  * `fetch` contra `/api/v1` con el access token de la sesión.
  * @param {string} path Ruta bajo `/api/v1`.
- * @param {{ method?: string, body?: object | Blob | (() => object) }} [options] Si `body` es una
- *   función se evalúa en cada intento (útil cuando incluye el refresh token, que rota). Un `Blob`
- *   (el audio del registro por voz) se envía tal cual, con su propio tipo.
+ * @param {{ method?: string, body?: object | Blob | (() => object), headers?: Record<string, string> }} [options]
+ *   Si `body` es una función se evalúa en cada intento (útil cuando incluye el refresh token, que
+ *   rota). Un `Blob` (el audio del registro por voz, un soporte de pago) se envía tal cual, con su
+ *   propio tipo. `headers` se suma a las de siempre (p. ej. el nombre del archivo de un soporte).
  * @returns {Promise<Response>}
  */
-export async function authFetch(path, { method = 'GET', body } = {}) {
+export async function authFetch(path, { method = 'GET', body, headers = {} } = {}) {
   const send = (token) => {
     const payload = typeof body === 'function' ? body() : body;
     const raw = payload instanceof Blob;
@@ -98,6 +99,7 @@ export async function authFetch(path, { method = 'GET', body } = {}) {
       headers: {
         ...(payload !== undefined && { 'Content-Type': raw ? payload.type : 'application/json' }),
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...headers,
       },
       body: payload === undefined || raw ? payload : JSON.stringify(payload),
     });

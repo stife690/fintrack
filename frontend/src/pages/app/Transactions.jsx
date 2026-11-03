@@ -6,6 +6,7 @@ import Panel from '@/components/layout/Panel';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
 import ConflictList from '@/components/transactions/ConflictList';
 import TransactionFilters, { NO_FILTERS } from '@/components/transactions/TransactionFilters';
+import AttachmentsPanel from '@/components/transactions/AttachmentsPanel';
 import TransactionForm from '@/components/transactions/TransactionForm';
 import TransactionList from '@/components/transactions/TransactionList';
 import { formatDate, formatMoney } from '@/components/transactions/format';
@@ -408,6 +409,8 @@ export default function Transactions() {
             }}
             onCancel={editing ? () => setEditing(null) : undefined}
           />
+          {/* Soportes de pago (FT-0044): solo de movimientos que ya están en el servidor. */}
+          {editing && <AttachmentsPanel transactionId={editing.id} />}
           <BudgetAlert
             className="mt-4"
             alert={budgetAlert.alert}
