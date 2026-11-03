@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { CloudUpload, Pencil, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
+import { CloudUpload, CreditCard, Pencil, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
 import CategoryIcon from '@/components/categories/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatDate, formatMoney } from './format';
+
+const INTEREST_NOTE = 'Los intereses los calcula tu banco a la fecha de corte.';
 
 /**
  * Fila de una transacción con su categoría, origen de la categoría y acciones.
@@ -44,6 +46,18 @@ function Row({ transaction: t, categoryNames, syncStatus, onEdit, onDelete }) {
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-xs text-brand">
               <Sparkles className="size-3" aria-hidden="true" />
               Sugerida por IA
+            </span>
+          )}
+          {t.card && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-xs">
+              <CreditCard className="size-3" aria-hidden="true" />
+              {t.card.deleted ? 'Tarjeta eliminada' : `${t.card.name} ••${t.card.last4}`}
+              {t.installments > 1 && (
+                <span title={INTEREST_NOTE}>
+                  <span aria-hidden="true">*</span>
+                  <span className="sr-only"> {INTEREST_NOTE}</span>
+                </span>
+              )}
             </span>
           )}
           {syncStatus === 'pending' && (

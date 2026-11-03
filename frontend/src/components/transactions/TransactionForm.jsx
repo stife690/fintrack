@@ -6,10 +6,15 @@ import FormField from '@/components/auth/FormField';
 import CategoryPicker, { AUTO_CATEGORY } from '@/components/categories/CategoryPicker';
 import DateQuickPick from '@/components/transactions/DateQuickPick';
 import { Button } from '@/components/ui/button';
+import ChipGroup from '@/components/common/ChipGroup';
 import MoneyInput from '@/components/common/MoneyInput';
 import { Input } from '@/components/ui/input';
+import { NETWORK_LABELS } from '@/lib/cardStyles';
 import { cn } from '@/lib/utils';
 import { today, transactionSchema } from '@/lib/validation/transaction';
+
+/** Valor del chip "Efectivo o débito" (sin tarjeta). */
+const CASH = 'cash';
 
 const TYPES = [
   { value: 'gasto', label: 'Gasto' },
@@ -20,7 +25,7 @@ const TYPES = [
  * Valores iniciales del formulario: los de la transacción que se edita, o los de una nueva.
  * @param {import('@/services/transactionService').Transaction|null} initial
  * @param {'gasto'|'ingreso'} [defaultType] Tipo con el que empieza una transacción nueva.
- * @returns {{ type: string, amount: string, description: string, date: string, category: string }}
+ * @returns {{ type: string, amount: string, description: string, date: string, category: string, card: string|null, installments: string }}
  */
 function toDefaults(initial, defaultType = 'gasto') {
   return {
@@ -29,6 +34,9 @@ function toDefaults(initial, defaultType = 'gasto') {
     description: initial?.description ?? '',
     date: initial?.date ?? today(),
     category: initial?.category ?? AUTO_CATEGORY,
+    // Una tarjeta eliminada ya no se puede elegir: queda en "Efectivo o débito" hasta que se asigne otra.
+    card: initial?.card && !initial.card.deleted ? initial.card.id : null,
+    installments: String(initial?.installments ?? 1),
   };
 }
 
@@ -40,10 +48,11 @@ function toDefaults(initial, defaultType = 'gasto') {
  * @param {object} props
  * @param {{ expense: import('@/services/transactionService').Category[], income: import('@/services/transactionService').Category[] }} props.categories Catálogo por tipo.
  * @param {import('@/services/transactionService').Transaction|null} [props.initial] Transacción a editar; `null` para una nueva.
- * @param {(values: { type: string, amount: number, description: string, date: string, category: string|null }) => Promise<void>} props.onSubmit
+ * @param {(values: { type: string, amount: number, description: string, date: string, category: string|null, card: string|null, installments: number|null }) => Promise<void>} props.onSubmit
  *   Debe lanzar un `Error` si falla; con `err.fields` se marcan los campos del servidor.
  * @param {() => void} [props.onCancel] Si se pasa, se muestra el botón "Cancelar".
  * @param {'gasto'|'ingreso'} [props.defaultType] Tipo inicial de una transacción nueva.
+ * @param {Array<{ id: string, network: string, name: string, last4: string }>} [props.cards] Tarjetas activas para "Pagado con"; sin ellas la fila no aparece.
  * @param {boolean} [props.autoFocus] Pone el cursor en el monto al abrir (p. ej. desde un acceso rápido).
  * @param {{ type: 'gasto'|'ingreso', amount: number|null, description: string, date?: string }|null} [props.draft]
  *   Lo dictado por voz (FT-0013): llena una transacción nueva para revisarla antes de guardar.
@@ -57,6 +66,7 @@ export default function TransactionForm({
   defaultType = 'gasto',
   autoFocus = false,
   draft = null,
+  cards = [],
 }) {
   const [serverError, setServerError] = useState('');
   // Cambia en cada reinicio del formulario para que la fecha vuelva a "Hoy".
@@ -108,6 +118,12 @@ export default function TransactionForm({
     setValue('type', value, { shouldDirty: true });
     setValue('category', AUTO_CATEGORY, { shouldDirty: true }); // la categoría anterior era del otro tipo
   };
+
+  const card = watch('card');
+  const paidWith = [
+    { value: CASH, label: 'Efectivo o débito' },
+    ...cards.map((c) => ({ value: c.id, label: `${NETWORK_LABELS[c.network] ?? c.name} ••${c.last4}` })),
+  ];
 
   const submit = handleSubmit(async (values) => {
     setServerError('');
@@ -199,6 +215,23 @@ export default function TransactionForm({
           <Sparkles className="size-4 shrink-0 text-brand" aria-hidden="true" />
           La clasificamos por ti al guardar.
         </p>
+      )}
+
+      {type === 'gasto' && cards.length > 0 && (
+        <>
+          <ChipGroup
+            legend="Pagado con"
+            options={paidWith}
+            value={card ?? CASH}
+            onChange={(value) => setValue('card', value === CASH ? null : value, { shouldDirty: true })}
+            scroll
+          />
+          {card && (
+            <FormField id="tx-installments" label="Cuotas" error={errors.installments?.message}>
+              <Input type="number" inputMode="numeric" min={1} max={48} step={1} {...register('installments')} />
+            </FormField>
+          )}
+        </>
       )}
 
       {serverError && (

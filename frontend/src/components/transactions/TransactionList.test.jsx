@@ -45,3 +45,21 @@ describe('TransactionList: etiqueta de sincronización (FT-0008)', () => {
     expect(render(undefined)).toContain('Almuerzo');
   });
 });
+
+describe('TransactionList: pagado con tarjeta', () => {
+  const withCard = (card, installments) => {
+    const t = [{ ...transactions[0], card, installments }];
+    return renderToStaticMarkup(
+      <TransactionList transactions={t} categoryNames={{}} page={1} pageSize={20} total={1} onPageChange={() => {}} onEdit={() => {}} onDelete={async () => {}} />,
+    );
+  };
+  it('muestra la tarjeta y el asterisco solo con más de una cuota', () => {
+    const one = withCard({ id: 'c', name: 'Amex', last4: '1234', deleted: false }, 1);
+    expect(one).toContain('Amex');
+    expect(one).not.toContain('Los intereses los calcula tu banco a la fecha de corte.');
+    expect(withCard({ id: 'c', name: 'x', last4: '1234', deleted: false }, 6)).toContain('Los intereses los calcula tu banco a la fecha de corte.');
+  });
+  it('tarjeta eliminada', () => {
+    expect(withCard({ id: 'c', name: 'x', last4: '1234', deleted: true }, 1)).toContain('Tarjeta eliminada');
+  });
+});
