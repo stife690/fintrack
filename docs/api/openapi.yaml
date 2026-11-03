@@ -1853,7 +1853,7 @@ components:
         percentage: { type: number }
     Summary:
       type: object
-      required: [period, from, to, income, expense, timeSeries]
+      required: [period, from, to, income, expense, savings, timeSeries]
       properties:
         period: { type: string, enum: [week, month, year] }
         from: { type: string, format: date }
@@ -1874,9 +1874,15 @@ components:
             byCategory:
               type: array
               items: { $ref: "#/components/schemas/CategoryTotal" }
+        savings:
+          type: object
+          description: Lo registrado como gasto en Ahorro/Inversión. No cuenta en `expense` ni en `timeSeries`, pero sí se resta del balance disponible (ingresos − gastos − ahorro).
+          required: [total]
+          properties:
+            total: { type: number, example: 200000 }
         timeSeries:
           type: array
-          description: Un punto por día (week, month) o por mes (year, con el día 1 como fecha); solo días o meses con movimientos.
+          description: Un punto por día (week, month) o por mes (year, con el día 1 como fecha); solo días o meses con movimientos. `expense` no incluye el ahorro.
           items:
             type: object
             required: [date, income, expense]

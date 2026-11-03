@@ -1,5 +1,5 @@
 /**
- * Resumen del dashboard (FT-0004): ingresos, gastos y balance de una semana, un mes o un año,
+ * Resumen del dashboard (FT-0004): ingresos, gastos, ahorro y balance de una semana, un mes o un año,
  * con el desglose por categoría y la serie en el tiempo para los gráficos.
  *
  * Usa `GET /transactions/summary`. Si la API responde 404 (backend sin desplegar todavía),
@@ -22,10 +22,14 @@ const PAGE_SIZE = 100;
  * @property {string} from
  * @property {string} to
  * @property {TypeTotals} income
- * @property {TypeTotals} expense
- * @property {number} balance Ingresos menos gastos (lo calcula el frontend).
+ * @property {TypeTotals} expense Sin el ahorro.
+ * @property {{ total: number }} savings Lo apartado en Ahorro/Inversión.
+ * @property {number} balance Ingresos menos gastos y ahorro (lo calcula el frontend).
  * @property {Array<{ date: string, income: number, expense: number }>} timeSeries
  */
+
+/** Gasto que en realidad es plata apartada: igual que en el backend, no cuenta como gasto. */
+const SAVINGS_CATEGORY = 'ahorro_inversion';
 
 /** Redondeo a centavos: las sumas de decimales en JS dejan residuos (0.1 + 0.2). */
 const cents = (n) => Math.round(n * 100) / 100;
@@ -60,9 +64,14 @@ function toTypeTotals(sums) {
 async function computeLocally(period, { from, to }) {
   const sums = { ingreso: new Map(), gasto: new Map() };
   const series = new Map();
+  let saved = 0;
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const { data, total } = await listTransactions({ from, to, page, pageSize: PAGE_SIZE });
     for (const t of data) {
+      if (t.type === 'gasto' && t.category === SAVINGS_CATEGORY) {
+        saved = cents(saved + t.amount);
+        continue;
+      }
       const byType = sums[t.type];
       byType.set(t.category, (byType.get(t.category) ?? 0) + t.amount);
       // En el año la serie va por mes (día 1); en semana y mes, por día.
@@ -80,6 +89,7 @@ async function computeLocally(period, { from, to }) {
     to,
     income: toTypeTotals(sums.ingreso),
     expense: toTypeTotals(sums.gasto),
+    savings: { total: saved },
     timeSeries: [...series.values()].sort((a, b) => a.date.localeCompare(b.date)),
   };
 }
@@ -98,5 +108,7 @@ export async function getSummary(period, date) {
     if (err.code !== 'NOT_FOUND') throw err;
     summary = await computeLocally(period, periodRange(period, date));
   }
-  return { ...summary, balance: cents(summary.income.total - summary.expense.total) };
+  // `?? 0`: si el frontend nuevo sale antes que el backend que manda `savings`.
+  const saved = summary.savings?.total ?? 0;
+  return { ...summary, balance: cents(summary.income.total - summary.expense.total - saved) };
 }

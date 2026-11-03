@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Eye, EyeOff, PiggyBank } from 'lucide-react';
 import PlanSummary from '@/components/money/PlanSummary';
 import { formatMoney } from '@/components/transactions/format';
 import { cn } from '@/lib/utils';
@@ -49,7 +49,8 @@ function Total({ label, value, hidden, positive = false }) {
  *
  * @param {object} props
  * @param {string} props.periodLabel Periodo legible, p. ej. `octubre`, `esta semana` o `2026`.
- * @param {{ income: number, expense: number, balance: number }|undefined} props.totals `undefined` mientras carga.
+ * @param {{ income: number, expense: number, savings?: number, balance: number }|undefined} props.totals `undefined` mientras carga.
+ *   `savings`: lo apartado en Ahorro/Inversión; ya viene restado del balance y no está en `expense`.
  * @param {string} [props.note] Reemplaza "Calculando…" cuando no hay totales que esperar (p. ej. sin conexión).
  * @param {object|null} [props.plan] Plan de Mi plata (FT-0037): si existe, la franja muestra cuánta plata tiene.
  * @param {object} [props.profile] Perfil de Mi plata, para corregir el saldo desde aquí.
@@ -59,6 +60,7 @@ function Total({ label, value, hidden, positive = false }) {
  */
 export default function BalanceCard({ periodLabel, totals, note, plan = null, profile, onPlanChanged, hidden, onToggleHidden }) {
   const negative = totals && totals.balance < 0;
+  const saved = totals?.savings ?? 0;
   const money = (value) => (hidden ? MASK : formatMoney(value));
   return (
     <section aria-labelledby="balance-title" className="relative">
@@ -94,9 +96,19 @@ export default function BalanceCard({ periodLabel, totals, note, plan = null, pr
               {totals === undefined
                 ? (note ?? 'Calculando…')
                 : negative
-                  ? 'En este periodo has gastado más de lo que te ha entrado.'
-                  : 'Lo que te ha entrado menos lo que has gastado.'}
+                  ? saved > 0
+                    ? 'Entre gastos y ahorro, en este periodo salió más de lo que te ha entrado.'
+                    : 'En este periodo has gastado más de lo que te ha entrado.'
+                  : saved > 0
+                    ? 'Lo que te ha entrado menos lo que has gastado y lo que apartaste para ahorro.'
+                    : 'Lo que te ha entrado menos lo que has gastado.'}
             </p>
+            {saved > 0 && (
+              <p className="relative mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm">
+                <PiggyBank className="size-4" aria-hidden="true" />
+                Ahorro: <span className="font-semibold tabular-nums">{money(saved)}</span>
+              </p>
+            )}
           </>
         )}
       </div>

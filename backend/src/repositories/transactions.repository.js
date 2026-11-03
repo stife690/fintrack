@@ -160,12 +160,13 @@ export async function softDeleteTransaction(id, userId) {
 
 /**
  * Suma los montos del usuario entre dos fechas (inclusive), sin contar las borradas.
- * Devuelve dos agrupaciones: por categoría (para la dona) y por día o mes (para las barras).
+ * Devuelve dos agrupaciones: por categoría (para la dona) y por día o mes y categoría (para las
+ * barras; la categoría deja al servicio apartar el ahorro).
  * Con `groupBy: 'month'` cada punto de la serie usa el día 1 del mes como fecha.
  * @param {{ userId: string, from: string, to: string, groupBy: 'day'|'month' }} range
  * @returns {Promise<{
  *   byCategory: Array<{ type: 'ingreso'|'gasto', category: string|null, total: number }>,
- *   series: Array<{ date: string, type: 'ingreso'|'gasto', total: number }>
+ *   series: Array<{ date: string, type: 'ingreso'|'gasto', category: string|null, total: number }>
  * }>}
  */
 export async function summarizeTransactions({ userId, from, to, groupBy }) {
@@ -183,11 +184,11 @@ export async function summarizeTransactions({ userId, from, to, groupBy }) {
       params,
     ),
     pool.query(
-      `SELECT to_char(${bucket}, 'YYYY-MM-DD') AS date, t.tipo AS type,
+      `SELECT to_char(${bucket}, 'YYYY-MM-DD') AS date, t.tipo AS type, c.key AS category,
               round(sum(t.monto), 2)::float8 AS total
-       FROM transacciones t
+       FROM transacciones t ${JOIN}
        WHERE ${where}
-       GROUP BY 1, t.tipo
+       GROUP BY 1, t.tipo, c.key
        ORDER BY 1`,
       params,
     ),

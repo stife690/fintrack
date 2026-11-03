@@ -16,11 +16,11 @@ const message = (text, id = 'wamid.1') => ({ id, from: PHONE, text });
 
 /**
  * Servicio con repositorio en memoria.
- * @param {{ linked?: boolean, recent?: number, save?: (userId: string, input: object) => Promise<object>, income?: number, expense?: number, byCategory?: object[], summary?: (userId: string, query: object) => Promise<object> }} [options]
+ * @param {{ linked?: boolean, recent?: number, save?: (userId: string, input: object) => Promise<object>, income?: number, expense?: number, savings?: number, byCategory?: object[], summary?: (userId: string, query: object) => Promise<object> }} [options]
  * @returns {{ service: ReturnType<typeof createWhatsappService>, sent: string[], saved: object[], queries: object[] }}
  */
 function setup(options = {}) {
-  const { linked = true, recent = 0, save, income = 0, expense = 0, byCategory = [], summary } = options;
+  const { linked = true, recent = 0, save, income = 0, expense = 0, savings = 0, byCategory = [], summary } = options;
   const sent = [];
   const saved = [];
   const queries = [];
@@ -47,7 +47,7 @@ function setup(options = {}) {
       summary ??
       (async (_userId, query) => {
         queries.push(query);
-        return { income: { total: income }, expense: { total: expense, byCategory } };
+        return { income: { total: income }, expense: { total: expense, byCategory }, savings: { total: savings } };
       }),
     sendText: async (_to, body) => sent.push(body),
     now: () => new Date('2026-11-02T15:00:00Z'),
@@ -173,6 +173,15 @@ test('responde el balance del mes con varias formas de preguntarlo', async () =>
     assert.equal(saved.length, 0);
     assert.deepEqual(queries, [{ period: 'month', date: '2026-11-02' }]);
   }
+});
+
+test('el balance resta lo apartado en ahorro y lo muestra en su propia línea', async () => {
+  const { service, sent } = setup({ income: 1_200_000, expense: 450_000, savings: 200_000 });
+  await service.handleMessage(message('saldo'));
+  assert.equal(
+    sent[0],
+    'En noviembre llevas:\nIngresos: $1.200.000\nGastos: $450.000\nAhorro: $200.000\nBalance: $550.000',
+  );
 });
 
 test('el balance negativo lleva el signo antes del peso', async () => {

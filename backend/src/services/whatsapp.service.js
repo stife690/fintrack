@@ -243,17 +243,19 @@ export function createWhatsappService(deps = {}) {
   }
 
   /**
-   * Responde el balance del mes con las mismas cuentas del dashboard.
+   * Responde el balance del mes con las mismas cuentas del dashboard: el ahorro va en su línea
+   * y se resta del balance, pero no cuenta como gasto.
    * @param {string} userId
    * @param {string} today AAAA-MM-DD.
    * @returns {Promise<string>}
    */
   async function balanceReply(userId, today) {
     const month = monthName(today);
-    const { income, expense } = await summarize(userId, { period: 'month', date: today });
-    if (income.total === 0 && expense.total === 0) return REPLIES.noMovements(month);
-    const balance = Math.round((income.total - expense.total) * 100) / 100;
-    return `En ${month} llevas:\nIngresos: ${money(income.total)}\nGastos: ${money(expense.total)}\nBalance: ${money(balance)}`;
+    const { income, expense, savings } = await summarize(userId, { period: 'month', date: today });
+    if (income.total === 0 && expense.total === 0 && savings.total === 0) return REPLIES.noMovements(month);
+    const balance = Math.round((income.total - expense.total - savings.total) * 100) / 100;
+    const saved = savings.total > 0 ? `\nAhorro: ${money(savings.total)}` : '';
+    return `En ${month} llevas:\nIngresos: ${money(income.total)}\nGastos: ${money(expense.total)}${saved}\nBalance: ${money(balance)}`;
   }
 
   /**
