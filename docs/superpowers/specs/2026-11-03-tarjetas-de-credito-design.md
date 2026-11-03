@@ -25,7 +25,8 @@ fácil de registrar el gasto y fácil de editarlo.
 3. Ver por tarjeta: **usado / cupo total, disponible, días para el pago** y las compras hechas con ella.
 4. **Registrar el pago** de la tarjeta: baja lo que se debe y libera cupo, pero **no cuenta como gasto**.
 5. **Actualizar con el banco**: reescribir el cupo disponible cuando FinTrack no cuadra con el banco
-   (por intereses, cuota de manejo o una compra no anotada). Solo corrige el número.
+   (por intereses, cuota de manejo o una compra no anotada). Si el banco cobró de más, la diferencia
+   queda como gasto de la tarjeta.
 6. Una **tarjeta dibujada** según el tipo elegido (franquicia + nivel) con los últimos 4 dígitos y una
    animación sutil.
 
@@ -101,8 +102,17 @@ disponible   = cupo_total − usado
 
 - Botón "Actualizar con el banco": la persona escribe el **cupo disponible** que muestra el banco hoy
   y, opcional, el **total a pagar** y la **fecha límite** del extracto.
-- FinTrack **solo corrige el número**: `deuda_base = cupo_total − disponible_nuevo`, `base_at = ahora`.
-  No crea ningún gasto de intereses. *(Decidido con Nicolas: de momento no se manejan intereses.)*
+- FinTrack compara el usado que calculaba con el real (`cupo_total − disponible_nuevo`). No calcula
+  intereses: solo registra la diferencia que la persona le muestra. *(Decidido con Nicolas)*
+  - **Debe más** (diferencia positiva): se crea un **gasto con la tarjeta** "Cargos del banco ·
+    Amex ••1234", categoría **Otros**, fecha de hoy, con la nota "Intereses, cuota de manejo u otros
+    cargos". Sale en Movimientos y en el historial de la tarjeta, cuenta en Inicio y baja lo que se
+    puede gastar por día en Mi plata (como cualquier compra con tarjeta). Es dinero que sale del
+    bolsillo de la persona.
+  - **Debe menos** (diferencia negativa, por ejemplo un pago no anotado): solo se corrige la base;
+    en el historial de la tarjeta queda la línea "Ajuste con el banco −$X", sin gasto.
+  - Después: `deuda_base = usado_real`, `base_at = ahora`, con el orden de tiempos que evite contar
+    dos veces el gasto de cargos recién creado (lo decide quien lo construya).
 - Total a pagar y fecha límite, si se dan, se muestran en la tarjeta y se sugieren en "Ya pagué".
 
 ### Fechas
@@ -143,7 +153,8 @@ disponible   = cupo_total − usado
 
 - Tarjeta dibujada grande + uso + próximo pago (y total a pagar del extracto si se dio).
 - Acciones: **Ya pagué**, **Actualizar con el banco**, Editar, Eliminar.
-- Lista de lo que movió la tarjeta desde la base: compras (con cuotas y su asterisco) y pagos.
+- Lista de lo que movió la tarjeta: compras (con cuotas y su asterisco), cargos del banco, pagos y
+  ajustes con el banco.
 - Editar abre la misma hoja de crear, **sin** el campo "cupo disponible hoy": la deuda solo cambia
   con compras, pagos o "Actualizar con el banco". Si cambia el cupo total, la deuda se mantiene y
   cambia el disponible. *(Decisión del diseño)*
@@ -198,20 +209,22 @@ Parche nuevo `db/patches/014_tarjetas.sql` (el 013 ya existe) (idempotente, copi
 - `transacciones`: columnas nuevas `tarjeta_id` (FK nullable, `ON DELETE SET NULL`) y `cuotas`
   (smallint nullable, 1–48). Check: solo `tipo = 'gasto'` puede tener tarjeta.
 - `pagos_tarjeta`: id, usuario_id, tarjeta_id, monto, fecha, created_at, deleted_at.
+- `ajustes_tarjeta`: id, usuario_id, tarjeta_id, diferencia (con signo), transaccion_id (el gasto de
+  cargos si la diferencia fue positiva), created_at. Sirve para el historial de la tarjeta.
 
 ## API (actualizar `docs/api/openapi.yaml` primero)
 
 - `GET/POST /cards`, `GET/PATCH/DELETE /cards/:id`.
 - `POST /cards/:id/payments`, `DELETE /cards/:id/payments/:paymentId`.
 - `POST /cards/:id/sync-with-bank` { available, statementTotal?, statementDueDate? } → devuelve la
-  tarjeta actualizada.
-- `GET /cards/:id/movements`: compras y pagos desde la base.
+  tarjeta actualizada y, si hubo, el gasto "Cargos del banco" creado.
+- `GET /cards/:id/movements`: compras (incluidos los cargos del banco), pagos y ajustes negativos.
 - Transacciones (`POST/PATCH /transactions` y `/sync/batch`) aceptan `card` (id o null) y
   `installments`.
 - La tarjeta se responde con `used`, `available`, `nextPaymentDate` y `daysToPayment` ya calculados.
 
 Capas según CONTRIBUTING: routes → controllers → services → repositories; errores con `AppError`;
-pruebas con `node --test` por cada regla (base, compras, pagos, ajuste, ingreso
+pruebas con `node --test` por cada regla (base, compras, pagos, ajuste que debe más y que debe menos, ingreso
 con tarjeta rechazado, tarjeta de otro usuario rechazada).
 
 ## Sin conexión
