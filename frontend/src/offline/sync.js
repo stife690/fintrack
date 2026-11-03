@@ -12,6 +12,7 @@
  */
 import { db } from './db';
 import { clearVacaCache, flushContributions } from './vacaQueue';
+import { clearCardCache } from './cardCache';
 import { apiRequest } from '@/lib/apiRequest';
 import { plainText } from '@/lib/plainText';
 import { getSession } from '@/auth/tokenStorage';
@@ -270,6 +271,7 @@ export async function clearCachedHistory(userId) {
   await db.transactions.where('userId').equals(userId).delete();
   await db.meta.delete(`lastSyncedAt:${userId}`);
   await clearVacaCache(userId);
+  await clearCardCache(userId);
 }
 
 /**
