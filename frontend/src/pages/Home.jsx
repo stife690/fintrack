@@ -27,7 +27,9 @@ export default function Home() {
         Saltar al contenido
       </a>
       <Navbar />
-      <main id="contenido">
+      {/* Fondo blanco propio: el body es negro (por el rebote del scroll en celular) y las secciones
+          claras no traen fondo, así que sus títulos oscuros quedaban sobre negro. */}
+      <main id="contenido" className="bg-background">
         <Hero />
         <Platforms />
         <CoreFeatures />
