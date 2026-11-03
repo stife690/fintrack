@@ -93,6 +93,10 @@ export function buildPaymentCalendar({
     ...vacas
       .filter((v) => v.deadline && v.myRemaining > 0 && v.deadline < end)
       .map((v) => ({ key: `vaca:${v.id}`, date: v.deadline, amount: v.myRemaining })),
+    // Pagar la tarjeta baja la plata en mano.
+    ...cards
+      .filter((c) => !c.paidThisCycle && c.amount > 0 && c.nextPaymentDate < end)
+      .map((c) => ({ key: `card:${c.id}`, date: c.nextPaymentDate, amount: c.amount })),
   ]
     // Lo atrasado se paga hoy, antes que lo demás.
     .map((p) => ({ ...p, when: p.date < today ? today : p.date }))
@@ -152,8 +156,7 @@ export function buildPaymentCalendar({
       name: c.name,
       amount: c.amount,
       status: c.paidThisCycle ? 'pagado' : c.nextPaymentDate < today ? 'atrasado' : 'pendiente',
-      balanceAfter: null,
-      risk: null,
+      ...projected(`card:${c.id}`),
     });
   }
   if (fixed) {

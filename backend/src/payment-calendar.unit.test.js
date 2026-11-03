@@ -161,3 +161,13 @@ test('la tarjeta aparece con su próximo pago: pendiente, atrasada o pagada', ()
   assert.equal(find([{ ...card, nextPaymentDate: '2026-11-01' }]).status, 'atrasado');
   assert.equal(find([card], '2026-12'), undefined);
 });
+
+test('el pago de tarjeta pendiente se descuenta antes de los pagos que vienen después', () => {
+  const card = { id: 'c1', name: 'Amex 1234', nextPaymentDate: '2026-11-07', amount: 400000, paidThisCycle: false };
+  const events = byName(buildPaymentCalendar({ ...base, cards: [card] }));
+  assert.equal(events['Amex 1234'].balanceAfter, 511000); // 1.000.000 - 89.000 (Internet, día 5) - 400.000
+  assert.equal(events['Amex 1234'].risk, 'ok');
+  assert.equal(events.Netflix.balanceAfter, 477100);
+  const paid = byName(buildPaymentCalendar({ ...base, cards: [{ ...card, paidThisCycle: true }] }));
+  assert.equal(paid.Netflix.balanceAfter, 877100);
+});
