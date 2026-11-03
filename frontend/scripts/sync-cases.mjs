@@ -13,12 +13,13 @@
  *   CASES=C6,C11 npm run test:sync          # solo algunos casos
  *   CHROME_PATH=/ruta/a/chrome APP_URL=http://localhost:5173 API_URL=http://localhost:3000 npm run test:sync
  *
- * Crea un usuario de prueba por caso (`sync.*@fintrack.dev`), 21 en total, y el backend permite
- * 20 registros cada 15 min: levántalo con `AUTH_RATE_LIMIT_MAX=100 docker compose up -d backend`.
+ * Crea un usuario de prueba por caso (`sync.*@fintrack.test`), 21 en total; cada uno usa 2 intentos
+ * (registro + login) y el backend permite 20 cada 15 min: levántalo con `AUTH_RATE_LIMIT_MAX=100 docker compose up -d backend`.
  *
  * Código de salida: 0 = todos los casos pasan, 1 = alguno falló.
  */
 import puppeteer from 'puppeteer-core';
+import { createVerifiedSession } from './verified-session.mjs';
 
 /** Ruta de Chrome por sistema operativo; `CHROME_PATH` la reemplaza. */
 const DEFAULT_CHROME = {
@@ -42,11 +43,9 @@ const post = (path, body, token) =>
   }).then((r) => r.json());
 
 async function newUser(tag) {
-  const email = `sync.${tag}.${Date.now()}@fintrack.dev`;
-  // El registro ya devuelve la sesión: un solo intento por usuario (límite de 20 cada 15 min).
-  const session = await post('/auth/register', { email, password: PASSWORD });
-  if (!session.accessToken) throw new Error(`registro falló: ${JSON.stringify(session)}`);
-  return session;
+  const email = `sync.${tag}.${Date.now()}@fintrack.test`;
+  // Registro + login: dos intentos por usuario del límite de login/registro.
+  return createVerifiedSession(API, { email, password: PASSWORD });
 }
 
 /** Movimientos del usuario en el servidor cuya descripción contiene `q`. */

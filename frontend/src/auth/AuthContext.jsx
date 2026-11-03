@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { saveSession, getSession, clearSession, SESSION_KEY } from './tokenStorage';
 import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
-import { login, loginWithGoogle } from '@/services/authService';
+import { login, loginWithGoogle, verifyEmail } from '@/services/authService';
 import { unsubscribeThisDevice } from '@/services/pushService';
 
 const AuthContext = createContext(null);
@@ -41,6 +41,13 @@ export function AuthProvider({ children }) {
     setUser(session.user);
   }
 
+  /** Confirma el correo con el token del enlace y entra con la sesión que devuelve (FT-0016). */
+  async function confirmEmail(token) {
+    const session = await verifyEmail(token);
+    saveSession(session);
+    setUser(session.user);
+  }
+
   async function signOut() {
     try {
       // Antes de perder el token: este dispositivo deja de recibir avisos de esta cuenta.
@@ -75,7 +82,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signInWithGoogle, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, signIn, signInWithGoogle, confirmEmail, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

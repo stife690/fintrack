@@ -23,6 +23,7 @@ export async function createPasswordResetToken({ userId, tokenHash, expiresAt })
  * Cambia la contraseña con un enlace de recuperación, todo en una sola sentencia (o pasa todo o
  * nada): gasta el enlace si es válido (existe, no se usó y no venció), guarda el hash nuevo y
  * revoca los refresh tokens del usuario, lo que cierra la sesión en los demás dispositivos.
+ * El enlace llegó a su correo, así que la cuenta también queda verificada (FT-0016).
  * @param {{ tokenHash: string, passwordHash: string }} data
  * @returns {Promise<string|null>} Id del usuario, o `null` si el enlace no es válido.
  */
@@ -36,7 +37,7 @@ export async function resetPasswordWithToken({ tokenHash, passwordHash }) {
      ),
      usuario AS (
        UPDATE usuarios
-       SET password_hash = $2
+       SET password_hash = $2, email_verificado_at = COALESCE(email_verificado_at, now())
        WHERE id = (SELECT usuario_id FROM enlace)
        RETURNING id
      ),

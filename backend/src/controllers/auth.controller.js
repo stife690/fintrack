@@ -5,7 +5,9 @@ import {
   refresh,
   register,
   requestPasswordReset,
+  resendVerification,
   resetPassword,
+  verifyEmail,
 } from '../services/auth.service.js';
 import {
   parseCredentials,
@@ -13,18 +15,21 @@ import {
   parseGoogleCredential,
   parseNewCredentials,
   parseRefreshToken,
+  parseResendVerification,
   parseResetPassword,
+  parseVerifyEmail,
 } from '../validators/auth.validator.js';
 
 /**
- * `POST /api/v1/auth/register`: crea la cuenta y responde 201 con la sesión.
+ * `POST /api/v1/auth/register`: crea la cuenta, envía el correo de verificación y responde 201
+ * sin sesión (FT-0016).
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @returns {Promise<void>}
  */
 export async function postRegister(req, res) {
-  const session = await register(parseNewCredentials(req.body));
-  res.status(201).json(session);
+  const result = await register(parseNewCredentials(req.body));
+  res.status(201).json(result);
 }
 
 /**
@@ -95,4 +100,30 @@ export async function postForgotPassword(req, res) {
 export async function postResetPassword(req, res) {
   await resetPassword(parseResetPassword(req.body));
   res.status(204).end();
+}
+
+/**
+ * `POST /api/v1/auth/verify-email`: verifica el correo con el token del enlace y responde 200
+ * con la sesión (FT-0016).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postVerifyEmail(req, res) {
+  const session = await verifyEmail(parseVerifyEmail(req.body));
+  res.json(session);
+}
+
+/**
+ * `POST /api/v1/auth/resend-verification`: si el correo tiene una cuenta sin verificar, le envía
+ * otro enlace. Responde 200 con el mismo mensaje en cualquier caso.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postResendVerification(req, res) {
+  await resendVerification(parseResendVerification(req.body));
+  res.json({
+    message: 'Si el correo tiene una cuenta sin confirmar, te enviamos un enlace nuevo.',
+  });
 }

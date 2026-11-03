@@ -12,6 +12,7 @@ CREATE TABLE usuarios (
   timezone VARCHAR(50) NOT NULL DEFAULT 'America/Bogota',
   reminder_time TIME NULL, -- en desuso: lo reemplaza reminder_times (parche 003)
   reminder_times TIME[] NOT NULL DEFAULT '{}', -- horas locales del recordatorio diario (hasta 5)
+  email_verificado_at TIMESTAMPTZ NULL, -- NULL: no ha abierto el enlace del correo y no puede entrar
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -35,6 +36,17 @@ CREATE TABLE password_reset_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_password_reset_tokens_usuario ON password_reset_tokens(usuario_id);
+
+-- Enlaces para verificar el correo al registrarse (FT-0016); misma forma que los de recuperación.
+CREATE TABLE email_verification_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) UNIQUE NOT NULL, -- sha256 del token del enlace; el token nunca se guarda
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ NULL, -- se llena al usarlo: cada enlace sirve una sola vez
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_email_verification_tokens_usuario ON email_verification_tokens(usuario_id);
 
 -- Las 15 de db/init/02 son de todos (usuario_id NULL, ids 1-15). Cada usuario puede crear las
 -- suyas (usuario_id, icono y color); su id sale de la secuencia, desde 1000.

@@ -9,8 +9,10 @@ import { plainText } from '@/lib/plainText';
  * Los usuarios y sesiones viven en memoria: se reinician al recargar la página.
  */
 
-/** @type {Map<string, { id: string, email: string, password: string, timezone: string }>} */
+/** @type {Map<string, { id: string, email: string, password: string, timezone: string, verified: boolean }>} */
 const users = new Map();
+/** token del enlace para confirmar el correo → email (FT-0016) */
+const verificationTokens = new Map();
 /** access token → email */
 const accessTokens = new Map();
 /** refresh token → email */
@@ -29,10 +31,21 @@ const reminders = new Map();
 
 addUser('demo@fintrack.com', 'demo1234');
 
-function addUser(email, password) {
-  const user = { id: crypto.randomUUID(), email, password, timezone: 'America/Bogota' };
+function addUser(email, password, verified = true) {
+  const user = { id: crypto.randomUUID(), email, password, timezone: 'America/Bogota', verified };
   users.set(email, user);
   return user;
+}
+
+/**
+ * "Envía" el enlace para confirmar el correo: como el backend sin Brevo, lo imprime en la consola
+ * para poder abrirlo a mano. Solo sirve el último enlace de cada correo.
+ */
+function sendVerificationLink(email) {
+  for (const [token, owner] of verificationTokens) if (owner === email) verificationTokens.delete(token);
+  const token = crypto.randomUUID();
+  verificationTokens.set(token, email);
+  console.info(`[correo simulado] Para: ${email} | ${window.location.origin}/verificar#token=${token}`);
 }
 
 /** Respuesta de error con el esquema `Error` del contrato. */
@@ -204,7 +217,33 @@ export const handlers = [
     if (invalid) return invalid;
     const email = body.email.trim().toLowerCase();
     if (users.has(email)) return error(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
-    return HttpResponse.json(issueSession(addUser(email, body.password)), { status: 201 });
+    addUser(email, body.password, false);
+    sendVerificationLink(email);
+    return HttpResponse.json({ email, verificationRequired: true }, { status: 201 });
+  }),
+
+  http.post(`${API_V1}/auth/verify-email`, async ({ request }) => {
+    const body = await readJson(request);
+    await delay();
+    if (!body || typeof body.token !== 'string' || body.token === '') {
+      return error(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+    }
+    const email = verificationTokens.get(body.token);
+    if (!email) return error(400, 'INVALID_VERIFICATION_TOKEN', 'El enlace no es válido o ya venció.');
+    verificationTokens.delete(body.token);
+    const user = users.get(email);
+    user.verified = true;
+    return HttpResponse.json(issueSession(user));
+  }),
+
+  http.post(`${API_V1}/auth/resend-verification`, async ({ request }) => {
+    const body = await readJson(request);
+    await delay();
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (users.get(email)?.verified === false) sendVerificationLink(email);
+    return HttpResponse.json({
+      message: 'Si el correo tiene una cuenta sin confirmar, te enviamos un enlace nuevo.',
+    });
   }),
 
   // Google: en desarrollo cualquier credential entra como una cuenta de Google de prueba.
@@ -227,6 +266,9 @@ export const handlers = [
     const user = users.get(body.email.trim().toLowerCase());
     if (!user || user.password !== body.password) {
       return error(401, 'UNAUTHORIZED', 'Correo o contraseña incorrectos');
+    }
+    if (!user.verified) {
+      return error(403, 'EMAIL_NOT_VERIFIED', 'Confirma tu correo para entrar.');
     }
     return HttpResponse.json(issueSession(user));
   }),

@@ -4,8 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { pool } from './config/db.js';
-import { loginWithGoogle, register } from './services/auth.service.js';
+import { login, loginWithGoogle } from './services/auth.service.js';
 import { createGoogleVerifier } from './services/google-auth.service.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 
 // Las pruebas con base de datos se omiten si no está el esquema de `db/init/`.
 const { rows } = await pool.query("SELECT to_regclass('public.usuarios') AS tabla");
@@ -91,16 +92,18 @@ test(
 );
 
 test(
-  'loginWithGoogle entra a la cuenta existente con ese correo sin cambiarle el nombre',
+  'loginWithGoogle entra a la cuenta verificada con ese correo sin cambiarle nombre ni contraseña',
   dbOptions,
   async () => {
     const email = newEmail();
-    const created = await register({ email, password: 'clave-segura-1' });
+    const created = await createVerifiedSession({ email, password: 'clave-segura-1' });
     const session = await loginWithGoogle('token', {
       verify: async () => ({ email, name: 'Otro Nombre' }),
     });
     assert.equal(session.user.id, created.user.id);
     assert.equal(session.user.name, created.user.name);
+    const withPassword = await login({ email, password: 'clave-segura-1' });
+    assert.equal(withPassword.user.id, created.user.id, 'su contraseña sigue sirviendo');
   },
 );
 

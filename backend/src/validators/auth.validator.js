@@ -103,3 +103,21 @@ export function parseResetPassword(body) {
   }
   return { token: body.token, password: body.password };
 }
+
+/**
+ * Comprueba el cuerpo de `POST /auth/verify-email`: el `token` del enlace como texto.
+ * @param {unknown} body
+ * @returns {string}
+ */
+export function parseVerifyEmail(body) {
+  if (!body || typeof body.token !== 'string' || body.token === '') {
+    throw invalidBody();
+  }
+  return body.token;
+}
+
+/**
+ * Comprueba el cuerpo de `POST /auth/resend-verification`: un `email` con forma de correo, igual
+ * que al recuperar la contraseña.
+ */
+export const parseResendVerification = parseForgotPassword;

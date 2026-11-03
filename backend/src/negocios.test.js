@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/` (o el parche 008).
@@ -60,15 +61,11 @@ async function withApi(fn) {
 
 /**
  * Registra un usuario nuevo y devuelve su token, id y correo.
- * @param {Api} api
  * @returns {Promise<{ token: string, id: string, email: string }>}
  */
-async function newUser(api) {
+async function newUser() {
   const email = `u-${randomUUID()}${TEST_DOMAIN}`;
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email, password: 'clave-segura-1' },
-  });
+  const body = await createVerifiedSession({ email, password: 'clave-segura-1' });
   return { token: body.accessToken, id: body.user.id, email };
 }
 
@@ -79,9 +76,9 @@ async function newUser(api) {
  * @returns {Promise<{ owner: object, editor: object, reader: object, business: object }>}
  */
 async function businessWithThree(api) {
-  const owner = await newUser(api);
-  const editor = await newUser(api);
-  const reader = await newUser(api);
+  const owner = await newUser();
+  const editor = await newUser();
+  const reader = await newUser();
   const created = await api('/businesses', {
     method: 'POST',
     token: owner.token,
@@ -171,7 +168,7 @@ test(
 test('quien no es socio no ve el negocio (404)', options, async () => {
   await withApi(async (api) => {
     const { business } = await businessWithThree(api);
-    const stranger = await newUser(api);
+    const stranger = await newUser();
     assert.equal((await api(`/businesses/${business.id}`, { token: stranger.token })).status, 404);
     assert.equal((await api('/businesses/no-es-uuid', { token: stranger.token })).status, 404);
     const patch = await api(`/businesses/${business.id}`, {
@@ -318,7 +315,7 @@ test(
 
       const code = await api(`${base}/code`, { method: 'POST', token: owner.token });
       assert.notEqual(code.body.code, business.code);
-      const guest = await newUser(api);
+      const guest = await newUser();
       const old = await api('/businesses/join', {
         method: 'POST',
         token: guest.token,

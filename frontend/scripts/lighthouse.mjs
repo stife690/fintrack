@@ -13,7 +13,7 @@
  *   APP_URL=https://fintrack-seven-delta.vercel.app API_URL=https://fintrack-api-2z1p.onrender.com npm run lighthouse
  *
  * Usa el perfil móvil de Lighthouse (CPU 4x más lenta y red 4G simulada), el más exigente.
- * Crea un usuario de prueba (`lighthouse.*@fintrack.dev`) con algunos movimientos para que el
+ * Crea un usuario de prueba (`lighthouse.*@fintrack.test`) con algunos movimientos para que el
  * dashboard no salga vacío. Guarda los reportes HTML en `lighthouse-reports/`.
  *
  * Código de salida: 0 = todas las categorías >= 90, 1 = alguna por debajo.
@@ -21,6 +21,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import lighthouse from 'lighthouse';
 import puppeteer from 'puppeteer-core';
+import { createVerifiedSession } from './verified-session.mjs';
 
 /** Ruta de Chrome por sistema operativo; `CHROME_PATH` la reemplaza. */
 const DEFAULT_CHROME = {
@@ -53,8 +54,8 @@ const post = (path, body, token) =>
 
 /** Usuario nuevo con un ingreso y dos gastos de este mes. */
 async function newUser() {
-  const session = await post('/auth/register', {
-    email: `lighthouse.${Date.now()}@fintrack.dev`,
+  const session = await createVerifiedSession(API, {
+    email: `lighthouse.${Date.now()}@fintrack.test`,
     password: 'prueba1234',
   });
   const date = new Date().toISOString().slice(0, 10);

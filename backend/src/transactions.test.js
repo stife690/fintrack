@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 import { env } from './config/env.js';
 
@@ -46,11 +47,11 @@ async function withApi(fn) {
     return { status: res.status, body: text ? JSON.parse(text) : null };
   };
   const register = async () => {
-    const res = await api('/auth/register', {
-      method: 'POST',
-      body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: PASSWORD },
+    const session = await createVerifiedSession({
+      email: `u-${randomUUID()}${TEST_DOMAIN}`,
+      password: PASSWORD,
     });
-    return res.body.accessToken;
+    return session.accessToken;
   };
   const previousKey = env.aiApiKey;
   env.aiApiKey = undefined;

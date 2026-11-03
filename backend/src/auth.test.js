@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { pool } from './config/db.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/`.
 // Si la tabla `usuarios` no existe se omiten con un aviso en vez de fallar.
@@ -57,7 +58,7 @@ async function withApi(fn) {
   }
 }
 
-test('register crea la cuenta y devuelve usuario y tokens (201)', options, async () => {
+test('register crea la cuenta sin verificar y sin abrir sesión (201)', options, async () => {
   await withApi(async (api) => {
     const email = newEmail();
     const res = await api('/auth/register', {
@@ -65,14 +66,16 @@ test('register crea la cuenta y devuelve usuario y tokens (201)', options, async
       body: { email: `  ${email.toUpperCase()} `, password: PASSWORD },
     });
     assert.equal(res.status, 201);
-    assert.equal(res.body.user.email, email, 'el correo se guarda sin espacios y en minúsculas');
-    assert.deepEqual(Object.keys(res.body.user).sort(), ['email', 'id', 'name']);
-    assert.equal(res.body.user.name, null, 'una cuenta nueva aún no tiene nombre');
-    assert.equal(typeof res.body.accessToken, 'string');
-    assert.equal(typeof res.body.refreshToken, 'string');
+    // El correo se guarda sin espacios y en minúsculas; no hay tokens hasta verificarlo (FT-0016).
+    assert.deepEqual(res.body, { email, verificationRequired: true });
 
-    const saved = await pool.query('SELECT password_hash FROM usuarios WHERE email = $1', [email]);
+    const saved = await pool.query(
+      'SELECT password_hash, nombre, email_verificado_at FROM usuarios WHERE email = $1',
+      [email],
+    );
     assert.match(saved.rows[0].password_hash, /^\$2[aby]\$/, 'la contraseña se guarda con bcrypt');
+    assert.equal(saved.rows[0].nombre, null, 'una cuenta nueva aún no tiene nombre');
+    assert.equal(saved.rows[0].email_verificado_at, null, 'empieza sin verificar');
   });
 });
 
@@ -105,7 +108,7 @@ test('register valida las reglas y la forma del cuerpo (422 / 400)', options, as
 test('login entrega tokens y no revela qué campo falló (200 / 401)', options, async () => {
   await withApi(async (api) => {
     const email = newEmail();
-    await api('/auth/register', { method: 'POST', body: { email, password: PASSWORD } });
+    await createVerifiedSession({ email, password: PASSWORD });
 
     const ok = await api('/auth/login', { method: 'POST', body: { email, password: PASSWORD } });
     assert.equal(ok.status, 200);
@@ -129,10 +132,7 @@ test('login entrega tokens y no revela qué campo falló (200 / 401)', options, 
 
 test('refresh rota el token: el usado deja de servir (200 / 401)', options, async () => {
   await withApi(async (api) => {
-    const { body: session } = await api('/auth/register', {
-      method: 'POST',
-      body: { email: newEmail(), password: PASSWORD },
-    });
+    const session = await createVerifiedSession({ email: newEmail(), password: PASSWORD });
     const body = { refreshToken: session.refreshToken };
 
     const first = await api('/auth/refresh', { method: 'POST', body });
@@ -149,10 +149,7 @@ test('refresh rota el token: el usado deja de servir (200 / 401)', options, asyn
 test('users/me exige un access token válido y vigente', options, async () => {
   await withApi(async (api) => {
     const email = newEmail();
-    const { body: session } = await api('/auth/register', {
-      method: 'POST',
-      body: { email, password: PASSWORD },
-    });
+    const session = await createVerifiedSession({ email, password: PASSWORD });
 
     const me = await api('/users/me', { token: session.accessToken });
     assert.equal(me.status, 200);
@@ -180,10 +177,7 @@ test('users/me exige un access token válido y vigente', options, async () => {
 
 test('logout revoca el refresh token de la sesión (204)', options, async () => {
   await withApi(async (api) => {
-    const { body: session } = await api('/auth/register', {
-      method: 'POST',
-      body: { email: newEmail(), password: PASSWORD },
-    });
+    const session = await createVerifiedSession({ email: newEmail(), password: PASSWORD });
     const body = { refreshToken: session.refreshToken };
 
     const noToken = await api('/auth/logout', { method: 'POST', body });

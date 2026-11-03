@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/`.
@@ -47,10 +48,10 @@ async function withApi(fn) {
 }
 
 /** @returns {Promise<string>} Access token de un usuario nuevo. */
-async function newUserToken(api) {
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: 'clave-segura-1' },
+async function newUserToken() {
+  const body = await createVerifiedSession({
+    email: `u-${randomUUID()}${TEST_DOMAIN}`,
+    password: 'clave-segura-1',
   });
   return body.accessToken;
 }
@@ -63,7 +64,7 @@ test('exige sesión', options, async () => {
 
 test('un usuario nuevo tiene un perfil vacío y la bienvenida pendiente', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const { status, body } = await api('/money-profile', { token });
     assert.equal(status, 200);
     assert.deepEqual(body, {
@@ -81,7 +82,7 @@ test('un usuario nuevo tiene un perfil vacío y la bienvenida pendiente', option
 
 test('la bienvenida guarda todo de una vez y reintentarla no repite compromisos', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const answers = {
       incomeType: 'fecha_fija',
       payDays: [30, 15, 15],
@@ -103,7 +104,7 @@ test('la bienvenida guarda todo de una vez y reintentarla no repite compromisos'
 
 test('omitir marca la bienvenida como vista y no borra lo guardado', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const skipped = await api('/money-profile/welcome', { method: 'POST', token });
     assert.equal(skipped.status, 200);
     assert.equal(skipped.body.welcomeDone, true);
@@ -118,7 +119,7 @@ test('omitir marca la bienvenida como vista y no borra lo guardado', options, as
 
 test('PUT sin fecha limpia los días, y cambiar el saldo actualiza su hora', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const fixed = await api('/money-profile', {
       method: 'PUT',
       token,
@@ -141,7 +142,7 @@ test('PUT sin fecha limpia los días, y cambiar el saldo actualiza su hora', opt
 
 test('rechaza datos inválidos', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const put = (body) => api('/money-profile', { method: 'PUT', token, body });
     assert.equal((await put({ incomeType: 'otro' })).status, 422);
     assert.equal((await put({ incomeType: 'fecha_fija', payDays: [] })).status, 422);
@@ -158,7 +159,7 @@ test('rechaza datos inválidos', options, async () => {
 
 test('crea, cambia y elimina compromisos sin repetir nombres', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const path = '/money-profile/commitments';
     const created = await api(path, { method: 'POST', token, body: ARRIENDO });
     assert.equal(created.status, 201);
@@ -185,7 +186,7 @@ test('crea, cambia y elimina compromisos sin repetir nombres', options, async ()
 
 test('no deja ver ni tocar los compromisos de otro usuario', options, async () => {
   await withApi(async (api) => {
-    const [alice, bob] = [await newUserToken(api), await newUserToken(api)];
+    const [alice, bob] = [await newUserToken(), await newUserToken()];
     const path = '/money-profile/commitments';
     const { body } = await api(path, { method: 'POST', token: alice, body: ARRIENDO });
 
@@ -197,7 +198,7 @@ test('no deja ver ni tocar los compromisos de otro usuario', options, async () =
 
 test('el plan empieza sin datos y se calcula con lo registrado después del saldo', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     assert.deepEqual((await api('/money-profile/plan', { token })).body, { ready: false });
 
     await api('/money-profile', { method: 'PUT', token, body: { incomeType: 'sin_fecha', balance: 500000 } });
@@ -225,7 +226,7 @@ test('el plan empieza sin datos y se calcula con lo registrado después del sald
 
 test('corregir el saldo al mismo número reinicia la cuenta', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const put = (body) => api('/money-profile', { method: 'PUT', token, body });
     await put({ incomeType: 'sin_fecha', balance: 1000000, resetBalance: true });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
@@ -245,7 +246,7 @@ test('corregir el saldo al mismo número reinicia la cuenta', options, async () 
 
 test('sin corregir, la plata sale de los movimientos; al corregir, del saldo', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const put = (body) => api('/money-profile', { method: 'PUT', token, body });
     await put({ incomeType: 'sin_fecha', balance: 1000000 });
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
@@ -263,7 +264,7 @@ test('sin corregir, la plata sale de los movimientos; al corregir, del saldo', o
 
 test('limita los compromisos por usuario', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const commitments = Array.from({ length: 30 }, (_, i) => ({ ...ARRIENDO, name: `Pago ${i}` }));
     await api('/money-profile/welcome', { method: 'POST', token, body: { commitments } });
     const extra = await api('/money-profile/commitments', { method: 'POST', token, body: ARRIENDO });
