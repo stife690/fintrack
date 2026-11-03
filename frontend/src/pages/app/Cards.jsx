@@ -6,6 +6,7 @@ import CreditCardArt from '@/components/cards/CreditCardArt';
 import Sheet from '@/components/common/Sheet';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import { MASK } from '@/components/dashboard/BalanceCard';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/components/transactions/format';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
@@ -13,7 +14,6 @@ import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { createCard, listCards } from '@/services/cardService';
 
-const HIDDEN = '••••';
 
 /** "15 nov" a partir de AAAA-MM-DD, sin pasar por UTC. */
 function shortDate(iso) {
@@ -36,7 +36,7 @@ function paymentText(card) {
  * @param {{ cards: object[], online: boolean, hidden: boolean, onAdd: () => void }} props
  */
 export function CardsList({ cards, online, hidden, onAdd }) {
-  const money = (n) => (hidden ? HIDDEN : formatMoney(n));
+  const money = (n) => (hidden ? MASK : formatMoney(n));
   if (cards.length === 0) {
     return (
       <Panel className="mx-auto max-w-xl text-center">

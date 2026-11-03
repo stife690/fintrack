@@ -67,8 +67,9 @@ function CardGallery({ network, tier, last4, disabled, onPick }) {
  * @param {boolean} [props.disabled] Sin conexión.
  * @param {(values: object) => Promise<void>} props.onSubmit Debe lanzar un `Error` si falla.
  * @param {() => void} [props.onCancel]
+ * @param {Record<string, string>} [props.initialErrors] Errores por campo ya conocidos (p. ej. del servidor).
  */
-export default function CardForm({ initial = null, disabled = false, onSubmit, onCancel }) {
+export default function CardForm({ initial = null, disabled = false, onSubmit, onCancel, initialErrors }) {
   const [serverError, setServerError] = useState('');
   const {
     control,
@@ -79,7 +80,9 @@ export default function CardForm({ initial = null, disabled = false, onSubmit, o
     watch,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(initial ? cardEditSchema : cardSchema), defaultValues: toDefaults(initial) });
+  } = useForm({ resolver: zodResolver(initial ? cardEditSchema : cardSchema), defaultValues: toDefaults(initial),
+    errors: initialErrors && Object.fromEntries(Object.entries(initialErrors).map(([k, message]) => [k, { message }])),
+  });
 
   useEffect(() => {
     reset(toDefaults(initial));
@@ -157,7 +160,7 @@ export default function CardForm({ initial = null, disabled = false, onSubmit, o
         <Input inputMode="numeric" autoComplete="off" maxLength={2} placeholder="15" disabled={disabled} {...register('paymentDay')} />
       </FormField>
 
-      <details className="rounded-xl border border-ink/10 p-3">
+      <details open={Boolean(errors.name || errors.cutoffDay) || undefined} className="rounded-xl border border-ink/10 p-3">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Más detalles</summary>
         <div className="mt-3 space-y-5">
           <FormField id="card-name" label="Nombre (opcional)" error={errors.name?.message}>

@@ -28,4 +28,18 @@ describe('CardForm', () => {
     expect(over.error.issues[0].path).toEqual(['available']);
     expect(cardSchema.safeParse({ ...valid, last4: '123' }).success).toBe(false);
   });
+
+  it('zod: rechaza vacíos en vez de volverlos 0', () => {
+    for (const field of ['available', 'limit', 'paymentDay']) {
+      const r = cardSchema.safeParse({ ...valid, [field]: '' });
+      expect(r.success, field).toBe(false);
+      expect(r.error.issues[0].path).toEqual([field]);
+    }
+  });
+
+  it('un error del servidor en "Más detalles" lo deja abierto', () => {
+    const bad = renderToStaticMarkup(<CardForm onSubmit={() => {}} initialErrors={{ cutoffDay: 'Día inválido' }} />);
+    expect(bad).toMatch(/<details[^>]*open/);
+    expect(bad).toContain('Día inválido');
+  });
 });

@@ -3,7 +3,7 @@ import PlanSummary from '@/components/money/PlanSummary';
 import { formatMoney } from '@/components/transactions/format';
 import { cn } from '@/lib/utils';
 
-const MASK = '$ ••••••';
+export const MASK = '$ ••••••';
 
 /**
  * Monto que se puede ocultar. Mientras carga muestra un bloque gris del mismo alto.
