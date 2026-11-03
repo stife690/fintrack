@@ -37,6 +37,7 @@ function setup({ answer = 'En Alimentación.', aiError = null, budgets = [] } = 
         byCategory: [
           { type: 'gasto', category: 'transporte', total: 80000 },
           { type: 'gasto', category: 'alimentacion', total: 420000 },
+          { type: 'gasto', category: 'ahorro_inversion', total: 200000 },
           { type: 'ingreso', category: 'salario', total: 1500000 },
         ],
         series: [],
@@ -66,7 +67,11 @@ test('responde con los totales del mes actual y del anterior en las instruccione
   ]);
   assert.equal(state.budgetMonth, '2026-10');
   assert.match(state.request.system, /Alimentación: \$420\.000/);
-  assert.match(state.request.system, /ingresos \$1\.500\.000, gastos \$500\.000/);
+  // El ahorro no suma a los gastos: se informa aparte.
+  assert.match(
+    state.request.system,
+    /ingresos \$1\.500\.000, gastos \$500\.000, ahorro \$200\.000/,
+  );
   // La conversación viaja tal cual; los datos van en las instrucciones, no como mensaje.
   assert.deepEqual(state.request.messages, question);
 });

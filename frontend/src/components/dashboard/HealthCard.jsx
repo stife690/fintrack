@@ -13,7 +13,7 @@ const TEXT = { positive: 'text-positive', caution: 'text-caution', negative: 'te
 
 /**
  * Inicio → resumen de la salud financiera (FT-0019): el puntaje, su nivel y cuánto se puede
- * gastar por día lo que queda del mes. El detalle está en Insights, a donde lleva la tarjeta.
+ * gastar por día lo que queda del mes. El detalle está en Consejos (/app/insights), a donde lleva la tarjeta.
  * Carga sus propios datos; si falla (p. ej. sin conexión) o el mes no tiene movimientos, no se
  * muestra: no es imprescindible en el inicio.
  *
@@ -66,7 +66,7 @@ export default function HealthCard({ hidden, showAllowance = true }) {
           )}
         </span>
         <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-        <span className="sr-only">Ver el detalle en Insights</span>
+        <span className="sr-only">Ver el detalle en Consejos</span>
       </Link>
     </Panel>
   );

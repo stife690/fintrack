@@ -1,6 +1,9 @@
 import { AppError } from '../errors/app-error.js';
 import { listCategories } from '../repositories/categories.repository.js';
-import { summarizeTransactions } from '../repositories/transactions.repository.js';
+import {
+  SAVINGS_CATEGORY,
+  summarizeTransactions,
+} from '../repositories/transactions.repository.js';
 import { chatWithTools } from './ai-client.service.js';
 import { createAssistantTools } from './assistant-tools.service.js';
 import { list as listBudgets } from './budgets.service.js';
@@ -52,6 +55,9 @@ export function buildContext({ today, current, previous, budgets, names }) {
   const expenses = current.expenses.length
     ? current.expenses.map((r) => `- ${name(r.category)}: ${money(r.total)}`).join('\n')
     : '- (sin gastos este mes)';
+  // El ahorro no es gasto: va aparte, igual que en Inicio.
+  const totals = (t) =>
+    `ingresos ${money(t.income)}, gastos ${money(t.expenseTotal)}${t.saved > 0 ? `, ahorro ${money(t.saved)}` : ''}`;
   const budgetLines = budgets.length
     ? budgets
         .map(
@@ -62,10 +68,10 @@ export function buildContext({ today, current, previous, budgets, names }) {
     : '- (no tiene presupuestos este mes)';
   return [
     `Hoy es ${today}.`,
-    `Mes actual hasta hoy: ingresos ${money(current.income)}, gastos ${money(current.expenseTotal)}.`,
+    `Mes actual hasta hoy: ${totals(current)}.`,
     'Gastos del mes actual por categoría:',
     expenses,
-    `Mes anterior completo: ingresos ${money(previous.income)}, gastos ${money(previous.expenseTotal)}.`,
+    `Mes anterior completo: ${totals(previous)}.`,
     'Presupuestos del mes actual:',
     budgetLines,
   ].join('\n');
@@ -95,15 +101,20 @@ export function createAssistantService(deps = {}) {
    * Totales de ingresos y gastos (por categoría) de un rango de fechas.
    * @param {string} userId
    * @param {{ from: string, to: string }} range
-   * @returns {Promise<{ income: number, expenseTotal: number, expenses: Array<{ category: string|null, total: number }> }>}
+   * @returns {Promise<{ income: number, expenseTotal: number, saved: number, expenses: Array<{ category: string|null, total: number }> }>}
+   *   `saved`: lo apartado en ahorro, que no está en `expenses` ni en `expenseTotal`.
    */
   async function totalsFor(userId, { from, to }) {
     const { byCategory } = await summarize({ userId, from, to, groupBy: 'month' });
-    const expenses = byCategory.filter((r) => r.type === 'gasto').sort((a, b) => b.total - a.total);
+    const isSaving = (r) => r.type === 'gasto' && r.category === SAVINGS_CATEGORY;
+    const expenses = byCategory
+      .filter((r) => r.type === 'gasto' && !isSaving(r))
+      .sort((a, b) => b.total - a.total);
     const sum = (rows) => rows.reduce((acc, r) => acc + r.total, 0);
     return {
       income: sum(byCategory.filter((r) => r.type === 'ingreso')),
       expenseTotal: sum(expenses),
+      saved: sum(byCategory.filter(isSaving)),
       expenses,
     };
   }

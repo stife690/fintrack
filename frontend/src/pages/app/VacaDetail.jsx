@@ -308,8 +308,15 @@ export default function VacaDetail() {
           <Stat label="Le falta al grupo" value={formatPesos(vaca.projection.remaining)} />
           <Stat
             label="Ritmo por día"
-            value={formatPesos(vaca.projection.averagePerDay)}
-            hint={vaca.projection.estimatedDate ? `Terminan hacia el ${formatDate(vaca.projection.estimatedDate)}` : undefined}
+            // Es el promedio de lo aportado: sin aportes, "$ 0" no dice nada.
+            value={vaca.total > 0 ? formatPesos(vaca.projection.averagePerDay) : '—'}
+            hint={
+              vaca.total === 0
+                ? 'Aparece con el primer aporte'
+                : vaca.projection.estimatedDate
+                  ? `Terminan hacia el ${formatDate(vaca.projection.estimatedDate)}`
+                  : undefined
+            }
           />
           <Stat
             label="Plazo"

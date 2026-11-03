@@ -9,7 +9,7 @@ export const PRO_YEARLY = 79000;
 
 const FREE_FEATURES = [
   'Movimientos y presupuestos',
-  'Insights y salud financiera',
+  'Consejos y salud financiera',
   'Vacas y negocios',
   'Registro por voz y sin conexión',
 ];

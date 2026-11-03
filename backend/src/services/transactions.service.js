@@ -1,6 +1,7 @@
 import { AppError } from '../errors/app-error.js';
 import { listCategories } from '../repositories/categories.repository.js';
 import {
+  SAVINGS_CATEGORY,
   findTransaction,
   insertTransaction,
   listTransactions,
@@ -231,7 +232,8 @@ export function createTransactionService(deps = {}) {
 
   /**
    * Resumen del periodo para el dashboard (F4, REQ-013/014/015), con la forma de `Summary`
-   * del contrato: total y desglose por categoría de ingresos y de gastos, y una serie por día
+   * del contrato: total y desglose por categoría de ingresos y de gastos, lo apartado en ahorro
+   * (`SAVINGS_CATEGORY`, que no cuenta como gasto ni entra en la serie) y una serie por día
    * (semana, mes) o por mes (año). Sin transacciones, totales en 0 y listas vacías.
    * @param {string} userId
    * @param {{ period: 'week'|'month'|'year', date: string }} query
@@ -242,9 +244,11 @@ export function createTransactionService(deps = {}) {
     const groupBy = period === 'year' ? 'month' : 'day';
     const rows = await repo.summarizeTransactions({ userId, from, to, groupBy });
 
+    const isSaving = (r) => r.type === 'gasto' && r.category === SAVINGS_CATEGORY;
+
     // Arma { total, byCategory } de un tipo; el porcentaje es sobre el total de ese tipo.
     const block = (type) => {
-      const mine = rows.byCategory.filter((r) => r.type === type);
+      const mine = rows.byCategory.filter((r) => r.type === type && !isSaving(r));
       const total = sumMoney(mine.map((r) => r.total));
       return {
         total,
@@ -257,8 +261,10 @@ export function createTransactionService(deps = {}) {
     };
 
     // Junta ingreso y gasto del mismo día (o mes) en un solo punto de la serie.
+    // El ahorro llega en su propia fila (`saving`) y se deja fuera de la serie.
     const points = new Map();
     for (const r of rows.series) {
+      if (r.saving) continue;
       const point = points.get(r.date) ?? { date: r.date, income: 0, expense: 0 };
       if (r.type === 'ingreso') point.income = r.total;
       else point.expense = r.total;
@@ -271,6 +277,7 @@ export function createTransactionService(deps = {}) {
       to,
       income: block('ingreso'),
       expense: block('gasto'),
+      savings: { total: sumMoney(rows.byCategory.filter(isSaving).map((r) => r.total)) },
       timeSeries: [...points.values()],
     };
   }

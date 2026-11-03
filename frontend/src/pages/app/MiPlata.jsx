@@ -44,7 +44,7 @@ function FormError({ message }) {
 }
 
 /**
- * Cómo le entra la plata al usuario: una línea, y al tocar Cambiar, las opciones.
+ * Cómo le entra la plata al usuario: una línea, y al tocar Cambiar (o Configurar, si aún no lo dijo), las opciones.
  * @param {{ profile: import('@/services/moneyProfileService').MoneyProfile, onSave: (changes: object) => Promise<void> }} props
  */
 function IncomeSection({ profile, onSave }) {
@@ -76,7 +76,7 @@ function IncomeSection({ profile, onSave }) {
         action={
           !income && (
             <Button variant="ghost" size="sm" onClick={edit}>
-              Cambiar
+              {profile.incomeType ? 'Cambiar' : 'Configurar'}
             </Button>
           )
         }

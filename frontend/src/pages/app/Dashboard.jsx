@@ -64,6 +64,7 @@ export default function Dashboard() {
   const totals = current && {
     income: current.income.total,
     expense: current.expense.total,
+    savings: current.savings.total,
     balance: current.balance,
   };
 

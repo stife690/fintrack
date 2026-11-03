@@ -115,7 +115,7 @@ export default function Register() {
 
           <div className="space-y-3">
             <FormField id="password" label="Contraseña" error={errors.password?.message}>
-              <PasswordInput autoComplete="new-password" placeholder="••••••••" {...register('password')} />
+              <PasswordInput autoComplete="new-password" placeholder="Crea una contraseña" {...register('password')} />
             </FormField>
             <PasswordRules password={password} />
           </div>
