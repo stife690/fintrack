@@ -81,7 +81,7 @@ export default function ResetPassword() {
         <div className="space-y-4">
           <div className="space-y-3">
             <FormField id="password" label="Contraseña nueva" error={errors.password?.message}>
-              <PasswordInput autoComplete="new-password" placeholder="••••••••" autoFocus {...register('password')} />
+              <PasswordInput autoComplete="new-password" placeholder="Tu contraseña nueva" autoFocus {...register('password')} />
             </FormField>
             <PasswordRules password={password} />
           </div>

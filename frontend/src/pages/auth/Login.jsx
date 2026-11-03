@@ -95,7 +95,7 @@ export default function Login() {
             <Input type="email" autoComplete="email" inputMode="email" placeholder="tu@correo.com" {...register('email')} />
           </FormField>
           <FormField id="password" label="Contraseña" error={errors.password?.message}>
-            <PasswordInput autoComplete="current-password" placeholder="••••••••" {...register('password')} />
+            <PasswordInput autoComplete="current-password" placeholder="Tu contraseña" {...register('password')} />
           </FormField>
         </div>
 
