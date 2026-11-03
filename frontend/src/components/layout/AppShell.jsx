@@ -39,7 +39,7 @@ const NAV_GROUPS = [
       { to: '/app', label: 'Inicio', icon: House, end: true },
       { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
-      { to: '/app/insights', label: 'Insights', icon: Sparkles },
+      { to: '/app/insights', label: 'Consejos', icon: Sparkles },
       { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
       { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],
@@ -175,7 +175,7 @@ const BOTTOM_ITEM =
 
 /**
  * Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area): Inicio,
- * Movimientos e Insights. El botón flotante abre el resto. El color se prolonga por debajo con
+ * Movimientos y Consejos. El botón flotante abre el resto. El color se prolonga por debajo con
  * `after`: en iPhone, `bottom-0` puede quedar por encima del borde real y dejar una franja.
  */
 function BottomNav() {

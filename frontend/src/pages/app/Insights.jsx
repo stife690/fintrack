@@ -30,7 +30,7 @@ export function insightsTitle({ period, month, from }) {
  * si la IA no responde, deja reintentar. En pantallas anchas el chat va a la derecha.
  */
 export default function Insights() {
-  usePageTitle('Insights');
+  usePageTitle('Consejos');
   const online = useOnlineStatus();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null); // { code, message }
@@ -60,7 +60,7 @@ export default function Insights() {
   return (
     <>
       <PageHeader
-        title="Insights"
+        title="Consejos"
         description="Consejos de la semana o del mes y un asistente para tus preguntas. Solo usa totales por categoría, nunca tus descripciones."
       />
 
