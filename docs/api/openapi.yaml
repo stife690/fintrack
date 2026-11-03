@@ -1935,6 +1935,22 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time, description: Usado para last-write-wins (RN-07) }
         deletedAt: { type: string, format: date-time, nullable: true }
+        card:
+          type: object
+          nullable: true
+          required: [id, name, last4, deleted]
+          description: Tarjeta con la que se pagó el gasto; `null` si no usó tarjeta. Si la tarjeta se borró, sigue aquí con `deleted: true`.
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            last4: { type: string }
+            deleted: { type: boolean }
+        installments:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 48
+          description: Cuotas del gasto con tarjeta; `null` si no usó tarjeta.
     TransactionInput:
       type: object
       required: [amount, description, type, date]
@@ -1946,6 +1962,16 @@ components:
           allOf: [{ $ref: "#/components/schemas/NullableCategoryKey" }]
           description: Opcional; si viene vacío se categoriza con IA.
         date: { type: string, format: date }
+        card:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tarjeta propia (no borrada) con la que se pagó. Solo un gasto puede llevarla; si no, 422 en el campo `card`.
+        installments:
+          type: integer
+          minimum: 1
+          maximum: 48
+          description: Cuotas (1 por defecto con tarjeta). Se ignora si no hay `card`.
         localId:
           type: string
           minLength: 1
@@ -1962,6 +1988,16 @@ components:
         type: { $ref: "#/components/schemas/TransactionType" }
         category: { $ref: "#/components/schemas/NullableCategoryKey" }
         date: { type: string, format: date }
+        card:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tarjeta propia (no borrada); `null` la quita. Al cambiar `type` a ingreso se quita sola. Solo un gasto puede llevarla; si no, 422 en el campo `card`.
+        installments:
+          type: integer
+          minimum: 1
+          maximum: 48
+          description: Cuotas (1 por defecto con tarjeta). Se ignora si no hay `card`.
     TransactionWithAlert:
       type: object
       required: [transaction, alert]
@@ -2182,7 +2218,7 @@ components:
           items: { $ref: "#/components/schemas/SyncOperation" }
     SyncResponse:
       type: object
-      required: [synced, conflicts, serverChanges, syncedAt]
+      required: [synced, conflicts, serverChanges, syncedAt, notices]
       properties:
         synced:
           type: array
@@ -2216,6 +2252,18 @@ components:
         serverChanges:
           type: array
           items: { $ref: "#/components/schemas/Transaction" }
+        notices:
+          type: array
+          description: |
+            Avisos de cosas que el servidor ajustó para no perder lo digitado offline. `cardDropped`:
+            la tarjeta ya no es válida (borrada, ajena, inexistente o el movimiento no es un gasto);
+            el gasto se guardó sin tarjeta.
+          items:
+            type: object
+            required: [localId, code]
+            properties:
+              localId: { type: string }
+              code: { type: string, enum: [cardDropped] }
         syncedAt:
           type: string
           format: date-time

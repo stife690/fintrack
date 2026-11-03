@@ -13,15 +13,21 @@ import { pool } from '../config/db.js';
  * @property {Date} createdAt Fecha de creación.
  * @property {Date} updatedAt Fecha de última modificación.
  * @property {Date|null} deletedAt Fecha de borrado lógico (siempre `null` en lo que devuelve la API).
+ * @property {{ id: string, name: string, last4: string, deleted: boolean }|null} card Tarjeta del gasto (también si ya se borró), o `null`.
+ * @property {number|null} installments Cuotas (1–48) si el gasto lleva tarjeta; si no, `null`.
  */
 
 export const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amount,
   t.descripcion AS description, t.tipo AS type, c.key AS category, t.origen AS source,
   to_char(t.fecha, 'YYYY-MM-DD') AS date, t.created_at AS "createdAt",
-  t.updated_at AS "updatedAt", t.deleted_at AS "deletedAt"`;
+  t.updated_at AS "updatedAt", t.deleted_at AS "deletedAt",
+  CASE WHEN k.id IS NULL THEN NULL ELSE json_build_object('id', k.id, 'name', k.nombre,
+    'last4', k.ultimos4, 'deleted', k.deleted_at IS NOT NULL) END AS card,
+  t.cuotas::int AS installments`;
 
-/** Une la transacción con su categoría para obtener la clave. */
-export const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
+/** Une la transacción con su categoría (la clave) y con su tarjeta, incluso si se borró. */
+export const JOIN = `LEFT JOIN categorias c ON c.id = t.categoria_id
+  LEFT JOIN tarjetas k ON k.id = t.tarjeta_id`;
 
 /**
  * Clave de la categoría de gasto que en realidad es plata apartada: no cuenta como gasto en el
@@ -31,14 +37,15 @@ export const SAVINGS_CATEGORY = 'ahorro_inversion';
 
 /**
  * Inserta una transacción.
- * @param {{ userId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar' }} data
+ * @param {{ userId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar', card?: string|null, installments?: number|null }} data `card` ya validada; sin ella no hay cuotas.
  * @returns {Promise<TransactionRecord>}
  */
 export async function insertTransaction(data) {
   const { rows } = await pool.query(
     `WITH ins AS (
-       INSERT INTO transacciones (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id)
-       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7, $8)
+       INSERT INTO transacciones
+         (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id, tarjeta_id, cuotas)
+       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (usuario_id, local_id) WHERE local_id IS NOT NULL DO NOTHING
        RETURNING *
      )
@@ -52,6 +59,8 @@ export async function insertTransaction(data) {
       data.date,
       data.source,
       data.localId ?? null,
+      data.card ?? null,
+      data.card ? (data.installments ?? 1) : null,
     ],
   );
   // `undefined` solo si otra petición ya guardó ese `localId` (se busca con `findByLocalId`).
@@ -117,7 +126,7 @@ export async function listTransactions({ userId, type, category, q, from, to, li
  * Modifica los campos indicados de una transacción del usuario.
  * @param {string} id
  * @param {string} userId
- * @param {{ amount?: number, description?: string, type?: string, date?: string, category?: string|null, source?: string }} changes
+ * @param {{ amount?: number, description?: string, type?: string, date?: string, category?: string|null, source?: string, card?: string|null, installments?: number|null }} changes `card` e `installments` ya resueltos por el servicio (`null` los quita).
  * @returns {Promise<TransactionRecord|null>} La transacción actualizada, o `null` si no existe o no es suya.
  */
 export async function updateTransaction(id, userId, changes) {
@@ -132,6 +141,8 @@ export async function updateTransaction(id, userId, changes) {
   if (changes.type !== undefined) set('tipo', changes.type);
   if (changes.date !== undefined) set('fecha', changes.date);
   if (changes.source !== undefined) set('origen', changes.source);
+  if (changes.card !== undefined) set('tarjeta_id', changes.card);
+  if (changes.installments !== undefined) set('cuotas', changes.installments);
   if (changes.category !== undefined) {
     params.push(changes.category);
     sets.push(`categoria_id = (SELECT id FROM categorias WHERE key = $${params.length})`);

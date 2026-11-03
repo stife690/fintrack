@@ -1,4 +1,5 @@
 import { AppError } from '../errors/app-error.js';
+import { findCard } from '../repositories/cards.repository.js';
 import { listCategories } from '../repositories/categories.repository.js';
 import {
   SAVINGS_CATEGORY,
@@ -88,6 +89,7 @@ function present(record) {
  * @param {object} [deps]
  * @param {typeof listCategories} [deps.listCategories]
  * @param {typeof resolveCategory} [deps.resolveCategory]
+ * @param {typeof findCard} [deps.findCard]
  * @param {{ insertTransaction: typeof insertTransaction, findTransaction: typeof findTransaction, listTransactions: typeof listTransactions, updateTransaction: typeof updateTransaction, softDeleteTransaction: typeof softDeleteTransaction, summarizeTransactions: typeof summarizeTransactions, findByLocalId?: typeof findByLocalId }} [deps.repository]
  * @returns {{
  *   create: (userId: string, input: object) => Promise<object>,
@@ -101,6 +103,7 @@ function present(record) {
 export function createTransactionService(deps = {}) {
   const getCategories = deps.listCategories ?? listCategories;
   const resolve = deps.resolveCategory ?? resolveCategory;
+  const getCard = deps.findCard ?? findCard;
   const repo = deps.repository ?? {
     insertTransaction,
     findTransaction,
@@ -128,6 +131,24 @@ export function createTransactionService(deps = {}) {
   }
 
   /**
+   * Comprueba que la tarjeta sea del usuario, no esté borrada y que la transacción sea un gasto.
+   * @param {string} cardId
+   * @param {'ingreso'|'gasto'} type
+   * @param {string} userId
+   * @returns {Promise<void>}
+   * @throws {AppError} 422 en el campo `card`.
+   */
+  async function assertCard(cardId, type, userId) {
+    const problem =
+      type !== 'gasto'
+        ? 'Solo un gasto puede llevar tarjeta'
+        : !(await getCard(cardId, userId)) && 'No es una de tus tarjetas';
+    if (problem) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [{ field: 'card', problem }]);
+    }
+  }
+
+  /**
    * Decide la categoría final: la del usuario (`manual`) o la sugerida por la IA (REQ-010/011).
    * @param {{ category?: string|null, description: string, type: 'ingreso'|'gasto', userId: string }} input
    * @returns {Promise<{ category: string|null, source: 'manual'|'ia'|'sin_clasificar' }>}
@@ -149,6 +170,7 @@ export function createTransactionService(deps = {}) {
     const existing = input.localId && (await repo.findByLocalId(userId, input.localId));
     // Si ya se había borrado, se devuelve tal cual (con `deletedAt`) en vez de revivirla.
     if (existing) return existing.deletedAt ? existing : present(existing);
+    if (input.card) await assertCard(input.card, input.type, userId);
     const { category, source } = await decideCategory({ ...input, userId });
     const record = await repo.insertTransaction({ ...input, userId, category, source });
     return present(record ?? (await repo.findByLocalId(userId, input.localId)));
@@ -210,6 +232,22 @@ export function createTransactionService(deps = {}) {
       });
       patch.category = decided.category;
       patch.source = decided.source;
+    }
+
+    // Tarjeta y cuotas: un ingreso no lleva tarjeta; sin tarjeta no hay cuotas (se ignoran).
+    if ('card' in changes || 'installments' in changes || typeChanged) {
+      const cardId = 'card' in changes ? changes.card : (current.card?.id ?? null);
+      if (type === 'ingreso' && changes.card) await assertCard(changes.card, type, userId);
+      if (!cardId || type === 'ingreso') {
+        patch.card = null;
+        patch.installments = null;
+      } else {
+        // Una tarjeta ya guardada (aunque se haya borrado después) se conserva sin revalidar.
+        if (cardId !== current.card?.id) await assertCard(cardId, type, userId);
+        patch.card = cardId;
+        patch.installments =
+          changes.installments ?? (cardId === current.card?.id ? current.installments : 1);
+      }
     }
 
     const updated = await repo.updateTransaction(id, userId, patch);

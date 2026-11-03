@@ -44,15 +44,15 @@ export async function findByLocalId(userId, localId) {
 /**
  * Inserta una transacción creada offline guardando su `localId`. Si ese `localId` ya
  * existe para el usuario, no inserta nada (índice único parcial) y devuelve `null`.
- * @param {{ userId: string, localId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar' }} data
+ * @param {{ userId: string, localId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar', card?: string|null, installments?: number|null }} data `card` ya validada; sin ella no hay cuotas.
  * @returns {Promise<TransactionRecord|null>}
  */
 export async function insertFromDevice(data) {
   const { rows } = await pool.query(
     `WITH ins AS (
        INSERT INTO transacciones
-         (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id)
-       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7, $8)
+         (usuario_id, categoria_id, monto, descripcion, tipo, fecha, origen, local_id, tarjeta_id, cuotas)
+       VALUES ($1, (SELECT id FROM categorias WHERE key = $2), $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (usuario_id, local_id) WHERE local_id IS NOT NULL DO NOTHING
        RETURNING *
      )
@@ -66,6 +66,8 @@ export async function insertFromDevice(data) {
       data.date,
       data.source,
       data.localId,
+      data.card ?? null,
+      data.card ? (data.installments ?? 1) : null,
     ],
   );
   return rows[0] ?? null;

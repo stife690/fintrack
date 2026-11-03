@@ -526,3 +526,102 @@ test('GET /summary exige token (401) y valida period/date (422)', options, async
     assert.deepEqual(bad.body.error.details.map((d) => d.field).sort(), ['date', 'period']);
   });
 });
+
+/**
+ * Inserta una tarjeta para el dueño del token (la API de tarjetas se prueba aparte).
+ * @param {string} token
+ * @param {string} last4
+ * @returns {Promise<string>} Id de la tarjeta.
+ */
+async function insertCard(token, last4) {
+  const userId = JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).sub;
+  const { rows } = await pool.query(
+    `INSERT INTO tarjetas (usuario_id, nombre, franquicia, nivel, ultimos4, cupo_total, dia_pago)
+     VALUES ($1, 'Visa de prueba', 'visa', 'clasica', $2, 1000000, 15) RETURNING id`,
+    [userId, last4],
+  );
+  return rows[0].id;
+}
+
+test('un gasto con tarjeta y cuotas las devuelve; sin cuotas guarda 1', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    const card = await insertCard(alice, '4242');
+    const res = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, card, installments: 3 },
+    });
+    assert.equal(res.status, 201);
+    const tx = res.body.transaction ?? res.body;
+    assert.deepEqual(tx.card, { id: card, name: 'Visa de prueba', last4: '4242', deleted: false });
+    assert.equal(tx.installments, 3);
+
+    const noInst = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, card },
+    });
+    assert.equal((noInst.body.transaction ?? noInst.body).installments, 1);
+
+    const noCard = await api('/transactions', {
+      method: 'POST',
+      token: alice,
+      body: { ...GASTO, installments: 5 },
+    });
+    const plain = noCard.body.transaction ?? noCard.body;
+    assert.equal(plain.card, null);
+    assert.equal(plain.installments, null);
+  });
+});
+
+test('tarjeta inválida (ingreso, ajena, borrada, inexistente) → 422 en card', options, async () => {
+  await withApi(async ({ api, alice, bob }) => {
+    const card = await insertCard(alice, '1111');
+    const bobCard = await insertCard(bob, '2222');
+    const deleted = await insertCard(alice, '3333');
+    await pool.query('UPDATE tarjetas SET deleted_at = now() WHERE id = $1', [deleted]);
+    const post = (body) => api('/transactions', { method: 'POST', token: alice, body });
+
+    const cases = [
+      { ...GASTO, type: 'ingreso', category: 'salario', card },
+      { ...GASTO, card: bobCard },
+      { ...GASTO, card: deleted },
+      { ...GASTO, card: randomUUID() },
+    ];
+    for (const body of cases) {
+      const res = await post(body);
+      assert.equal(res.status, 422);
+      assert.equal(res.body.error.details[0].field, 'card');
+    }
+    assert.equal((await post({ ...GASTO, card, installments: 49 })).status, 422);
+  });
+});
+
+test('PUT: cambiar a ingreso o mandar card null quita tarjeta y cuotas', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    const card = await insertCard(alice, '5555');
+    const make = async () => {
+      const res = await api('/transactions', {
+        method: 'POST',
+        token: alice,
+        body: { ...GASTO, card, installments: 6 },
+      });
+      return (res.body.transaction ?? res.body).id;
+    };
+    const put = (id, body) => api(`/transactions/${id}`, { method: 'PUT', token: alice, body });
+
+    const toIncome = await put(await make(), { type: 'ingreso', category: 'otros_ingresos' });
+    assert.equal(toIncome.status, 200);
+    assert.equal(toIncome.body.transaction.card, null);
+    assert.equal(toIncome.body.transaction.installments, null);
+
+    const removed = await put(await make(), { card: null });
+    assert.equal(removed.body.transaction.card, null);
+    assert.equal(removed.body.transaction.installments, null);
+
+    const id = await make();
+    const onlyInst = await put(id, { installments: 12 });
+    assert.equal(onlyInst.body.transaction.card.id, card);
+    assert.equal(onlyInst.body.transaction.installments, 12);
+  });
+});
