@@ -7,7 +7,6 @@ import CoreFeatures from '@/components/home/CoreFeatures';
 import Highlights from '@/components/home/Highlights';
 import MobileApp from '@/components/home/MobileApp';
 import Security from '@/components/home/Security';
-import Testimonials from '@/components/home/Testimonials';
 import Faq from '@/components/home/Faq';
 import CallToAction from '@/components/home/CallToAction';
 import usePageTitle from '@/hooks/usePageTitle';
@@ -27,14 +26,15 @@ export default function Home() {
         Saltar al contenido
       </a>
       <Navbar />
-      <main id="contenido">
+      {/* Fondo blanco propio: el body es negro (por el rebote del scroll en celular) y las secciones
+          claras no traen fondo, así que sus títulos oscuros quedaban sobre negro. */}
+      <main id="contenido" className="bg-background">
         <Hero />
         <Platforms />
         <CoreFeatures />
         <Highlights />
         <MobileApp />
         <Security />
-        <Testimonials />
         <Faq />
         <CallToAction />
       </main>

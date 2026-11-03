@@ -11,7 +11,7 @@ const ITEMS = [
     icon: '/images/icons/growth.svg',
     tag: 'Reportes',
     title: 'Entiende a dónde va tu dinero',
-    description: 'Dashboard por categoría y periodo, y exportación de tus reportes en PDF o CSV.',
+    description: 'Dashboard por categoría y periodo, y exportación de tus reportes en Excel, PDF o CSV.',
   },
   {
     icon: '/images/icons/star.svg',

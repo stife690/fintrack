@@ -11,7 +11,7 @@ const ITEMS = [
     icon: '/images/icons/check.svg',
     title: 'IA sin tus datos personales',
     description:
-      'La IA solo recibe la descripción de un gasto o totales agregados por categoría: nunca tu correo, tu identidad ni tus transacciones completas.',
+      'Para clasificar o aconsejarte, la IA recibe la descripción de un gasto o totales por categoría, nunca tu correo ni tu identidad. Si dictas por voz, el audio se envía a Groq solo para pasarlo a texto.',
   },
   {
     icon: '/images/icons/timeline.svg',
