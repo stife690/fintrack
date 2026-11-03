@@ -57,14 +57,21 @@ export async function findProfile(userId) {
 
 /**
  * Lo registrado después de que el usuario dijo cuánta plata tenía. Un movimiento nuevo con fecha
- * anterior a ese día ya estaba incluido en el saldo: no se cuenta.
+ * anterior a ese día ya estaba incluido en el saldo: no se cuenta. Las compras con tarjeta no
+ * restan (todavía no salió la plata); los pagos de tarjeta sí.
  * @param {string} userId
  * @returns {Promise<{ income: number, expense: number }>}
  */
 export async function changesSinceBalance(userId) {
   const { rows } = await pool.query(
     `SELECT COALESCE(SUM(t.monto) FILTER (WHERE t.tipo = 'ingreso'), 0)::float8 AS income,
-            COALESCE(SUM(t.monto) FILTER (WHERE t.tipo = 'gasto'), 0)::float8 AS expense
+            (COALESCE(SUM(t.monto) FILTER (WHERE t.tipo = 'gasto' AND t.tarjeta_id IS NULL), 0)
+             + COALESCE((SELECT SUM(g.monto) FROM pagos_tarjeta g
+                         JOIN perfiles_financieros p2 ON p2.usuario_id = g.usuario_id
+                         JOIN usuarios u2 ON u2.id = g.usuario_id
+                         WHERE g.usuario_id = $1 AND g.deleted_at IS NULL
+                           AND g.created_at > p2.saldo_at
+                           AND g.fecha >= (p2.saldo_at AT TIME ZONE u2.timezone)::date), 0))::float8 AS expense
      FROM perfiles_financieros p
      JOIN usuarios u ON u.id = p.usuario_id
      JOIN transacciones t ON t.usuario_id = p.usuario_id
@@ -76,14 +83,15 @@ export async function changesSinceBalance(userId) {
 }
 
 /**
- * Todo lo que el usuario ha registrado, sin importar la fecha.
+ * Todo lo que el usuario ha registrado, sin importar la fecha (gastos sin tarjeta + pagos de tarjeta).
  * @param {string} userId
  * @returns {Promise<{ income: number, expense: number }>}
  */
 export async function movementTotals(userId) {
   const { rows } = await pool.query(
     `SELECT COALESCE(SUM(monto) FILTER (WHERE tipo = 'ingreso'), 0)::float8 AS income,
-            COALESCE(SUM(monto) FILTER (WHERE tipo = 'gasto'), 0)::float8 AS expense
+            (COALESCE(SUM(monto) FILTER (WHERE tipo = 'gasto' AND tarjeta_id IS NULL), 0)
+             + COALESCE((SELECT SUM(monto) FROM pagos_tarjeta WHERE usuario_id = $1 AND deleted_at IS NULL), 0))::float8 AS expense
      FROM transacciones WHERE usuario_id = $1 AND deleted_at IS NULL`,
     [userId],
   );

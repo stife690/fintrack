@@ -150,3 +150,14 @@ test('sin historial de gasto solo se avisa el negativo', () => {
   assert.equal(riskOf(139999, 20000), 'riesgo');
   assert.equal(riskOf(140000, 20000), 'ok');
 });
+
+test('la tarjeta aparece con su próximo pago: pendiente, atrasada o pagada', () => {
+  const card = { id: 'c1', name: 'Amex 1234', nextPaymentDate: '2026-11-20', amount: 400000, paidThisCycle: false };
+  const find = (cards, m = '2026-11') =>
+    buildPaymentCalendar({ ...base, month: m, cards }).events.find((e) => e.kind === 'card');
+  const e = find([card]);
+  assert.deepEqual([e.date, e.amount, e.status, e.name], ['2026-11-20', 400000, 'pendiente', 'Amex 1234']);
+  assert.equal(find([{ ...card, paidThisCycle: true }]).status, 'pagado');
+  assert.equal(find([{ ...card, nextPaymentDate: '2026-11-01' }]).status, 'atrasado');
+  assert.equal(find([card], '2026-12'), undefined);
+});

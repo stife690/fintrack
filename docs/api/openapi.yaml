@@ -1046,7 +1046,7 @@ paths:
                       type: object
                       properties:
                         date: { type: string, format: date }
-                        kind: { type: string, enum: [compromiso, vaca, ingreso] }
+                        kind: { type: string, enum: [compromiso, vaca, ingreso, card] }
                         id: { type: string, nullable: true }
                         name: { type: string }
                         amount: { type: number, nullable: true }

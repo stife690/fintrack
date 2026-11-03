@@ -293,3 +293,45 @@ test('el calendario muestra los pagos del mes y cuánto queda después (FT-0025)
     assert.equal(event.balanceAfter, 3000000 - ARRIENDO.amount);
   });
 });
+
+test('con saldo: la compra con tarjeta no baja la plata en mano y el pago sí', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken();
+    await api('/money-profile', { method: 'PUT', token, body: { incomeType: 'sin_fecha', balance: 500000 } });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const { body: c } = await api('/cards', {
+      method: 'POST',
+      token,
+      body: { network: 'amex', tier: 'blue', last4: '1234', limit: 1000000, available: 600000, paymentDay: 15 },
+    });
+    const buy = await api('/transactions', {
+      method: 'POST',
+      token,
+      body: { type: 'gasto', amount: 16000, date: today, description: 'Cena', category: 'otros', card: c.id },
+    });
+    assert.equal(buy.status, 201);
+    assert.equal((await api('/money-profile/plan', { token })).body.money, 500000);
+    const pay = await api(`/cards/${c.id}/payments`, { method: 'POST', token, body: { amount: 16000 } });
+    assert.equal(pay.status, 201);
+    assert.equal((await api('/money-profile/plan', { token })).body.money, 484000);
+  });
+});
+
+test('sin saldo: la compra con tarjeta no baja la plata en mano y el pago sí', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken();
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const add = (body) =>
+      api('/transactions', { method: 'POST', token, body: { date: today, description: 'Prueba', ...body } });
+    await add({ type: 'ingreso', amount: 100000, category: 'otros_ingresos' });
+    const { body: c } = await api('/cards', {
+      method: 'POST',
+      token,
+      body: { network: 'amex', tier: 'blue', last4: '1234', limit: 1000000, available: 600000, paymentDay: 15 },
+    });
+    await add({ type: 'gasto', amount: 16000, category: 'otros', card: c.id });
+    assert.equal((await api('/money-profile', { token })).body.totals.expense, 0);
+    await api(`/cards/${c.id}/payments`, { method: 'POST', token, body: { amount: 16000 } });
+    assert.deepEqual((await api('/money-profile', { token })).body.totals, { income: 100000, expense: 16000 });
+  });
+});
