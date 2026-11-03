@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
+  CreditCard,
   Briefcase,
   CalendarDays,
   ChevronRight,
@@ -23,6 +24,7 @@ export const MORE_GROUPS = [
     items: [
       { to: '/app/transacciones?nuevo=gasto', label: 'Agregar movimiento', detail: 'Abre el formulario', icon: Plus },
       { to: '/app/mi-plata', label: 'Mi plata', detail: 'Tu saldo y pagos de cada mes', icon: Wallet },
+      { to: '/app/tarjetas', label: 'Tarjetas', detail: 'Cupo y próximo pago', icon: CreditCard },
       { to: '/app/calendario', label: 'Calendario', detail: 'Cuánto te queda después de cada pago', icon: CalendarDays },
       { to: '/app/presupuestos', label: 'Presupuestos', detail: 'Límites por categoría', icon: Target },
       { to: '/app/renta', label: 'Renta y DIAN', detail: 'Si debes declarar y cuándo', icon: Landmark },

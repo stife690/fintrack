@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
+  CreditCard,
   ArrowLeftRight,
   Briefcase,
   CalendarDays,
@@ -42,6 +43,7 @@ const NAV_GROUPS = [
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
       { to: '/app/insights', label: 'Consejos', icon: Sparkles },
       { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
+      { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },
       { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
       { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],
