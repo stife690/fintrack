@@ -144,7 +144,7 @@ export function extractMessages(payload, phoneNumberId = env.whatsappPhoneNumber
  * @param {number} value
  * @returns {string} Monto en pesos, p. ej. "$15.000" o "-$15.000".
  */
-function money(value) {
+export function money(value) {
   const sign = value < 0 ? '-' : '';
   return `${sign}$${Math.abs(value).toLocaleString('es-CO', { maximumFractionDigits: 2 })}`;
 }

@@ -1996,6 +1996,7 @@ components:
         nextPaymentDate: { type: string, format: date }
         daysToPayment: { type: integer }
         paidThisCycle: { type: boolean }
+        reminderSentFor: { type: string, format: date, nullable: true, description: Fecha de pago ya avisada por push }
     Amount:
       type: number
       format: double
@@ -2124,6 +2125,11 @@ components:
             Compatibilidad con clientes anteriores. En la respuesta es la primera hora de `times` (o null).
             En el PUT se acepta en lugar de `times` (una sola hora; null desactiva).
         timezone: { type: string, example: America/Bogota }
+        cardReminders:
+          type: boolean
+          description: |
+            Si recibe el aviso push 3 días antes del pago de una tarjeta (a la primera hora de `times`, o 09:00).
+            Opcional en el PUT: si se omite, no cambia.
 
     # ---------- Transacciones
     Category:

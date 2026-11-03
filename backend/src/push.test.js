@@ -192,7 +192,7 @@ function buildService(overrides = {}) {
       findReminderSettings: async () =>
         'settings' in overrides
           ? overrides.settings
-          : { times: ['08:00', '20:00'], timezone: 'UTC' },
+          : { times: ['08:00', '20:00'], timezone: 'UTC', cardReminders: true },
       saveReminderSettings: async (_id, settings) =>
         overrides.settings === null ? null : settings,
     },
@@ -248,12 +248,16 @@ test('reminder-settings: lee y actualiza; con cuenta inexistente responde 401', 
     times: ['08:00', '20:00'],
     time: '08:00',
     timezone: 'UTC',
+    cardReminders: true,
   });
-  assert.deepEqual(await service.updateReminderSettings('u1', { times: [], timezone: 'UTC' }), {
-    times: [],
-    time: null,
-    timezone: 'UTC',
-  });
+  assert.deepEqual(
+    await service.updateReminderSettings('u1', {
+      times: [],
+      timezone: 'UTC',
+      cardReminders: false,
+    }),
+    { times: [], time: null, timezone: 'UTC', cardReminders: false },
+  );
   const gone = buildService({ settings: null }).service;
   await assert.rejects(
     () => gone.getReminderSettings('u1'),

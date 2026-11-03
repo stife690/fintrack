@@ -83,10 +83,13 @@ export const MAX_REMINDERS_PER_DAY = 5;
  * clientes anteriores, `time` (una hora o `null`). Las horas repetidas se unifican y se ordenan.
  * Tipos incorrectos → 400; horas, cantidad o zona horaria inválidas → 422 con `details`.
  * @param {unknown} body
- * @returns {{ times: string[], timezone: string }}
+ * @returns {{ times: string[], timezone: string, cardReminders?: boolean }}
  */
 export function parseReminderSettings(body) {
   if (!isObject(body) || typeof body.timezone !== 'string') throw invalidBody();
+  if (body.cardReminders !== undefined && typeof body.cardReminders !== 'boolean') {
+    throw invalidBody();
+  }
 
   let raw;
   let field = 'times';
@@ -124,5 +127,7 @@ export function parseReminderSettings(body) {
   if (details.length > 0) {
     throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', details);
   }
-  return { times, timezone: body.timezone };
+  return body.cardReminders === undefined
+    ? { times, timezone: body.timezone }
+    : { times, timezone: body.timezone, cardReminders: body.cardReminders };
 }

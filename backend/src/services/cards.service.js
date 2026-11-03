@@ -60,6 +60,7 @@ async function present(card, today) {
     nextPaymentDate: state.nextPaymentDate,
     daysToPayment: state.daysToPayment,
     paidThisCycle: state.paidThisCycle,
+    reminderSentFor: card.reminderSentFor,
   };
 }
 

@@ -1,5 +1,11 @@
-import { listReminderCandidates } from '../repositories/reminders.repository.js';
+import {
+  listCardReminderUsers,
+  listReminderCandidates,
+} from '../repositories/reminders.repository.js';
+import { updateCard } from '../repositories/cards.repository.js';
 import { pushService } from './push.service.js';
+import * as cardsService from './cards.service.js';
+import { money } from './whatsapp.service.js';
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -10,6 +16,26 @@ export const REMINDER_PAYLOAD = {
   body: '¿Ya registraste tus gastos de hoy?',
   url: '/app/transacciones',
 };
+
+/** Días antes del pago en que se avisa. */
+const CARD_REMINDER_DAYS = 3;
+
+/**
+ * Mensaje del aviso de pago de una tarjeta.
+ * @param {{ id: string, name: string, used: number, statementTotal: number|null, nextPaymentDate: string }} card
+ * @returns {{ title: string, body: string, url: string }}
+ */
+export function cardReminderPayload(card) {
+  const month = new Intl.DateTimeFormat('es-CO', { month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${card.nextPaymentDate}T00:00:00Z`))
+    .replace('.', '');
+  const date = `${Number(card.nextPaymentDate.slice(8))} ${month}`;
+  return {
+    title: 'Pago de tarjeta',
+    body: `Tu ${card.name} se paga el ${date}. Debes ${money(card.statementTotal ?? card.used)}.`,
+    url: `/app/tarjetas/${card.id}`,
+  };
+}
 
 /**
  * Obtiene la fecha (YYYY-MM-DD) y los minutos transcurridos del día en una zona horaria.
@@ -69,6 +95,9 @@ export function checkReminderDue({ time, timezone, now, windowMinutes = 5 }) {
  * @param {(userId: string, payload: object) => Promise<unknown>} [deps.sendToUser]
  * @param {() => Date} [deps.now]
  * @param {{ info: (message: string) => void, error: (message: string) => void }} [deps.log]
+ * @param {typeof listCardReminderUsers} [deps.listCardUsers]
+ * @param {typeof cardsService.list} [deps.listUserCards]
+ * @param {(cardId: string, userId: string, date: string) => Promise<unknown>} [deps.markCardReminded]
  * @param {number} [deps.intervalMs] Cada cuánto revisa (por defecto 1 minuto).
  * @param {number} [deps.windowMinutes] Minutos de tolerancia tras la hora configurada.
  * @returns {{ tick: () => Promise<{ sent: number, skipped: number }>, start: () => void, stop: () => void }}
@@ -76,6 +105,11 @@ export function checkReminderDue({ time, timezone, now, windowMinutes = 5 }) {
 export function createReminderScheduler(deps = {}) {
   const listCandidates = deps.listCandidates ?? listReminderCandidates;
   const sendToUser = deps.sendToUser ?? pushService.sendToUser;
+  const listCardUsers = deps.listCardUsers ?? listCardReminderUsers;
+  const listUserCards = deps.listUserCards ?? cardsService.list;
+  const markCardReminded =
+    deps.markCardReminded ??
+    ((id, userId, date) => updateCard(id, userId, { reminderSentFor: date }));
   const now = deps.now ?? (() => new Date());
   const log = deps.log ?? console;
   const intervalMs = deps.intervalMs ?? MINUTE_MS;
@@ -86,6 +120,41 @@ export function createReminderScheduler(deps = {}) {
   /** @type {ReturnType<typeof setInterval>|undefined} */
   let timer;
   let running = false;
+
+  /**
+   * Avisa del pago de las tarjetas que vencen en 3 días, una vez por fecha de pago.
+   * @param {Date} moment
+   * @returns {Promise<number>} Avisos enviados.
+   */
+  async function cardTick(moment) {
+    let sent = 0;
+    for (const user of await listCardUsers()) {
+      try {
+        const { due } = checkReminderDue({
+          time: user.time,
+          timezone: user.timezone,
+          now: moment,
+          windowMinutes,
+        });
+        if (!due) continue;
+        for (const card of await listUserCards(user.id)) {
+          if (
+            card.daysToPayment !== CARD_REMINDER_DAYS ||
+            card.paidThisCycle ||
+            card.reminderSentFor === card.nextPaymentDate
+          ) {
+            continue;
+          }
+          await sendToUser(user.id, cardReminderPayload(card));
+          await markCardReminded(card.id, user.id, card.nextPaymentDate);
+          sent += 1;
+        }
+      } catch (err) {
+        log.error(`Error avisando el pago de tarjetas al usuario ${user.id}: ${err.message}`);
+      }
+    }
+    return sent;
+  }
 
   /**
    * Revisa los recordatorios pendientes ahora mismo.
@@ -128,6 +197,7 @@ export function createReminderScheduler(deps = {}) {
         }
       }
     }
+    sent += await cardTick(moment);
     return { sent, skipped };
   }
 
