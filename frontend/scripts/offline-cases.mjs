@@ -17,6 +17,7 @@
  * Código de salida: 0 = todos los casos pasan, 1 = alguno falló.
  */
 import puppeteer from 'puppeteer-core';
+import { createVerifiedSession } from './verified-session.mjs';
 
 const DEFAULT_CHROME = {
   darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -38,9 +39,8 @@ const api = (path, { method = 'GET', body, token } = {}) =>
   }).then((r) => r.json());
 
 async function newUser(tag) {
-  const email = `offline.${tag}.${Date.now()}@fintrack.dev`;
-  const session = await api('/auth/register', { method: 'POST', body: { email, password: PASSWORD } });
-  if (!session.accessToken) throw new Error(`registro falló: ${JSON.stringify(session)}`);
+  const email = `offline.${tag}.${Date.now()}@fintrack.test`;
+  const session = await createVerifiedSession(API, { email, password: PASSWORD });
   return { ...session, email };
 }
 

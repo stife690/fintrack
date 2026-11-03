@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import AuthLayout from '@/components/auth/AuthLayout';
+import CheckInbox from '@/components/auth/CheckInbox';
 import FormField from '@/components/auth/FormField';
 import PasswordInput from '@/components/auth/PasswordInput';
 import PasswordRules from '@/components/auth/PasswordRules';
@@ -15,18 +16,19 @@ import { Label } from '@/components/ui/label';
 import { getReturnTo, invitationKind } from '@/auth/returnTo';
 import usePageTitle from '@/hooks/usePageTitle';
 import { registerSchema } from '@/lib/validation/auth';
-import { register as registerUser } from '@/services/authService';
+import { register as registerUser, resendVerification } from '@/services/authService';
 
 /**
- * Pantalla de registro. Valida en el cliente (zod), muestra los requisitos de la
- * contraseña en vivo y, al crear la cuenta (simulado), redirige al login con el correo precargado.
+ * Pantalla de registro. Valida en el cliente (zod) y muestra los requisitos de la contraseña en
+ * vivo. Al crear la cuenta no entra: muestra "Confirma tu correo" con reenvío, porque la API no da
+ * sesión hasta abrir el enlace que llega al correo (FT-0016).
  */
 export default function Register() {
   usePageTitle('Crear cuenta');
-  const navigate = useNavigate();
   const location = useLocation();
   const invitation = invitationKind(getReturnTo(location.state?.from));
   const [serverError, setServerError] = useState('');
+  const [sentTo, setSentTo] = useState(null);
 
   const {
     register,
@@ -47,13 +49,41 @@ export default function Register() {
   const onSubmit = async ({ confirmPassword: _confirm, acceptTerms: _terms, ...data }) => {
     setServerError('');
     try {
-      const { user } = await registerUser(data);
-      // `from`: quien llegó desde un enlace (p. ej. una invitación a una vaca) vuelve allí al entrar.
-      navigate('/login', { state: { email: user.email, registered: true, from: location.state?.from } });
+      const { email } = await registerUser(data);
+      setSentTo(email);
     } catch (err) {
       setServerError(err.message || 'No pudimos crear tu cuenta. Inténtalo de nuevo.');
     }
   };
+
+  if (sentTo) {
+    return (
+      <CheckInbox
+        title="Confirma tu correo"
+        subtitle={
+          <>
+            Te enviamos un enlace a <strong className="font-medium text-white">{sentTo}</strong>. Ábrelo
+            para activar tu cuenta y entrar.
+          </>
+        }
+        tips={[
+          'El enlace vence en 24 horas y sirve una sola vez.',
+          '¿No lo ves? Revisa las carpetas de spam o promociones.',
+        ]}
+        onResend={() => resendVerification(sentTo)}
+        onChangeEmail={() => setSentTo(null)}
+        footer={
+          <Link
+            to="/login"
+            state={{ email: sentTo, from: location.state?.from }}
+            className="font-medium text-violet-light transition-colors hover:text-white"
+          >
+            Ya lo confirmé, iniciar sesión
+          </Link>
+        }
+      />
+    );
+  }
 
   return (
     <AuthLayout

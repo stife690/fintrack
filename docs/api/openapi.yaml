@@ -100,6 +100,9 @@ paths:
     post:
       tags: [Auth]
       summary: Registra un nuevo usuario (REQ-001, REQ-003)
+      description: |
+        Crea la cuenta sin verificar y envía al correo un enlace `APP_URL/verificar#token=…` que vence en
+        24 horas (FT-0016). No abre sesión: hasta abrir el enlace, el login responde 403 EMAIL_NOT_VERIFIED.
       security: []
       requestBody:
         required: true
@@ -108,10 +111,15 @@ paths:
             schema: { $ref: "#/components/schemas/Credentials" }
       responses:
         "201":
-          description: Usuario creado; devuelve la misma forma que el login
+          description: Usuario creado sin sesión; falta confirmar el correo
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/AuthResponse" }
+              schema:
+                type: object
+                required: [email, verificationRequired]
+                properties:
+                  email: { type: string, format: email }
+                  verificationRequired: { type: boolean, enum: [true] }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409":
           description: "EMAIL_TAKEN — el correo ya está registrado (REQ-003)"
@@ -147,6 +155,15 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
               example:
                 error: { code: UNAUTHORIZED, message: Correo o contraseña incorrectos }
+        "403":
+          description: "EMAIL_NOT_VERIFIED — la contraseña es correcta pero falta confirmar el correo (FT-0016)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error:
+                  code: EMAIL_NOT_VERIFIED
+                  message: Confirma tu correo para entrar. Revisa tu bandeja o pide un enlace nuevo.
         "429": { $ref: "#/components/responses/RateLimited" }
 
   /auth/google:
@@ -296,6 +313,67 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
               example:
                 error: { code: INVALID_RESET_TOKEN, message: El enlace no es válido o ya venció. Pide uno nuevo. }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Confirma el correo con el token del enlace y abre sesión (FT-0016)
+      description: |
+        En una sola sentencia gasta el token (sirve una vez) y marca la cuenta como verificada.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: El token del enlace (lo que va después de `#token=`) }
+      responses:
+        "200":
+          description: Correo confirmado; devuelve la misma forma que el login
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: "VALIDATION_ERROR (cuerpo malformado) o INVALID_VERIFICATION_TOKEN — el enlace no existe, ya se usó o venció"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: { code: INVALID_VERIFICATION_TOKEN, message: El enlace no es válido o ya venció. Pide uno nuevo. }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Envía otro enlace para confirmar el correo (FT-0016)
+      description: |
+        Si el correo es de una cuenta sin verificar, envía un enlace nuevo y anula los anteriores. Responde
+        lo mismo exista o no la cuenta, para no revelar qué correos están registrados.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Mensaje genérico
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "422": { $ref: "#/components/responses/ValidationError" }
         "429": { $ref: "#/components/responses/RateLimited" }
 

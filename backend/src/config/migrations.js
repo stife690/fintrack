@@ -252,6 +252,29 @@ export const MIGRATIONS = [
        END $$`,
     ],
   },
+  {
+    id: '013_verificar_correo',
+    statements: [
+      `DO $$
+       BEGIN
+         IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                         WHERE table_name = 'usuarios' AND column_name = 'email_verificado_at') THEN
+           ALTER TABLE usuarios ADD COLUMN email_verificado_at TIMESTAMPTZ NULL;
+           UPDATE usuarios SET email_verificado_at = now();
+         END IF;
+       END $$`,
+      `CREATE TABLE IF NOT EXISTS email_verification_tokens (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         token_hash VARCHAR(64) UNIQUE NOT NULL,
+         expires_at TIMESTAMPTZ NOT NULL,
+         used_at TIMESTAMPTZ NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_usuario
+         ON email_verification_tokens(usuario_id)`,
+    ],
+  },
 ];
 
 /**

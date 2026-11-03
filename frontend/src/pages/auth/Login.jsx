@@ -15,11 +15,13 @@ import usePageTitle from '@/hooks/usePageTitle';
 import { loginSchema } from '@/lib/validation/auth';
 import { useAuth } from '@/auth/AuthContext';
 import { getReturnTo, invitationKind } from '@/auth/returnTo';
+import { resendVerification } from '@/services/authService';
 
 /**
  * Pantalla de inicio de sesión. Valida en el cliente (zod), inicia la sesión con `signIn`
  * (AuthContext) y lleva a la página que el usuario pidió, o a `/app`.
- * Si viene del registro, precarga el correo.
+ * Si viene del registro, precarga el correo. Si la cuenta aún no confirma el correo (FT-0016),
+ * ofrece reenviar el enlace.
  */
 export default function Login() {
   usePageTitle('Iniciar sesión');
@@ -27,6 +29,9 @@ export default function Login() {
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
   const [serverError, setServerError] = useState('');
+  // Correo de la cuenta sin confirmar con el que se intentó entrar, y el aviso del reenvío.
+  const [unverified, setUnverified] = useState(null);
+  const [resendNotice, setResendNotice] = useState('');
   const invitation = invitationKind(getReturnTo(location.state?.from));
 
   const {
@@ -43,11 +48,24 @@ export default function Login() {
 
   const onSubmit = async (values) => {
     setServerError('');
+    setUnverified(null);
+    setResendNotice('');
     try {
       await signIn(values);
       navigate(getReturnTo(location.state?.from), { replace: true });
     } catch (err) {
+      if (err.code === 'EMAIL_NOT_VERIFIED') setUnverified(values.email);
       setServerError(err.message || 'No pudimos iniciar sesión. Inténtalo de nuevo.');
+    }
+  };
+
+  const resend = async () => {
+    setResendNotice('');
+    try {
+      await resendVerification(unverified);
+      setResendNotice('Te enviamos un enlace nuevo. Revisa tu correo.');
+    } catch (err) {
+      setResendNotice(err.message);
     }
   };
 
@@ -73,11 +91,6 @@ export default function Login() {
         </>
       }
     >
-      {location.state?.registered && (
-        <p className="rounded-xl bg-mint/10 px-4 py-3 text-sm text-mint" role="status">
-          Cuenta creada. Ya puedes iniciar sesión.
-        </p>
-      )}
       {invitation && (
         <p className="rounded-xl bg-violet/15 px-4 py-3 text-sm text-violet-light" role="status">
           Te invitaron a {invitation === 'vaca' ? 'una vaca' : 'un negocio'}. Inicia sesión o crea tu cuenta y te llevamos a la invitación.
@@ -122,8 +135,22 @@ export default function Login() {
         </div>
 
         {serverError && (
-          <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-            {serverError}
+          <div className="space-y-2 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+            <p>{serverError}</p>
+            {unverified && (
+              <button
+                type="button"
+                onClick={resend}
+                className="font-medium text-white underline underline-offset-4 transition-colors hover:text-violet-light"
+              >
+                Reenviar enlace
+              </button>
+            )}
+          </div>
+        )}
+        {resendNotice && (
+          <p className="text-center text-sm text-white/65" role="status">
+            {resendNotice}
           </p>
         )}
 

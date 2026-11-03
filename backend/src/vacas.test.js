@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/` (o el parche 007).
@@ -60,15 +61,11 @@ async function withApi(fn) {
 
 /**
  * Registra un usuario nuevo y devuelve su token, id y correo.
- * @param {Api} api
  * @returns {Promise<{ token: string, id: string, email: string }>}
  */
-async function newUser(api) {
+async function newUser() {
   const email = `u-${randomUUID()}${TEST_DOMAIN}`;
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email, password: 'clave-segura-1' },
-  });
+  const body = await createVerifiedSession({ email, password: 'clave-segura-1' });
   return { token: body.accessToken, id: body.user.id, email };
 }
 
@@ -84,8 +81,8 @@ function today() {
  * @returns {Promise<{ owner: object, member: object, vaca: object }>}
  */
 async function vacaWithTwo(api, overrides = {}) {
-  const owner = await newUser(api);
-  const member = await newUser(api);
+  const owner = await newUser();
+  const member = await newUser();
   const created = await api('/vacas', {
     method: 'POST',
     token: owner.token,
@@ -117,7 +114,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const owner = await newUser(api);
+      const owner = await newUser();
       const res = await api('/vacas', {
         method: 'POST',
         token: owner.token,
@@ -157,8 +154,8 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const owner = await newUser(api);
-      const guest = await newUser(api);
+      const owner = await newUser();
+      const guest = await newUser();
       const { body: vaca } = await api('/vacas', {
         method: 'POST',
         token: owner.token,
@@ -203,7 +200,7 @@ test(
 test('quien no es miembro no ve la vaca (404, RN-01)', options, async () => {
   await withApi(async (api) => {
     const { vaca } = await vacaWithTwo(api);
-    const stranger = await newUser(api);
+    const stranger = await newUser();
     assert.equal((await api(`/vacas/${vaca.id}`, { token: stranger.token })).status, 404);
     const contribute = await api(`/vacas/${vaca.id}/contributions`, {
       method: 'POST',
@@ -412,7 +409,7 @@ test('cambiar el código invalida el anterior', options, async () => {
     const res = await api(`/vacas/${vaca.id}/code`, { method: 'POST', token: owner.token });
     assert.equal(res.status, 200);
     assert.notEqual(res.body.code, vaca.code);
-    const guest = await newUser(api);
+    const guest = await newUser();
     const old = await api('/vacas/join', {
       method: 'POST',
       token: guest.token,

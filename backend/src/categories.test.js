@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { env } from './config/env.js';
 import { pool } from './config/db.js';
 import { MAX_OWN_CATEGORIES, newCategoryKey } from './services/categories.service.js';
@@ -64,13 +65,12 @@ async function withApi(fn) {
 
 /**
  * Registra un usuario nuevo y devuelve su access token.
- * @param {Api} api
  * @returns {Promise<string>}
  */
-async function newUserToken(api) {
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: 'clave-segura-1' },
+async function newUserToken() {
+  const body = await createVerifiedSession({
+    email: `u-${randomUUID()}${TEST_DOMAIN}`,
+    password: 'clave-segura-1',
   });
   return body.accessToken;
 }
@@ -101,7 +101,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const { status, body } = await api('/categories', { token });
       assert.equal(status, 200);
       assert.equal(body.expense.length + body.income.length, 15);
@@ -116,7 +116,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const created = await createCategory(api, token);
       assert.equal(created.status, 201);
       assert.match(created.body.key, /^c_/);
@@ -158,7 +158,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       assert.equal((await createCategory(api, token)).status, 201);
       const again = await createCategory(api, token, { name: '  mascotas ' });
       assert.equal(again.status, 409);
@@ -170,7 +170,7 @@ test(
 
 test('valida nombre, tipo, ícono y color', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const res = await createCategory(api, token, {
       name: '',
       type: 'otro',
@@ -189,7 +189,7 @@ test('valida nombre, tipo, ícono y color', options, async () => {
 
 test(`máximo ${MAX_OWN_CATEGORIES} categorías propias por usuario`, options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     for (let i = 0; i < MAX_OWN_CATEGORIES; i += 1) {
       assert.equal((await createCategory(api, token, { name: `Propia ${i}` })).status, 201);
     }
@@ -201,8 +201,8 @@ test(`máximo ${MAX_OWN_CATEGORIES} categorías propias por usuario`, options, a
 
 test('las categorías de un usuario no las ve ni las usa otro (RN-01)', options, async () => {
   await withApi(async (api) => {
-    const owner = await newUserToken(api);
-    const other = await newUserToken(api);
+    const owner = await newUserToken();
+    const other = await newUserToken();
     const { body: category } = await createCategory(api, owner);
 
     const list = await api('/categories', { token: other });
@@ -250,7 +250,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const { body: category } = await createCategory(api, token);
       const renamed = await api(`/categories/${category.key}`, {
         method: 'PATCH',
@@ -277,7 +277,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const { body: expense } = await createCategory(api, token);
       const { body: income } = await createCategory(api, token, {
         name: 'Ventas',

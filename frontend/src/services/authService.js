@@ -1,8 +1,8 @@
 /**
  * Capa de autenticación del frontend, según `docs/api/openapi.yaml`.
  *
- * Llama a `POST /api/v1/auth/login`, `/auth/register`, `/auth/google`, `/auth/forgot-password` y
- * `/auth/reset-password`. Con `VITE_API_MOCKS` activo, en desarrollo MSW intercepta los que tiene
+ * Llama a `POST /api/v1/auth/login`, `/auth/register`, `/auth/google`, `/auth/forgot-password`,
+ * `/auth/reset-password`, `/auth/verify-email` y `/auth/resend-verification`. Con `VITE_API_MOCKS` activo, en desarrollo MSW intercepta los que tiene
  * simulados (ver `src/mocks/handlers.js`); los demás llegan a la API real.
  * Las páginas muestran `error.message`, así que aquí se traducen los errores de la API
  * (`{ error: { code, message, details? } }`) a mensajes para el usuario.
@@ -62,16 +62,21 @@ async function postJson(path, body, { fallback, messages = {} }) {
 export function login({ email, password }) {
   return postJson('/auth/login', { email, password }, {
     fallback: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
-    messages: { UNAUTHORIZED: 'Correo o contraseña incorrectos.', RATE_LIMITED: TOO_MANY },
+    messages: {
+      UNAUTHORIZED: 'Correo o contraseña incorrectos.',
+      EMAIL_NOT_VERIFIED: 'Confirma tu correo para entrar: abre el enlace que te enviamos.',
+      RATE_LIMITED: TOO_MANY,
+    },
   });
 }
 
 /**
- * Crea una cuenta. Contrato: `POST /auth/register { email, password }`;
- * responde 409 `EMAIL_TAKEN` si el correo ya existe (REQ-003)
+ * Crea una cuenta. Contrato: `POST /auth/register { email, password }` → 201
+ * `{ email, verificationRequired: true }`: no abre sesión hasta que abra el enlace del correo
+ * (FT-0016). Responde 409 `EMAIL_TAKEN` si el correo ya existe (REQ-003)
  * y 422 `VALIDATION_ERROR` si el correo o la contraseña no cumplen las reglas.
  * @param {{ email: string, password: string }} data
- * @returns {Promise<AuthResponse>}
+ * @returns {Promise<{ email: string, verificationRequired: true }>}
  */
 export function register({ email, password }) {
   return postJson('/auth/register', { email, password }, {
@@ -123,5 +128,35 @@ export async function resetPassword({ token, password }) {
       INVALID_RESET_TOKEN: 'Este enlace ya no sirve: venció o ya se usó. Pide uno nuevo.',
       RATE_LIMITED: TOO_MANY,
     },
+  });
+}
+
+/**
+ * Verifica el correo con el token del enlace y devuelve la sesión (FT-0016). Contrato:
+ * `POST /auth/verify-email { token }` → 200 con la sesión; 400 `INVALID_VERIFICATION_TOKEN` si
+ * el enlace no existe, ya se usó o venció.
+ * @param {string} token
+ * @returns {Promise<AuthResponse>}
+ */
+export function verifyEmail(token) {
+  return postJson('/auth/verify-email', { token }, {
+    fallback: 'No pudimos confirmar tu correo. Inténtalo de nuevo.',
+    messages: {
+      INVALID_VERIFICATION_TOKEN: 'Este enlace ya no sirve: venció o ya se usó. Pide uno nuevo.',
+      RATE_LIMITED: TOO_MANY,
+    },
+  });
+}
+
+/**
+ * Pide otro enlace para confirmar el correo. Contrato: `POST /auth/resend-verification { email }`;
+ * responde 200 con el mismo mensaje exista o no la cuenta (no revela qué correos están registrados).
+ * @param {string} email
+ * @returns {Promise<{ message: string }>}
+ */
+export function resendVerification(email) {
+  return postJson('/auth/resend-verification', { email }, {
+    fallback: 'No pudimos enviar el enlace. Inténtalo de nuevo.',
+    messages: { RATE_LIMITED: TOO_MANY },
   });
 }

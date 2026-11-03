@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { env } from './config/env.js';
 import { pool } from './config/db.js';
 import { MAX_IDEAS_PER_DAY } from './services/ideas.service.js';
@@ -50,18 +51,18 @@ async function withApi(fn) {
   }
 }
 
-async function newUser(api) {
+async function newUser() {
   const email = `u-${randomUUID()}${TEST_DOMAIN}`;
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email, password: 'clave-segura-1' },
+  const body = await createVerifiedSession({
+    email,
+    password: 'clave-segura-1',
   });
   return { token: body.accessToken, id: body.user.id, email };
 }
 
 /** Un usuario en la lista de administradores, como si estuviera en `ADMIN_EMAILS`. */
-async function newAdmin(api) {
-  const user = await newUser(api);
+async function newAdmin() {
+  const user = await newUser();
   env.adminEmails.push(user.email);
   return user;
 }
@@ -86,7 +87,7 @@ test('sin sesión no se pueden ver ni enviar ideas', options, async () => {
 
 test('una idea enviada queda en revisión y no se muestra ni a quien la envió', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const created = await api('/ideas', {
       method: 'POST',
       token: user.token,
@@ -101,7 +102,7 @@ test('una idea enviada queda en revisión y no se muestra ni a quien la envió',
 
 test('las ideas públicas no revelan quién las envió', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const id = await publishedIdea();
     const { body } = await api('/ideas', { token: user.token });
     assert.deepEqual(Object.keys(find(body, id)).sort(), ['id', 'status', 'title', 'voted', 'votes']);
@@ -110,8 +111,8 @@ test('las ideas públicas no revelan quién las envió', options, async () => {
 
 test('cada persona vota una sola vez y puede quitar su voto', options, async () => {
   await withApi(async (api) => {
-    const first = await newUser(api);
-    const second = await newUser(api);
+    const first = await newUser();
+    const second = await newUser();
     const id = await publishedIdea();
     const vote = (user) => api(`/ideas/${id}/vote`, { method: 'POST', token: user.token });
 
@@ -131,7 +132,7 @@ test('cada persona vota una sola vez y puede quitar su voto', options, async () 
 
 test('no se vota por ideas en revisión, listas o inexistentes', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const ids = [await publishedIdea('revision'), await publishedIdea('lista'), randomUUID(), 'no-es-un-id'];
     for (const id of ids) {
       const { status } = await api(`/ideas/${id}/vote`, { method: 'POST', token: user.token });
@@ -142,7 +143,7 @@ test('no se vota por ideas en revisión, listas o inexistentes', options, async 
 
 test('una lista se muestra aparte de lo que viene', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const planned = await publishedIdea('en_progreso');
     const done = await publishedIdea('lista');
     const { body } = await api('/ideas', { token: user.token });
@@ -153,7 +154,7 @@ test('una lista se muestra aparte de lo que viene', options, async () => {
 
 test('un título inválido responde 422 y el exceso de ideas 429', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const send = (title) => api('/ideas', { method: 'POST', token: user.token, body: { title } });
     assert.equal((await send('hola')).status, 422);
     for (let i = 0; i < MAX_IDEAS_PER_DAY; i += 1) {
@@ -167,7 +168,7 @@ test('un título inválido responde 422 y el exceso de ideas 429', options, asyn
 
 test('quien no es administrador recibe 403 en todo el panel', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
+    const user = await newUser();
     const id = await publishedIdea();
     const calls = [
       await api('/ideas/admin', { token: user.token }),
@@ -184,8 +185,8 @@ test('quien no es administrador recibe 403 en todo el panel', options, async () 
 
 test('el perfil dice quién es administrador', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
-    const admin = await newAdmin(api);
+    const user = await newUser();
+    const admin = await newAdmin();
     assert.equal((await api('/users/me', { token: user.token })).body.isAdmin, false);
     assert.equal((await api('/users/me', { token: admin.token })).body.isAdmin, true);
   });
@@ -193,8 +194,8 @@ test('el perfil dice quién es administrador', options, async () => {
 
 test('el administrador ve lo enviado, lo publica y no ve quién lo envió', options, async () => {
   await withApi(async (api) => {
-    const user = await newUser(api);
-    const admin = await newAdmin(api);
+    const user = await newUser();
+    const admin = await newAdmin();
     const sent = await api('/ideas', {
       method: 'POST',
       token: user.token,
@@ -221,7 +222,7 @@ test('el administrador ve lo enviado, lo publica y no ve quién lo envió', opti
 
 test('el administrador agrega ideas y un id inexistente responde 404', options, async () => {
   await withApi(async (api) => {
-    const admin = await newAdmin(api);
+    const admin = await newAdmin();
     const created = await api('/ideas/admin', {
       method: 'POST',
       token: admin.token,

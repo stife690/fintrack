@@ -5,7 +5,7 @@ const TIMEOUT_MS = 8000;
 
 /**
  * Envía un correo con la API de Brevo (HTTPS: Render bloquea SMTP en el plan gratis).
- * Sin `EMAIL_API_KEY` no envía nada: en desarrollo imprime el texto en la consola para poder
+ * A los correos de dominio `.test` (pruebas) nunca envía nada. Sin `EMAIL_API_KEY` tampoco: en desarrollo imprime el texto en la consola para poder
  * seguir el enlace a mano; en producción solo avisa del error, porque el texto trae un enlace
  * que da acceso a la cuenta y no debe quedar en los logs.
  * @param {{ to: string, subject: string, html: string, text: string }} mail
@@ -13,6 +13,9 @@ const TIMEOUT_MS = 8000;
  * @throws {Error} Si Brevo responde con error o no responde a tiempo.
  */
 export async function sendEmail({ to, subject, html, text }) {
+  // `.test` es un dominio reservado (RFC 2606) que nunca existe: lo usan las pruebas. Enviarle
+  // gastaría la cuota de Brevo en correos que rebotan.
+  if (to.toLowerCase().endsWith('.test')) return;
   if (!env.emailApiKey || !env.emailFrom) {
     if (env.nodeEnv === 'production') {
       console.error('No se envió el correo: faltan EMAIL_API_KEY o EMAIL_FROM');
@@ -56,19 +59,57 @@ export async function sendPasswordResetEmail({ to, link, minutes }) {
   await sendEmail({
     to,
     subject: 'Recupera tu contraseña de FinTrack',
-    html: resetHtml(link, minutes),
+    html: accountHtml({
+      heading: 'Crea una nueva contraseña',
+      intro:
+        'Recibimos una solicitud para cambiar la contraseña de tu cuenta. Toca el botón para crear una nueva.',
+      button: 'Crear nueva contraseña',
+      link,
+      expiry: `${minutes} minutos`,
+      footer: 'Si no pediste este cambio, ignora este correo: tu contraseña sigue igual.',
+    }),
     text,
   });
 }
 
 /**
- * Plantilla HTML del correo. Usa tablas y estilos en línea porque Gmail y Outlook ignoran el CSS
- * moderno; los colores son los de la marca (violeta #6142ff).
- * @param {string} link
- * @param {number} minutes
+ * Envía el correo con el enlace para verificar la cuenta recién creada (FT-0016).
+ * @param {{ to: string, link: string, hours: number }} data `hours`: cuánto dura el enlace.
+ * @returns {Promise<void>}
+ */
+export async function sendVerificationEmail({ to, link, hours }) {
+  const text = [
+    'Bienvenido a FinTrack. Confirma que este correo es tuyo para empezar a usar tu cuenta.',
+    `Verifícalo desde este enlace (vence en ${hours} horas):`,
+    link,
+    '',
+    'Si no creaste una cuenta en FinTrack, ignora este correo: nadie podrá entrar con él.',
+  ].join('\n');
+  await sendEmail({
+    to,
+    subject: 'Confirma tu correo de FinTrack',
+    html: accountHtml({
+      heading: 'Confirma tu correo',
+      intro: 'Ya casi. Toca el botón para confirmar que este correo es tuyo y entrar a FinTrack.',
+      button: 'Confirmar mi correo',
+      link,
+      expiry: `${hours} horas`,
+      footer:
+        'Si no creaste una cuenta en FinTrack, ignora este correo: nadie podrá entrar con él.',
+    }),
+    text,
+  });
+}
+
+/**
+ * Plantilla HTML de los correos de la cuenta (recuperar contraseña y verificar el correo). Usa
+ * tablas y estilos en línea porque Gmail y Outlook ignoran el CSS moderno; los colores son los de
+ * la marca (violeta #6142ff). Los textos son fijos del backend, no los escribe el usuario.
+ * @param {{ heading: string, intro: string, button: string, link: string, expiry: string, footer: string }} data
+ *   `expiry`: cuánto dura el enlace (p. ej. "30 minutos").
  * @returns {string}
  */
-function resetHtml(link, minutes) {
+function accountHtml({ heading, intro, button, link, expiry, footer }) {
   return `<!doctype html>
 <html lang="es">
 <body style="margin:0;padding:0;background:#f5f4f9;font-family:Arial,Helvetica,sans-serif;color:#16141f">
@@ -80,20 +121,20 @@ function resetHtml(link, minutes) {
             <span style="display:inline-block;width:28px;height:28px;border-radius:8px;background:#6142ff;vertical-align:middle"></span>
             <span style="vertical-align:middle;margin-left:8px">FinTrack</span>
           </p>
-          <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3">Crea una nueva contraseña</h1>
+          <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3">${heading}</h1>
           <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#4b4858">
-            Recibimos una solicitud para cambiar la contraseña de tu cuenta. Toca el botón para crear una nueva.
+            ${intro}
           </p>
           <a href="${link}" style="display:inline-block;background:#6142ff;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
-            Crear nueva contraseña
+            ${button}
           </a>
           <p style="margin:28px 0 0;font-size:13px;line-height:1.6;color:#6e6b7b">
-            El enlace vence en ${minutes} minutos y sirve una sola vez. Si el botón no funciona, copia esta dirección en tu navegador:<br>
+            El enlace vence en ${expiry} y sirve una sola vez. Si el botón no funciona, copia esta dirección en tu navegador:<br>
             <a href="${link}" style="color:#5b3df5;word-break:break-all">${link}</a>
           </p>
           <hr style="border:none;border-top:1px solid #ece9f3;margin:28px 0">
           <p style="margin:0;font-size:13px;line-height:1.6;color:#6e6b7b">
-            Si no pediste este cambio, ignora este correo: tu contraseña sigue igual.
+            ${footer}
           </p>
         </td></tr>
       </table>

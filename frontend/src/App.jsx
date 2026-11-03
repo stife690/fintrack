@@ -11,6 +11,7 @@ const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
+const VerifyEmail = lazy(() => import('@/pages/auth/VerifyEmail'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Welcome = lazy(() => import('@/pages/app/Welcome'));
@@ -64,7 +65,8 @@ function RouteFallback() {
 /**
  * Rutas del frontend:
  * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `/recuperar` pedir el enlace
- * para cambiar la contraseña · `/restablecer` contraseña nueva (enlace del correo) · `*` 404.
+ * para cambiar la contraseña · `/restablecer` contraseña nueva (enlace del correo) ·
+ * `/verificar` confirmar el correo al registrarse (enlace del correo, FT-0016) · `*` 404.
  * Zona privada, dentro del marco con menú (`AppShell`): `/app` inicio · `/app/transacciones` registro y listado ·
  * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
  * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión ·
@@ -94,6 +96,7 @@ export default function App() {
             <Route path="/registro" element={<Register />} />
             <Route path="/recuperar" element={<ForgotPassword />} />
             <Route path="/restablecer" element={<ResetPassword />} />
+            <Route path="/verificar" element={<VerifyEmail />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/app/bienvenida" element={<Welcome />} />
               <Route element={<AppShell />}>

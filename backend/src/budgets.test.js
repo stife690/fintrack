@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/`.
@@ -55,13 +56,12 @@ async function withApi(fn) {
 
 /**
  * Registra un usuario nuevo y devuelve su access token.
- * @param {Api} api
  * @returns {Promise<string>}
  */
-async function newUserToken(api) {
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: 'clave-segura-1' },
+async function newUserToken() {
+  const body = await createVerifiedSession({
+    email: `u-${randomUUID()}${TEST_DOMAIN}`,
+    password: 'clave-segura-1',
   });
   return body.accessToken;
 }
@@ -89,7 +89,7 @@ test('todas las rutas de presupuestos exigen access token (401)', options, async
 
 test('crear devuelve 201 con la forma BudgetCreated del contrato', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const res = await createBudget(api, token);
     assert.equal(res.status, 201);
     assert.deepEqual(Object.keys(res.body).sort(), ['amount', 'category', 'id', 'month']);
@@ -104,7 +104,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       await createBudget(api, token);
       const repeated = await createBudget(api, token, { amount: 5 });
       assert.equal(repeated.status, 409);
@@ -118,7 +118,7 @@ test(
 
 test('solo se permiten categorías de gasto del catálogo (422)', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     for (const category of ['salario', 'no-existe']) {
       const res = await createBudget(api, token, { category });
       assert.equal(res.status, 422);
@@ -134,7 +134,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       await createBudget(api, token);
 
       const spend = (overrides) =>
@@ -175,7 +175,7 @@ test(
 
 test('sin ?month= se listan los del mes actual; un mes inválido da 422', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const current = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Bogota',
       year: 'numeric',
@@ -196,7 +196,7 @@ test('sin ?month= se listan los del mes actual; un mes inválido da 422', option
 });
 test('editar el monto recalcula el porcentaje y la alerta (REQ-017)', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const { body: budget } = await createBudget(api, token);
     await api('/transactions', {
       method: 'POST',
@@ -227,8 +227,8 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const owner = await newUserToken(api);
-      const intruder = await newUserToken(api);
+      const owner = await newUserToken();
+      const intruder = await newUserToken();
       const { body: budget } = await createBudget(api, owner);
 
       const list = await api(`/budgets?month=${MONTH}`, { token: intruder });
@@ -250,7 +250,7 @@ test(
 
 test('borrar responde 204, y después el presupuesto ya no existe (404)', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const { body: budget } = await createBudget(api, token);
 
     assert.equal((await api(`/budgets/${budget.id}`, { method: 'DELETE', token })).status, 204);
@@ -286,7 +286,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       await createBudget(api, token);
 
       const first = await registerExpense(api, token, { amount: 50000 });
@@ -307,7 +307,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       await createBudget(api, token);
 
       const income = await registerExpense(api, token, {
@@ -331,7 +331,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       await createBudget(api, token);
       await registerExpense(api, token, { amount: 90000 });
       const november = await registerExpense(api, token, { amount: 20000, date: '2026-11-02' });

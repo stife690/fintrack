@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { pool } from './config/db.js';
 
 // Pruebas contra la base real. Necesitan la columna `usuarios.nombre`
@@ -46,9 +47,9 @@ async function withAccount(fn) {
   };
   try {
     const email = `u-${randomUUID()}${TEST_DOMAIN}`;
-    const { body } = await api('/auth/register', {
-      method: 'POST',
-      body: { email, password: PASSWORD },
+    const body = await createVerifiedSession({
+      email,
+      password: PASSWORD,
     });
     await fn({ api, token: body.accessToken, email, password: PASSWORD });
   } finally {

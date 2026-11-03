@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 import { env } from './config/env.js';
 import { pool } from './config/db.js';
 
@@ -63,13 +64,12 @@ async function withApi(fn) {
 
 /**
  * Registra un usuario nuevo y devuelve su access token.
- * @param {Api} api
  * @returns {Promise<string>}
  */
-async function newUserToken(api) {
-  const { body } = await api('/auth/register', {
-    method: 'POST',
-    body: { email: `u-${randomUUID()}${TEST_DOMAIN}`, password: 'clave-segura-1' },
+async function newUserToken() {
+  const body = await createVerifiedSession({
+    email: `u-${randomUUID()}${TEST_DOMAIN}`,
+    password: 'clave-segura-1',
   });
   return body.accessToken;
 }
@@ -117,7 +117,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const res = await sync(api, token, null, [
         { op: 'create', localId: 'loc-1', transaction: expense() },
         { op: 'create', localId: 'loc-2', transaction: expense({ category: 'transporte' }) },
@@ -152,7 +152,7 @@ test(
 
 test('un create reenviado no se duplica: devuelve el mismo serverId', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const operation = { op: 'create', localId: 'loc-1', transaction: expense() };
     const first = await sync(api, token, null, [operation]);
     const again = await sync(api, token, null, [operation]);
@@ -169,7 +169,7 @@ test('creado sin categoría y sin IA disponible queda sin_clasificar', options, 
   env.aiApiKey = undefined;
   try {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const res = await sync(api, token, null, [
         { op: 'create', localId: 'loc-1', transaction: expense({ category: null }) },
       ]);
@@ -184,7 +184,7 @@ test('creado sin categoría y sin IA disponible queda sin_clasificar', options, 
 
 test('last-write-wins: gana el cambio más reciente (RN-07)', options, async () => {
   await withApi(async (api) => {
-    const token = await newUserToken(api);
+    const token = await newUserToken();
     const first = await sync(api, token, null, [
       { op: 'create', localId: 'loc-1', transaction: expense() },
     ]);
@@ -225,7 +225,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const first = await sync(api, token, null, [
         { op: 'create', localId: 'loc-1', transaction: expense() },
       ]);
@@ -257,7 +257,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
 
       // Dispositivo B sincroniza por primera vez: aún no hay nada.
       const deviceB = await sync(api, token, null, []);
@@ -287,7 +287,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const first = await sync(api, token, null, [
         { op: 'create', localId: 'loc-1', transaction: expense() },
       ]);
@@ -309,8 +309,8 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const owner = await newUserToken(api);
-      const intruder = await newUserToken(api);
+      const owner = await newUserToken();
+      const intruder = await newUserToken();
       const created = await sync(api, owner, null, [
         { op: 'create', localId: 'loc-1', transaction: expense() },
       ]);
@@ -337,7 +337,7 @@ test(
   options,
   async () => {
     await withApi(async (api) => {
-      const token = await newUserToken(api);
+      const token = await newUserToken();
       const res = await sync(api, token, null, [
         { op: 'create', localId: 'ok', transaction: expense() },
         { op: 'create', localId: 'mal', transaction: expense({ category: 'salario' }) },

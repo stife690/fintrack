@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { pool } from './config/db.js';
 import { RESET_TOKEN_MINUTES, requestPasswordReset } from './services/auth.service.js';
 import { hashRefreshToken } from './services/token.service.js';
+import { createVerifiedSession } from './verified-session.helper.js';
 
 // Estas pruebas usan la base de datos real: necesitan el esquema de `db/init/` (o el parche 004).
 // Si la tabla no existe se omiten con un aviso en vez de fallar.
@@ -77,8 +78,7 @@ test(
   async () => {
     await withApi(async (api) => {
       const email = newEmail();
-      const session = await api('/auth/register', { email, password: OLD_PASSWORD });
-      assert.equal(session.status, 201);
+      const session = await createVerifiedSession({ email, password: OLD_PASSWORD });
 
       const { token, mail } = await requestToken(email);
       assert.equal(mail.to, email);
@@ -108,7 +108,7 @@ test(
       const newLogin = await api('/auth/login', { email, password: NEW_PASSWORD });
       assert.equal(newLogin.status, 200);
 
-      const oldSession = await api('/auth/refresh', { refreshToken: session.body.refreshToken });
+      const oldSession = await api('/auth/refresh', { refreshToken: session.refreshToken });
       assert.equal(oldSession.status, 401, 'la sesión de antes del cambio quedó cerrada');
     });
   },
