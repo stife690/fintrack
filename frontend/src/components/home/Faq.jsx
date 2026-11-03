@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: '¿La IA ve mis datos personales?',
-    a: 'No. Solo recibe la descripción del gasto o totales agregados por categoría y mes. Nunca se le envía tu correo, tu identidad ni el detalle de tus transacciones.',
+    a: 'No. Solo recibe la descripción del gasto o totales agregados por categoría. Nunca se le envía tu correo, tu identidad ni el detalle de tus transacciones. Si registras por voz, el audio se envía a Groq únicamente para convertirlo en texto.',
   },
   {
     q: '¿Puedo exportar mis reportes?',

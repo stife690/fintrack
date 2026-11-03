@@ -7,7 +7,6 @@ import CoreFeatures from '@/components/home/CoreFeatures';
 import Highlights from '@/components/home/Highlights';
 import MobileApp from '@/components/home/MobileApp';
 import Security from '@/components/home/Security';
-import Testimonials from '@/components/home/Testimonials';
 import Faq from '@/components/home/Faq';
 import CallToAction from '@/components/home/CallToAction';
 import usePageTitle from '@/hooks/usePageTitle';
@@ -36,7 +35,6 @@ export default function Home() {
         <Highlights />
         <MobileApp />
         <Security />
-        <Testimonials />
         <Faq />
         <CallToAction />
       </main>
