@@ -1,5 +1,8 @@
 import { listCategories } from '../repositories/categories.repository.js';
-import { summarizeTransactions } from '../repositories/transactions.repository.js';
+import {
+  SAVINGS_CATEGORY,
+  summarizeTransactions,
+} from '../repositories/transactions.repository.js';
 import { todayIso } from './insights.service.js';
 import { periodRange } from './transactions.service.js';
 
@@ -17,6 +20,13 @@ const CDT_UNIT = '1';
  * simulador: verificar con la DIAN si cambia.
  */
 export const RETENCION_RENDIMIENTOS = 0.04;
+
+/**
+ * Redondeo a centavos: sumar decimales en JS deja residuos (0.1 + 0.2) que no deben llegar al modelo.
+ * @param {number} n
+ * @returns {number}
+ */
+const cents = (n) => Math.round(n * 100) / 100;
 
 /** Cuánto se guarda una respuesta de datos.gov.co: la TRM y las tasas cambian una vez al día. */
 const CACHE_MS = 60 * 60 * 1000;
@@ -92,13 +102,12 @@ export function summarizeCdtRates(rows) {
     ? items.reduce((acc, r) => acc + r.tasa * (r.monto > 0 ? r.monto : 0), 0) / weight
     : items.reduce((acc, r) => acc + r.tasa, 0) / items.length;
   const sorted = [...items].sort((a, b) => b.tasa - a.tasa);
-  const two = (n) => Math.round(n * 100) / 100;
   return {
     entidades: items.length,
-    promedio_ponderado: two(average),
-    minima: two(sorted.at(-1).tasa),
-    maxima: two(sorted[0].tasa),
-    mejores: sorted.slice(0, 5).map((r) => ({ entidad: r.entidad, tasa_ea: two(r.tasa) })),
+    promedio_ponderado: cents(average),
+    minima: cents(sorted.at(-1).tasa),
+    maxima: cents(sorted[0].tasa),
+    mejores: sorted.slice(0, 5).map((r) => ({ entidad: r.entidad, tasa_ea: cents(r.tasa) })),
   };
 }
 
@@ -148,8 +157,9 @@ export function createAssistantTools(userId, deps = {}) {
     {
       name: 'resumen_de_movimientos',
       description:
-        'Ingresos y gastos del usuario por categoría entre dos fechas (incluidas). Úsala para cualquier ' +
-        'pregunta sobre sus movimientos de un periodo: un mes, una semana, un año o un rango.',
+        'Ingresos, gastos y ahorro del usuario por categoría entre dos fechas (incluidas). Lo apartado ' +
+        'en Ahorro/Inversión va en "ahorro" y no cuenta como gasto. Úsala para cualquier pregunta sobre ' +
+        'sus movimientos de un periodo: un mes, una semana, un año o un rango.',
       parameters: {
         type: 'object',
         properties: {
@@ -168,15 +178,19 @@ export function createAssistantTools(userId, deps = {}) {
           summarize({ userId, from: desde, to: hasta, groupBy: 'month' }),
           categoryNames(),
         ]);
+        // El ahorro no es gasto: va en su propio tipo, igual que en Inicio.
+        const kind = (r) =>
+          r.type === 'gasto' && r.category === SAVINGS_CATEGORY ? 'ahorro' : r.type;
         const total = (type) =>
-          byCategory.filter((r) => r.type === type).reduce((acc, r) => acc + r.total, 0);
+          cents(byCategory.filter((r) => kind(r) === type).reduce((acc, r) => acc + r.total, 0));
         return {
           desde,
           hasta,
           ingresos: total('ingreso'),
           gastos: total('gasto'),
+          ahorro: total('ahorro'),
           por_categoria: byCategory.map((r) => ({
-            tipo: r.type,
+            tipo: kind(r),
             categoria: r.category ? (names.get(r.category) ?? r.category) : 'Sin clasificar',
             total: r.total,
           })),
@@ -186,7 +200,8 @@ export function createAssistantTools(userId, deps = {}) {
     {
       name: 'ahorro_promedio',
       description:
-        'Cuánto le sobra al usuario en promedio al mes (ingresos menos gastos) en sus últimos 3 meses ' +
+        'Cuánto le sobra al usuario en promedio al mes (ingresos menos gastos; lo apartado en ahorro ' +
+        'cuenta como sobrante) en sus últimos 3 meses ' +
         'completos. Úsala para saber cuánto podría ahorrar o invertir.',
       parameters: { type: 'object', properties: {} },
       async run() {
@@ -200,8 +215,9 @@ export function createAssistantTools(userId, deps = {}) {
           to: periodRange('month', lastMonth).to,
           groupBy: 'month',
         });
+        // Lo apartado en ahorro es justamente lo que sobró: no se resta del sobrante.
         const months = new Map();
-        for (const row of series) {
+        for (const row of series.filter((r) => !r.saving)) {
           const entry = months.get(row.date) ?? {
             mes: row.date.slice(0, 7),
             ingresos: 0,
@@ -210,7 +226,12 @@ export function createAssistantTools(userId, deps = {}) {
           entry[row.type === 'ingreso' ? 'ingresos' : 'gastos'] += row.total;
           months.set(row.date, entry);
         }
-        const list = [...months.values()].map((m) => ({ ...m, sobrante: m.ingresos - m.gastos }));
+        const list = [...months.values()].map((m) => ({
+          ...m,
+          ingresos: cents(m.ingresos),
+          gastos: cents(m.gastos),
+          sobrante: cents(m.ingresos - m.gastos),
+        }));
         if (list.length === 0)
           return { meses: [], nota: 'No hay movimientos en los últimos 3 meses completos' };
         const average = list.reduce((acc, m) => acc + m.sobrante, 0) / list.length;

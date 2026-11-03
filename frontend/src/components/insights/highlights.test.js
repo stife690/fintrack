@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { buildMonthHighlights } from '@/components/insights/highlights';
 
 const names = { alimentacion: 'Alimentación', transporte: 'Transporte' };
-const summary = (income, expenses) => ({
+const summary = (income, expenses, saved = 0) => ({
   income: { total: income, byCategory: [] },
   expense: {
     total: expenses.reduce((a, e) => a + e.total, 0),
     byCategory: expenses,
   },
+  savings: { total: saved },
 });
 const food = { category: 'alimentacion', total: 425000, percentage: 55.4 };
 const budget = (percentage, consumed, amount) => ({ category: 'alimentacion', percentage, consumed, amount });
@@ -35,6 +36,16 @@ describe('buildMonthHighlights', () => {
     expect(highlights[1].title).toBe('Tu mayor gasto: Alimentación');
     expect(highlights[1].detail).toMatch(/el 55 % de tus gastos/);
     expect(plain(highlights[2].title)).toMatch(/Te quedan \$ ?865\.000/);
+  });
+
+  it('lo que queda resta también lo apartado en ahorro, igual que el balance de Inicio', () => {
+    const [balance] = buildMonthHighlights({ summary: summary(1_500_000, [], 200_000), budgets: [], names });
+    expect(plain(balance.title)).toMatch(/Te quedan \$ ?1\.300\.000/);
+    expect(plain(balance.detail)).toMatch(/apartaste \$ ?200\.000 para ahorro/);
+  });
+
+  it('un mes con solo ahorro no se muestra como vacío', () => {
+    expect(buildMonthHighlights({ summary: summary(0, [], 200_000), budgets: [], names })).not.toEqual([]);
   });
 
   it('avisa si se pasó del presupuesto o si gastó más de lo que entró', () => {

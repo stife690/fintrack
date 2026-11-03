@@ -11,7 +11,8 @@ import { formatMoney } from '@/components/transactions/format';
 /**
  * Datos del mes hasta hoy para Insights mientras no hay un mes de historial (los consejos con IA
  * lo necesitan, REQ-021). Se calculan en el dispositivo con el resumen y los presupuestos, sin IA:
- * el presupuesto más cerca del límite, el mayor gasto y el balance. Sin movimientos, devuelve `[]`.
+ * el presupuesto más cerca del límite, el mayor gasto y el balance (que también resta lo apartado en
+ * ahorro). Sin movimientos, devuelve `[]`.
  *
  * @param {{ summary: import('@/services/summaryService').Summary, budgets: import('@/services/budgetService').Budget[], names: Record<string, string> }} data
  * @returns {Highlight[]}
@@ -19,7 +20,10 @@ import { formatMoney } from '@/components/transactions/format';
 export function buildMonthHighlights({ summary, budgets, names }) {
   const income = summary.income.total;
   const expense = summary.expense.total;
-  if (income === 0 && expense === 0) return [];
+  // Lo apartado en ahorro no es gasto, pero sí sale de lo que queda (igual que el balance de Inicio).
+  const saved = summary.savings.total;
+  const left = income - expense - saved;
+  if (income === 0 && expense === 0 && saved === 0) return [];
   const name = (key) => (key ? (names[key] ?? key) : 'Sin clasificar');
   const highlights = [];
 
@@ -74,19 +78,22 @@ export function buildMonthHighlights({ summary, budgets, names }) {
       title: `Llevas ${formatMoney(expense)} en gastos`,
       detail: 'Registra tus ingresos para ver cuánto te queda',
     });
-  } else if (income >= expense) {
+  } else if (left >= 0) {
     highlights.push({
       kind: 'balance',
       tone: 'positive',
-      title: `Te quedan ${formatMoney(income - expense)}`,
-      detail: `Entraron ${formatMoney(income)} y gastaste ${formatMoney(expense)}`,
+      title: `Te quedan ${formatMoney(left)}`,
+      detail:
+        saved > 0
+          ? `Entraron ${formatMoney(income)}, gastaste ${formatMoney(expense)} y apartaste ${formatMoney(saved)} para ahorro`
+          : `Entraron ${formatMoney(income)} y gastaste ${formatMoney(expense)}`,
     });
   } else {
     highlights.push({
       kind: 'balance',
       tone: 'negative',
-      title: 'Gastaste más de lo que entró',
-      detail: `${formatMoney(expense - income)} por encima de tus ingresos`,
+      title: saved > 0 ? 'Entre gastos y ahorro salió más de lo que entró' : 'Gastaste más de lo que entró',
+      detail: `${formatMoney(-left)} por encima de tus ingresos`,
     });
   }
 

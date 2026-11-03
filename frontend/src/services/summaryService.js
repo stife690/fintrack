@@ -108,7 +108,12 @@ export async function getSummary(period, date) {
     if (err.code !== 'NOT_FOUND') throw err;
     summary = await computeLocally(period, periodRange(period, date));
   }
-  // `?? 0`: si el frontend nuevo sale antes que el backend que manda `savings`.
+  // `?? 0`: si el frontend nuevo sale antes que el backend que manda `savings`. Se normaliza aquí
+  // para que ninguna pantalla tenga que repetir el caso.
   const saved = summary.savings?.total ?? 0;
-  return { ...summary, balance: cents(summary.income.total - summary.expense.total - saved) };
+  return {
+    ...summary,
+    savings: { total: saved },
+    balance: cents(summary.income.total - summary.expense.total - saved),
+  };
 }

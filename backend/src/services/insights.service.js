@@ -5,7 +5,7 @@ import {
   findInsights,
   saveInsights,
 } from '../repositories/insights.repository.js';
-import { summarizeTransactions } from '../repositories/transactions.repository.js';
+import { SAVINGS_CATEGORY, summarizeTransactions } from '../repositories/transactions.repository.js';
 import { completeText } from './ai-client.service.js';
 import { periodRange } from './transactions.service.js';
 
@@ -196,7 +196,8 @@ export function createInsightsService(deps = {}) {
    */
   async function totalsFor(userId, { from, to }) {
     const { byCategory } = await repo.summarizeTransactions({ userId, from, to, groupBy: 'month' });
-    const expenses = byCategory.filter((r) => r.type === 'gasto');
+    // El ahorro no es un gasto que recortar: no se le muestra a la IA como gasto.
+    const expenses = byCategory.filter((r) => r.type === 'gasto' && r.category !== SAVINGS_CATEGORY);
     const sum = (rows) => Math.round(rows.reduce((acc, r) => acc + r.total, 0) * 100) / 100;
     return {
       income: sum(byCategory.filter((r) => r.type === 'ingreso')),

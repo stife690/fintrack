@@ -13,6 +13,17 @@ describe('summaryService: el ahorro no es gasto', () => {
     listTransactions.mockReset();
   });
 
+  it('una API sin `savings` (backend anterior) deja el ahorro en 0', async () => {
+    apiRequest.mockResolvedValue({
+      income: { total: 100, byCategory: [] },
+      expense: { total: 40, byCategory: [] },
+      timeSeries: [],
+    });
+    const summary = await getSummary('month', '2026-11-03');
+    expect(summary.savings).toEqual({ total: 0 });
+    expect(summary.balance).toBe(60);
+  });
+
   it('el balance resta gastos y ahorro de lo que entró', async () => {
     apiRequest.mockResolvedValue({
       period: 'month',

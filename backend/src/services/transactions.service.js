@@ -1,6 +1,7 @@
 import { AppError } from '../errors/app-error.js';
 import { listCategories } from '../repositories/categories.repository.js';
 import {
+  SAVINGS_CATEGORY,
   findTransaction,
   insertTransaction,
   listTransactions,
@@ -12,12 +13,6 @@ import { findByLocalId } from '../repositories/sync.repository.js';
 import { resolveCategory } from './categorization.service.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Categoría de gasto que en realidad es plata apartada: no cuenta como gasto en el resumen,
- * en la analítica ni en Mi plata, pero sí sale del balance disponible.
- */
-export const SAVINGS_CATEGORY = 'ahorro_inversion';
 
 /**
  * @param {Date} date Fecha en UTC (solo importa el día).
@@ -266,13 +261,13 @@ export function createTransactionService(deps = {}) {
     };
 
     // Junta ingreso y gasto del mismo día (o mes) en un solo punto de la serie.
-    // La serie llega por categoría: se suman las del mismo tipo y se deja fuera el ahorro.
+    // El ahorro llega en su propia fila (`saving`) y se deja fuera de la serie.
     const points = new Map();
     for (const r of rows.series) {
-      if (isSaving(r)) continue;
+      if (r.saving) continue;
       const point = points.get(r.date) ?? { date: r.date, income: 0, expense: 0 };
-      if (r.type === 'ingreso') point.income = sumMoney([point.income, r.total]);
-      else point.expense = sumMoney([point.expense, r.total]);
+      if (r.type === 'ingreso') point.income = r.total;
+      else point.expense = r.total;
       points.set(r.date, point);
     }
 

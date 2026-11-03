@@ -440,6 +440,29 @@ test('GET /summary agrupa los gastos sin clasificar con category null', options,
   });
 });
 
+test('GET /summary aparta el ahorro: va en savings, no en gastos ni en la serie', options, async () => {
+  await withApi(async ({ api, alice }) => {
+    for (const [amount, category] of [
+      [200000, 'ahorro_inversion'],
+      [1000, 'transporte'],
+    ]) {
+      await api('/transactions', {
+        method: 'POST',
+        token: alice,
+        body: { ...GASTO, amount, category },
+      });
+    }
+
+    const res = await api('/transactions/summary?period=month&date=2026-10-12', { token: alice });
+    assert.deepEqual(res.body.expense, {
+      total: 1000,
+      byCategory: [{ category: 'transporte', total: 1000, percentage: 100 }],
+    });
+    assert.deepEqual(res.body.savings, { total: 200000 });
+    assert.deepEqual(res.body.timeSeries, [{ date: '2026-10-12', income: 0, expense: 1000 }]);
+  });
+});
+
 test('GET /summary suma centavos sin errores de redondeo', options, async () => {
   await withApi(async ({ api, alice }) => {
     // En categorías distintas: la suma final la hace JS (0.1 + 0.2 daría 0.30000000000000004).

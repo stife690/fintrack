@@ -1,7 +1,7 @@
 import { listMovements } from '../repositories/analytics.repository.js';
 import * as budgets from './budgets.service.js';
 import { todayIso } from './insights.service.js';
-import { SAVINGS_CATEGORY } from './transactions.service.js';
+import { SAVINGS_CATEGORY } from '../repositories/transactions.repository.js';
 
 /**
  * Analítica del mes (FT-0019): proyección de fin de mes, gastos hormiga, puntaje de salud

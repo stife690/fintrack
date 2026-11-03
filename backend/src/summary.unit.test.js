@@ -74,9 +74,9 @@ test('summary arma ingresos y gastos por categoría con porcentaje y une la seri
       { type: 'gasto', category: null, total: 100000.1 },
     ],
     series: [
-      { date: '2026-10-01', type: 'ingreso', category: 'salario', total: 1500000 },
-      { date: '2026-10-01', type: 'gasto', category: null, total: 100000.1 },
-      { date: '2026-10-05', type: 'gasto', category: 'alimentacion', total: 300000 },
+      { date: '2026-10-01', type: 'ingreso', saving: false, total: 1500000 },
+      { date: '2026-10-01', type: 'gasto', saving: false, total: 100000.1 },
+      { date: '2026-10-05', type: 'gasto', saving: false, total: 300000 },
     ],
   });
 
@@ -150,7 +150,7 @@ test('summary redondea los porcentajes a un decimal aunque no sumen exacto 100',
 test('summary con solo ingresos deja los gastos en 0 y la serie con expense 0', async () => {
   const { service } = serviceWith({
     byCategory: [{ type: 'ingreso', category: 'salario', total: 2000000 }],
-    series: [{ date: '2026-10-15', type: 'ingreso', category: 'salario', total: 2000000 }],
+    series: [{ date: '2026-10-15', type: 'ingreso', saving: false, total: 2000000 }],
   });
   const result = await service.summary('u1', { period: 'month', date: '2026-10-20' });
   assert.deepEqual(result.income, {
@@ -169,10 +169,9 @@ test('summary aparta el ahorro: no cuenta como gasto ni en el gráfico, va en sa
       { type: 'gasto', category: 'alimentacion', total: 50000 },
     ],
     series: [
-      { date: '2026-11-01', type: 'ingreso', category: 'salario', total: 3200000 },
-      { date: '2026-11-03', type: 'gasto', category: 'ahorro_inversion', total: 200000 },
-      { date: '2026-11-03', type: 'gasto', category: 'alimentacion', total: 30000 },
-      { date: '2026-11-03', type: 'gasto', category: null, total: 20000 },
+      { date: '2026-11-01', type: 'ingreso', saving: false, total: 3200000 },
+      { date: '2026-11-03', type: 'gasto', saving: true, total: 200000 },
+      { date: '2026-11-03', type: 'gasto', saving: false, total: 50000 },
     ],
   });
   const result = await service.summary('u1', { period: 'month', date: '2026-11-03' });
@@ -181,7 +180,7 @@ test('summary aparta el ahorro: no cuenta como gasto ni en el gráfico, va en sa
     byCategory: [{ category: 'alimentacion', total: 50000, percentage: 100 }],
   });
   assert.deepEqual(result.savings, { total: 200000 });
-  // Dos filas de gasto el mismo día se suman en un solo punto; el ahorro no entra.
+  // El ahorro llega en su propia fila de la serie y no entra en el gráfico.
   assert.deepEqual(result.timeSeries, [
     { date: '2026-11-01', income: 3200000, expense: 0 },
     { date: '2026-11-03', income: 0, expense: 50000 },

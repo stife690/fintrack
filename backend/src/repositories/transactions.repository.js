@@ -24,6 +24,12 @@ export const COLUMNS = `t.id, t.usuario_id AS "userId", t.monto::float8 AS amoun
 export const JOIN = 'LEFT JOIN categorias c ON c.id = t.categoria_id';
 
 /**
+ * Clave de la categoría de gasto que en realidad es plata apartada: no cuenta como gasto en el
+ * resumen, la analítica, Mi plata, el asistente ni los consejos, pero sí sale del balance.
+ */
+export const SAVINGS_CATEGORY = 'ahorro_inversion';
+
+/**
  * Inserta una transacción.
  * @param {{ userId: string, amount: number, description: string, type: 'ingreso'|'gasto', date: string, category: string|null, source: 'manual'|'ia'|'sin_clasificar' }} data
  * @returns {Promise<TransactionRecord>}
@@ -160,13 +166,13 @@ export async function softDeleteTransaction(id, userId) {
 
 /**
  * Suma los montos del usuario entre dos fechas (inclusive), sin contar las borradas.
- * Devuelve dos agrupaciones: por categoría (para la dona) y por día o mes y categoría (para las
- * barras; la categoría deja al servicio apartar el ahorro).
+ * Devuelve dos agrupaciones: por categoría (para la dona) y por día o mes (para las barras), con
+ * el ahorro (`SAVINGS_CATEGORY`) en su propia fila (`saving: true`) para que el servicio lo aparte.
  * Con `groupBy: 'month'` cada punto de la serie usa el día 1 del mes como fecha.
  * @param {{ userId: string, from: string, to: string, groupBy: 'day'|'month' }} range
  * @returns {Promise<{
  *   byCategory: Array<{ type: 'ingreso'|'gasto', category: string|null, total: number }>,
- *   series: Array<{ date: string, type: 'ingreso'|'gasto', category: string|null, total: number }>
+ *   series: Array<{ date: string, type: 'ingreso'|'gasto', saving: boolean, total: number }>
  * }>}
  */
 export async function summarizeTransactions({ userId, from, to, groupBy }) {
@@ -184,13 +190,14 @@ export async function summarizeTransactions({ userId, from, to, groupBy }) {
       params,
     ),
     pool.query(
-      `SELECT to_char(${bucket}, 'YYYY-MM-DD') AS date, t.tipo AS type, c.key AS category,
+      `SELECT to_char(${bucket}, 'YYYY-MM-DD') AS date, t.tipo AS type,
+              (c.key IS NOT DISTINCT FROM $4) AS saving,
               round(sum(t.monto), 2)::float8 AS total
        FROM transacciones t ${JOIN}
        WHERE ${where}
-       GROUP BY 1, t.tipo, c.key
+       GROUP BY 1, t.tipo, 3
        ORDER BY 1`,
-      params,
+      [...params, SAVINGS_CATEGORY],
     ),
   ]);
   return { byCategory: byCategory.rows, series: series.rows };

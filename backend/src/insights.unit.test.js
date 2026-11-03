@@ -46,6 +46,7 @@ function setup({ cached = null, first = '2026-08-01', answer = GOOD_ANSWER, aiEr
           byCategory: [
             { type: 'gasto', category: 'alimentacion', total: 300000 },
             { type: 'gasto', category: null, total: 50000 },
+            { type: 'gasto', category: 'ahorro_inversion', total: 400000 },
             { type: 'ingreso', category: 'salario', total: 2000000 },
           ],
           series: [],
@@ -163,6 +164,9 @@ test('con más de una semana y menos de un mes compara semana contra semana', as
   // Se guarda con el lunes de la semana: la semana siguiente se generan consejos nuevos.
   assert.equal(state.saved.month, '2026-10-19');
   assert.match(state.prompts[0], /Semana actual \(desde el lunes 2026-10-19/);
+  // El ahorro no cuenta como gasto: la IA no lo ve como un gasto que recortar.
+  assert.match(state.prompts[0], /Gastos totales: 350000/);
+  assert.doesNotMatch(state.prompts[0], /ahorro_inversion|400000/);
 });
 
 test('con exactamente un mes de historial sí genera', async () => {

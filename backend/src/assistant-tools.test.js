@@ -121,6 +121,7 @@ test('resumen_de_movimientos: solo totales por categoría, con nombres', async (
     byCategory: [
       { type: 'gasto', category: 'alimentacion', total: 300000 },
       { type: 'gasto', category: null, total: 50000 },
+      { type: 'gasto', category: 'ahorro_inversion', total: 100000 },
       { type: 'ingreso', category: 'salario', total: 2000000 },
     ],
   });
@@ -128,8 +129,11 @@ test('resumen_de_movimientos: solo totales por categoría, con nombres', async (
     desde: '2026-08-01',
     hasta: '2026-08-31',
   });
+  // El ahorro no es gasto: va aparte, igual que en Inicio.
   assert.equal(result.gastos, 350000);
+  assert.equal(result.ahorro, 100000);
   assert.equal(result.ingresos, 2000000);
+  assert.equal(result.por_categoria[2].tipo, 'ahorro');
   assert.deepEqual(result.por_categoria[1], {
     tipo: 'gasto',
     categoria: 'Sin clasificar',
@@ -151,10 +155,12 @@ test('resumen_de_movimientos: solo totales por categoría, con nombres', async (
 test('ahorro_promedio usa los 3 meses completos anteriores', async () => {
   const { tool, calls } = setup({
     series: [
-      { date: '2026-08-01', type: 'ingreso', total: 2000000 },
-      { date: '2026-08-01', type: 'gasto', total: 1500000 },
-      { date: '2026-09-01', type: 'ingreso', total: 2000000 },
-      { date: '2026-09-01', type: 'gasto', total: 1700000 },
+      { date: '2026-08-01', type: 'ingreso', saving: false, total: 2000000 },
+      { date: '2026-08-01', type: 'gasto', saving: false, total: 1500000 },
+      // Lo apartado en ahorro es justamente lo que sobró: no resta del sobrante.
+      { date: '2026-08-01', type: 'gasto', saving: true, total: 200000 },
+      { date: '2026-09-01', type: 'ingreso', saving: false, total: 2000000.1 },
+      { date: '2026-09-01', type: 'gasto', saving: false, total: 1700000.2 },
     ],
   });
   const result = await tool('ahorro_promedio').run({});
@@ -169,7 +175,7 @@ test('ahorro_promedio usa los 3 meses completos anteriores', async () => {
     result.meses.map((m) => [m.mes, m.sobrante]),
     [
       ['2026-08', 500000],
-      ['2026-09', 300000],
+      ['2026-09', 299999.9],
     ],
   );
 });
