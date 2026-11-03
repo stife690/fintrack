@@ -24,8 +24,8 @@ fácil de registrar el gasto y fácil de editarlo.
    movimientos, también sin conexión.
 3. Ver por tarjeta: **usado / cupo total, disponible, días para el pago** y las compras hechas con ella.
 4. **Registrar el pago** de la tarjeta: baja lo que se debe y libera cupo, pero **no cuenta como gasto**.
-5. **Actualizar con el banco**: reescribir el cupo disponible cuando FinTrack no cuadra; la
-   diferencia se muestra como intereses y cargos del banco.
+5. **Actualizar con el banco**: reescribir el cupo disponible cuando FinTrack no cuadra con el banco
+   (por intereses, cuota de manejo o una compra no anotada). Solo corrige el número.
 6. Una **tarjeta dibujada** según el tipo elegido (franquicia + nivel) con los últimos 4 dígitos y una
    animación sutil.
 
@@ -47,7 +47,8 @@ fácil de registrar el gasto y fácil de editarlo.
   diseños son propios, inspirados en el color del nivel; la franquicia se escribe como texto.
 - **Contar dos veces**: la compra cuenta como gasto el día que se hace; el pago de la tarjeta no.
 - Un flujo largo: si crear una tarjeta toma más de una pantalla, está mal.
-- Mostrar un número "exacto" que en realidad es inventado (intereses calculados por FinTrack).
+- Mostrar un número "exacto" que en realidad es inventado (intereses calculados por FinTrack): de
+  momento FinTrack no maneja intereses.
 
 ## Reglas de negocio (decididas con Nicolas)
 
@@ -75,6 +76,8 @@ disponible   = cupo_total − usado
 - Son **gastos normales**: cuentan en Inicio, presupuestos, Consejos y reportes, el día de la compra.
 - Llevan la tarjeta y el **número de cuotas** (1 por defecto, 1–48). En esta entrega las cuotas son
   informativas: se muestran en la compra ("a 3 cuotas"); no reparten el monto.
+- Una compra a **más de una cuota** muestra un asterisco pequeño con la nota *"Los intereses los
+  calcula tu banco a la fecha de corte."* FinTrack no calcula intereses. *(Decidido con Nicolas)*
 - Solo los **gastos** pueden llevar tarjeta (un ingreso no).
 - Un gasto con tarjeta **no resta de la plata en mano de Mi plata** (la plata sale cuando se paga la
   tarjeta), **pero sí cuenta para el gasto del día, el ritmo y las alertas** de Mi plata ("Puedes
@@ -94,18 +97,13 @@ disponible   = cupo_total − usado
 - **No es una transacción ni un gasto**: es un registro propio de la tarjeta.
 - Baja lo usado y **sí resta de la plata de Mi plata** (sale de tu cuenta).
 
-### Actualizar con el banco (intereses y cargos)
+### Actualizar con el banco
 
 - Botón "Actualizar con el banco": la persona escribe el **cupo disponible** que muestra el banco hoy
   y, opcional, el **total a pagar** y la **fecha límite** del extracto.
-- FinTrack compara el usado que calculaba con el real (`cupo_total − disponible_nuevo`):
-  - Si el real es **mayor**, la diferencia son **intereses y cargos del banco**: se registra como un
-    gasto "Intereses y cargos · Amex ••1234" en la categoría **Otros**, ligado a la tarjeta y con la
-    fecha de hoy, para que Inicio y Consejos reflejen ese costo. *(Decisión del diseño; ver "Por
-    revisar".)*
-  - Si es **menor** (por ejemplo, un pago que no se registró), solo se corrige la base, sin gasto.
-- Después del ajuste, la base vuelve a empezar: `deuda_base = usado_real`, `base_at = ahora`.
-- Total a pagar y fecha límite, si se dan, se muestran en la tarjeta hasta que pase la fecha.
+- FinTrack **solo corrige el número**: `deuda_base = cupo_total − disponible_nuevo`, `base_at = ahora`.
+  No crea ningún gasto de intereses. *(Decidido con Nicolas: de momento no se manejan intereses.)*
+- Total a pagar y fecha límite, si se dan, se muestran en la tarjeta y se sugieren en "Ya pagué".
 
 ### Fechas
 
@@ -145,12 +143,13 @@ disponible   = cupo_total − usado
 
 - Tarjeta dibujada grande + uso + próximo pago (y total a pagar del extracto si se dio).
 - Acciones: **Ya pagué**, **Actualizar con el banco**, Editar, Eliminar.
-- Lista de lo que movió la tarjeta desde la base: compras (con cuotas), pagos e intereses/cargos.
+- Lista de lo que movió la tarjeta desde la base: compras (con cuotas y su asterisco) y pagos.
 - Editar abre la misma hoja de crear, **sin** el campo "cupo disponible hoy": la deuda solo cambia
   con compras, pagos o "Actualizar con el banco". Si cambia el cupo total, la deuda se mantiene y
   cambia el disponible. *(Decisión del diseño)*
-- Eliminar pide confirmación y es un borrado suave: las compras, pagos e intereses conservan su
-  `tarjeta_id` apuntando a la tarjeta borrada, así Mi plata y los totales no saltan. En los
+- Eliminar pide confirmación y es un borrado suave: las compras y los pagos conservan su
+  `tarjeta_id` apuntando a la tarjeta borrada, así Mi plata y los totales no saltan. Borrar
+  solo la quita de la lista de tarjetas: ningún número cambia. En los
   movimientos la marca dice "Tarjeta eliminada". *(Decisión del diseño)*
 - Cambiar o quitar la tarjeta de un gasto viejo está permitido; mueve lo usado y Mi plata como es de
   esperar (un gasto que pasa a "Efectivo o débito" sí resta de la plata).
@@ -205,14 +204,14 @@ Parche nuevo `db/patches/014_tarjetas.sql` (el 013 ya existe) (idempotente, copi
 - `GET/POST /cards`, `GET/PATCH/DELETE /cards/:id`.
 - `POST /cards/:id/payments`, `DELETE /cards/:id/payments/:paymentId`.
 - `POST /cards/:id/sync-with-bank` { available, statementTotal?, statementDueDate? } → devuelve la
-  tarjeta y, si hubo, el gasto de intereses creado.
-- `GET /cards/:id/movements`: compras, pagos e intereses desde la base.
+  tarjeta actualizada.
+- `GET /cards/:id/movements`: compras y pagos desde la base.
 - Transacciones (`POST/PATCH /transactions` y `/sync/batch`) aceptan `card` (id o null) y
   `installments`.
 - La tarjeta se responde con `used`, `available`, `nextPaymentDate` y `daysToPayment` ya calculados.
 
 Capas según CONTRIBUTING: routes → controllers → services → repositories; errores con `AppError`;
-pruebas con `node --test` por cada regla (base, compras, pagos, ajuste con y sin intereses, ingreso
+pruebas con `node --test` por cada regla (base, compras, pagos, ajuste, ingreso
 con tarjeta rechazado, tarjeta de otro usuario rechazada).
 
 ## Sin conexión
@@ -222,8 +221,8 @@ con tarjeta rechazado, tarjeta de otro usuario rechazada).
   mostrar las chips.
 - Si un gasto hecho sin conexión trae una tarjeta que ya no existe o no es del usuario, `/sync/batch`
   **guarda el gasto sin tarjeta** (no se pierde lo que la persona anotó) y lo reporta como aviso, no
-  como rechazo. En `POST/PATCH /transactions` sí se responde 422. *(Decisión del diseño)*
-- Crear, editar, pagar y actualizar tarjetas requiere conexión en esta entrega *(decisión del
+  como rechazo. Después se le puede asignar una tarjeta desde Editar. En `POST/PATCH /transactions` sí se responde 422. *(Decisión del diseño)*
+- Crear, editar, pagar, actualizar y eliminar tarjetas requiere conexión en esta entrega *(decisión del
   diseño)*: se muestran deshabilitados con "Necesitas conexión".
 
 ## Mi plata
@@ -243,10 +242,9 @@ con tarjeta rechazado, tarjeta de otro usuario rechazada).
 
 ## Decisiones del diseño para que Nicolas las revise
 
-- La diferencia del ajuste se registra como gasto en "Otros" (no en una categoría nueva).
 - Línea compacta de tarjetas en Inicio.
 - Recordatorio push 3 días antes del pago, que se puede apagar.
 - Editar no permite cambiar el cupo disponible (eso es "Actualizar con el banco").
 - Borrar una tarjeta es suave: sus compras siguen ligadas y Mi plata no salta.
 - Un gasto sin conexión con una tarjeta que ya no existe se guarda sin tarjeta.
-- Tarjetas solo se crean, editan y pagan con conexión.
+- Tarjetas solo se crean, editan, pagan, actualizan y eliminan con conexión.
