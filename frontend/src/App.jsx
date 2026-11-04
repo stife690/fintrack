@@ -18,6 +18,7 @@ const Welcome = lazy(() => import('@/pages/app/Welcome'));
 const MiPlata = lazy(() => import('@/pages/app/MiPlata'));
 const Calendar = lazy(() => import('@/pages/app/Calendar'));
 const Month = lazy(() => import('@/pages/app/Month'));
+const Anotar = lazy(() => import('@/pages/app/Anotar'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const TransactionDetail = lazy(() => import('@/pages/app/TransactionDetail'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
@@ -117,6 +118,7 @@ export default function App() {
                 <Route path="/app/mi-plata" element={<MiPlata />} />
                 <Route path="/app/calendario" element={<Calendar />} />
                 <Route path="/app/mes" element={<Month />} />
+                <Route path="/app/anotar" element={<Anotar />} />
                 <Route path="/app/renta" element={<Renta />} />
                 <Route path="/app/invitar" element={<Invite />} />
                 <Route path="/app/planes" element={<Plans />} />
