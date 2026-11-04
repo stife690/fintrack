@@ -63,6 +63,8 @@ Variables de entorno en producción:
 - Activar RLS en las tablas del esquema `public`.
 - Los proyectos gratuitos de Supabase se pausan tras ~1 semana sin actividad; hay que reanudarlos desde el dashboard.
 
+Las tarjetas de crédito no necesitan variables de entorno nuevas: el parche `014` de la base de datos se aplica solo al arrancar el backend.
+
 Verificado el 28/09/2026 (FT-0010): frontend 200 HTML, `GET /health` ok, CORS desde el origen de Vercel y 404 con formato de error.
 
 ## Notificaciones push y plan gratuito de Render

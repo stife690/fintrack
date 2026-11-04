@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
+import CardsSummary from '@/components/dashboard/CardsSummary';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
 import HealthCard from '@/components/dashboard/HealthCard';
@@ -24,6 +25,7 @@ import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { periodLabel, todayIso } from '@/lib/period';
 import { listBudgets } from '@/services/budgetService';
+import { listCards } from '@/services/cardService';
 import { getMoneyPlan, getMoneyProfile } from '@/services/moneyProfileService';
 import { getSummary } from '@/services/summaryService';
 import { getCategories, listTransactions } from '@/services/transactionService';
@@ -80,6 +82,8 @@ export default function Dashboard() {
   const categories = useAsync(getCategories, []);
   const moneyProfile = useAsync(getMoneyProfile, [online]);
   const moneyPlan = useAsync(getMoneyPlan, [online]);
+  // Si falla la carga no hay datos y el resumen simplemente no aparece.
+  const cards = useAsync(listCards, [online]);
 
   const names = useMemo(() => {
     const all = categories.data ? [...categories.data.expense, ...categories.data.income] : [];
@@ -92,6 +96,7 @@ export default function Dashboard() {
   const { reload: reloadSummary } = summary;
   const { reload: reloadBudgets } = budgets;
   const { reload: reloadPlan } = moneyPlan;
+  const { reload: reloadCards } = cards;
 
   // Un movimiento nuevo desde la barra rápida (FT-0013): se recargan balance, últimos y presupuestos.
   useEffect(() => {
@@ -100,10 +105,11 @@ export default function Dashboard() {
       reloadSummary();
       reloadBudgets();
       reloadPlan();
+      reloadCards();
     };
     window.addEventListener(TRANSACTION_SAVED_EVENT, onSaved);
     return () => window.removeEventListener(TRANSACTION_SAVED_EVENT, onSaved);
-  }, [reloadRecent, reloadSummary, reloadBudgets, reloadPlan]);
+  }, [reloadRecent, reloadSummary, reloadBudgets, reloadPlan, reloadCards]);
 
   useEffect(() => {
     const onSync = ({ detail }) => {
@@ -113,12 +119,13 @@ export default function Dashboard() {
         reloadRecent();
         reloadSummary();
         reloadPlan();
+        reloadCards();
       }
     };
     listPending().then((ops) => setPending(ops.length));
     window.addEventListener(SYNC_EVENT, onSync);
     return () => window.removeEventListener(SYNC_EVENT, onSync);
-  }, [reloadRecent, reloadSummary, reloadPlan]);
+  }, [reloadRecent, reloadSummary, reloadPlan, reloadCards]);
 
   const name = getDisplayName(user);
   // `total` cuenta todos los movimientos del usuario, no solo los de la página pedida.
@@ -170,6 +177,7 @@ export default function Dashboard() {
               {welcomePending && <MoneyInvite onDone={moneyProfile.reload} />}
               <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
               {balanceCard}
+              <CardsSummary cards={cards.data} hidden={hidden} />
               {summary.error && online && (
                 <p role="alert" className="-mt-2 text-sm text-negative">
                   No pudimos calcular el balance: {summary.error}{' '}

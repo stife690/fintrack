@@ -12,6 +12,7 @@ import { getCurrentSubscription, isPushSupported } from '@/lib/push';
  * @typedef {object} ReminderSettings
  * @property {string[]} times Horas locales del recordatorio (HH:mm), ordenadas; vacío si está desactivado. Hasta 5.
  * @property {string} timezone Zona horaria IANA.
+ * @property {boolean} [cardReminders] Aviso 3 días antes del pago de cada tarjeta.
  */
 
 /**
