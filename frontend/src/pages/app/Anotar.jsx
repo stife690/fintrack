@@ -89,6 +89,8 @@ export default function Anotar() {
   const [allCategories, setAllCategories] = useState(false);
   const [voice, setVoice] = useState(false);
   const shownDone = useRef(false); // ya se vio "listo": volver atrás empieza de nuevo
+  const heading = useRef(null);
+  const firstStep = useRef(step);
   const { categories, names } = useCategoryNames();
   const cards = useAsync(listCards, []);
 
@@ -111,6 +113,26 @@ export default function Anotar() {
       if (step !== '1') setParams({}, { replace: true });
     }
   }, [step, form.amount, result, setParams]);
+
+  // Al cambiar de paso, el botón tocado desaparece: el foco pasa al título del paso nuevo (en el
+  // paso 2, al campo de descripción). Al abrir la pantalla no se mueve.
+  useEffect(() => {
+    if (step === firstStep.current) return;
+    firstStep.current = null;
+    heading.current?.focus();
+  }, [step]);
+
+  // En computador el monto también se escribe con el teclado.
+  useEffect(() => {
+    if (step !== '1' || voice) return undefined;
+    const onKey = (event) => {
+      if (event.target.closest('input, textarea, [contenteditable]') || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (/^[0-9]$/.test(event.key)) setForm((f) => ({ ...f, amount: pressKey(f.amount, event.key) }));
+      else if (event.key === 'Backspace') setForm((f) => ({ ...f, amount: pressKey(f.amount, 'borrar') }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step, voice]);
 
   const save = async () => {
     const { values, error: invalid } = toTransaction(form);
@@ -212,7 +234,7 @@ export default function Anotar() {
             value={form.type}
             onChange={(type) => set({ type, category: AI, card: CASH })}
           />
-          <h2 className="mt-7 text-[26px] font-semibold tracking-tight">{expense ? '¿Cuánto gastaste?' : '¿Cuánto te entró?'}</h2>
+          <h2 ref={heading} tabIndex={-1} className="mt-7 text-[26px] font-semibold tracking-tight outline-none">{expense ? '¿Cuánto gastaste?' : '¿Cuánto te entró?'}</h2>
           <p aria-live="polite" className={cn('mt-3 text-5xl font-semibold tracking-tight tabular-nums', !amount && 'text-ink/30')}>
             {formatMoney(amount)}
           </p>
@@ -227,7 +249,7 @@ export default function Anotar() {
                 key={key}
                 type="button"
                 onClick={() => set({ amount: pressKey(form.amount, key) })}
-                className="h-[60px] rounded-2xl text-[26px] font-medium transition-colors hover:bg-ink/5 active:bg-ink/10 focus-visible:outline-2 focus-visible:outline-violet"
+                className="h-[60px] touch-manipulation rounded-2xl text-[26px] font-medium transition-colors hover:bg-ink/5 active:bg-ink/10 focus-visible:outline-2 focus-visible:outline-violet"
               >
                 {key}
               </button>
@@ -236,7 +258,7 @@ export default function Anotar() {
               type="button"
               aria-label="Borrar"
               onClick={() => set({ amount: pressKey(form.amount, 'borrar') })}
-              className="grid h-[60px] place-items-center rounded-2xl transition-colors hover:bg-ink/5 active:bg-ink/10 focus-visible:outline-2 focus-visible:outline-violet"
+              className="grid h-[60px] touch-manipulation place-items-center rounded-2xl transition-colors hover:bg-ink/5 active:bg-ink/10 focus-visible:outline-2 focus-visible:outline-violet"
             >
               <Delete className="size-[26px]" aria-hidden="true" />
             </button>
@@ -320,7 +342,9 @@ export default function Anotar() {
 
       {step === '3' && (
         <>
-          <h2 className="mt-5 text-[26px] font-semibold tracking-tight">Revisa y guarda</h2>
+          <h2 ref={heading} tabIndex={-1} className="mt-5 text-[26px] font-semibold tracking-tight outline-none">
+            Revisa y guarda
+          </h2>
           <p className="mt-4 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{formatMoney(amount)}</p>
           <p className="mt-1 text-base text-ink/60">
             {form.description.trim()} · {categoryName}

@@ -122,7 +122,7 @@ export default function Budgets() {
             { onClick: () => (setEditing(null), showForm()), label: 'Crear límite', icon: Target },
           ]}
         />
-        <BudgetAlert budgets={budgets} names={categoryNames} />
+        <BudgetAlert budgets={budgets} names={categoryNames} linked={false} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">

@@ -20,7 +20,7 @@ export const hasBudgetAlert = (budgets) =>
  * Aviso destacado cuando algún presupuesto llegó al 80 %, se acabó o se pasó (RN-04).
  * @param {{ budgets: import('@/services/budgetService').Budget[], names: Record<string, string> }} props
  */
-export function BudgetAlert({ budgets, names }) {
+export function BudgetAlert({ budgets, names, linked = true }) {
   const atLimit = budgets.filter((b) => isAtLimit(b.alert));
   const exceeded = budgets.filter((b) => displayLevel(b.alert) === 'exceeded_100');
   const warning = budgets.filter((b) => b.alert.level === 'warning_80');
@@ -45,17 +45,26 @@ export function BudgetAlert({ budgets, names }) {
         : `${warning.length} presupuestos pasaron del 80 %.`;
   }
 
+  const tone = exceeded.length > 0 ? 'bg-negative/10 text-negative' : 'bg-caution/10 text-caution';
+  const content = (
+    <>
+      <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
+      <span className="flex-1">{message}</span>
+      {linked && <ChevronRight className="size-4 shrink-0" aria-hidden="true" />}
+    </>
+  );
+  // En la pantalla de Presupuestos no es enlace: llevaría a la misma pantalla.
+  if (!linked) return <p className={cn('flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-medium', tone)}>{content}</p>;
   return (
     <Link
       to="/app/presupuestos"
       className={cn(
         'flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-medium transition-colors',
-        exceeded.length > 0 ? 'bg-negative/10 text-negative hover:bg-negative/15' : 'bg-caution/10 text-caution hover:bg-caution/15',
+        tone,
+        exceeded.length > 0 ? 'hover:bg-negative/15' : 'hover:bg-caution/15',
       )}
     >
-      <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
-      <span className="flex-1">{message}</span>
-      <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+      {content}
     </Link>
   );
 }
