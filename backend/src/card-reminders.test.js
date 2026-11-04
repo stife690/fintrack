@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createReminderScheduler } from './services/reminder-scheduler.service.js';
+import {
+  createReminderScheduler,
+  debtReminderPayload,
+} from './services/reminder-scheduler.service.js';
 
 const CARD = {
   id: 'c1',
@@ -18,6 +21,7 @@ function setup(card = {}) {
   const sent = [];
   const cards = [{ ...CARD, ...card }];
   const scheduler = createReminderScheduler({
+    listDueDebts: async () => [],
     listCandidates: async () => [],
     listCardUsers: async () => [{ id: 'u1', timezone: 'America/Bogota', time: '09:00' }],
     listUserCards: async () => cards.map((c) => ({ ...c })),
@@ -69,6 +73,7 @@ test('sin nada que pagar no envía "Debes $0"', async () => {
 test('fuera de la hora del usuario no envía nada', async () => {
   const { scheduler, sent } = setup();
   const late = createReminderScheduler({
+    listDueDebts: async () => [],
     listCandidates: async () => [],
     listCardUsers: async () => [{ id: 'u1', timezone: 'America/Bogota', time: '20:00' }],
     listUserCards: async () => [CARD],
@@ -85,6 +90,7 @@ test('con cardReminders en false no hay usuarios que avisar', async () => {
   // El filtro vive en listCardReminderUsers (recordar_tarjetas); aquí se verifica que sin usuarios no se envía.
   const sent = [];
   const scheduler = createReminderScheduler({
+    listDueDebts: async () => [],
     listCandidates: async () => [],
     listCardUsers: async () => [],
     sendToUser: async (id, p) => sent.push([id, p]),
@@ -92,4 +98,48 @@ test('con cardReminders en false no hay usuarios que avisar', async () => {
   });
   await scheduler.tick();
   assert.equal(sent.length, 0);
+});
+
+test('una cuenta personal que vence mañana avisa una vez, a la hora del usuario', async () => {
+  const sent = [];
+  const marked = [];
+  const due = [
+    {
+      id: 'd1',
+      userId: 'u1',
+      timezone: 'America/Bogota',
+      time: '09:00',
+      kind: 'receivable',
+      person: 'Juan',
+      amount: 50000,
+    },
+    {
+      id: 'd2',
+      userId: 'u2',
+      timezone: 'America/Bogota',
+      time: '20:00',
+      kind: 'payable',
+      person: 'Ana',
+      amount: 12500,
+    },
+  ];
+  const scheduler = createReminderScheduler({
+    listCandidates: async () => [],
+    listCardUsers: async () => [],
+    listDueDebts: async () => due.filter((d) => !marked.includes(d.id)),
+    markDebtReminded: async (id) => marked.push(id),
+    sendToUser: async (id, payload) => sent.push([id, payload]),
+    now: () => new Date('2026-11-12T14:00:00Z'), // 09:00 en Bogotá
+    log: { info: () => {}, error: (m) => assert.fail(m) },
+  });
+  await scheduler.tick();
+  await scheduler.tick();
+  assert.deepEqual(sent, [
+    ['u1', { title: 'Te deben', body: 'Mañana Juan te debe pagar $50.000.', url: '/app/cuentas' }],
+  ]);
+  assert.deepEqual(debtReminderPayload(due[1]), {
+    title: 'Tienes que pagar',
+    body: 'Mañana vence lo que le debes a Ana: $12.500.',
+    url: '/app/cuentas',
+  });
 });
