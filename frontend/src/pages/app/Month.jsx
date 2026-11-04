@@ -43,7 +43,7 @@ export default function Month() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-5">
       <PageHeader title="Cómo va el mes" />
-      <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
+      <PeriodSelector stacked period={selected.period} date={selected.date} onChange={setSelected} />
 
       {summary.error ? (
         <p role="alert" className="text-sm text-negative">
@@ -65,7 +65,7 @@ export default function Month() {
         </Panel>
       )}
 
-      <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />
+      <ExpenseByCategory plain expense={current?.expense} names={names} hidden={hidden} />
 
       <Button asChild variant="soft" size="lg">
         <Link to="/app/mi-plata">Ver los movimientos</Link>

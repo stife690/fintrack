@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CreditCard, Loader2, Plus } from 'lucide-react';
 import CardForm from '@/components/cards/CardForm';
-import { paymentText } from '@/components/cards/cardFormat';
+import { dueText, paymentText } from '@/components/cards/cardFormat';
 import CreditCardArt from '@/components/cards/CreditCardArt';
 import CircleActions from '@/components/common/CircleActions';
 import Sheet from '@/components/common/Sheet';
@@ -12,16 +12,21 @@ import { MASK } from '@/components/dashboard/BalanceCard';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/components/transactions/format';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
+import { NETWORK_LABELS } from '@/lib/cardStyles';
+import { cn } from '@/lib/utils';
 import usePageTitle from '@/hooks/usePageTitle';
 import { createCard, listCards } from '@/services/cardService';
 
 
+const cardLabel = (card) => `${NETWORK_LABELS[card.network] ?? card.name} ••${card.last4}`;
+
 /**
  * Lista de tarjetas (o el estado vacío). Separada de la página para poder probarla sin red.
- * @param {{ cards: object[], online: boolean, hidden: boolean, onAdd: () => void }} props
+ * @param {{ cards: object[], online: boolean, hidden: boolean, onAdd: () => void, compact?: boolean }} props `compact`: filas del celular.
  */
-export function CardsList({ cards, online, hidden, onAdd }) {
+export function CardsList({ cards, online, hidden, onAdd, compact = false }) {
   const money = (n) => (hidden ? MASK : formatMoney(n));
   if (cards.length === 0) {
     return (
@@ -40,6 +45,42 @@ export function CardsList({ cards, online, hidden, onAdd }) {
       </Panel>
     );
   }
+  if (compact) {
+    return (
+      <section aria-labelledby="mis-tarjetas">
+        <h2 id="mis-tarjetas" className="text-lg font-semibold tracking-tight">
+          Mis tarjetas
+        </h2>
+        <ul className="mt-2 flex flex-col gap-2.5">
+          {cards.map((card) => {
+            const pct = card.limit > 0 ? Math.min(100, Math.round((card.used / card.limit) * 100)) : 0;
+            const soon = !card.paidThisCycle && card.daysToPayment <= 3;
+            return (
+              <li key={card.id}>
+                <Link
+                  to={`/app/tarjetas/${card.id}`}
+                  className="block rounded-2xl border border-ink/10 bg-surface p-3.5 focus-visible:outline-2 focus-visible:outline-violet"
+                >
+                  <span className="flex items-center justify-between gap-3 text-[15px]">
+                    <span className="min-w-0 truncate font-medium">{cardLabel(card)}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{money(card.used)}</span>
+                  </span>
+                  <span className={cn('mt-0.5 block text-[13px]', soon ? 'font-medium text-caution' : 'text-ink/70')}>{dueText(card)}</span>
+                  <span className="mt-2.5 block h-1.5 rounded-full bg-ink/10">
+                    <span className="block h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+                  </span>
+                  <span className="mt-1.5 block text-[13px] tabular-nums text-ink/70">
+                    Disponible {money(card.available)} de {money(card.limit)}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
+  }
+
   return (
     <ul aria-label="Mis tarjetas" className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
       {cards.map((card) => {
@@ -77,6 +118,7 @@ export function CardsList({ cards, online, hidden, onAdd }) {
 export default function Cards() {
   usePageTitle('Tarjetas');
   const online = useOnlineStatus();
+  const mobile = useMediaQuery('(width < 48rem)');
   const [hidden] = useHiddenAmounts();
   const [cards, setCards] = useState(null);
   const [error, setError] = useState('');
@@ -100,25 +142,30 @@ export default function Cards() {
     reload();
   };
 
+  const nextDue = cards?.filter((card) => !card.paidThisCycle).sort((a, b) => a.daysToPayment - b.daysToPayment)[0];
+
   return (
     <>
-      <PageHeader
-        title="Tarjetas"
-        description="Tu cupo, lo que debes y cuándo pagar."
-        actions={
-          <Button onClick={() => setSheet(true)} disabled={!online} className="max-md:hidden">
-            <Plus aria-hidden="true" /> Agregar tarjeta
-          </Button>
-        }
-      />
+      <div className="max-md:sr-only">
+        <PageHeader
+          title="Tarjetas"
+          description="Tu cupo, lo que debes y cuándo pagar."
+          actions={
+            <Button onClick={() => setSheet(true)} disabled={!online} className="max-md:hidden">
+              <Plus aria-hidden="true" /> Agregar tarjeta
+            </Button>
+          }
+        />
+      </div>
       {/* En el celular: cuánto se debe en total y las acciones en círculos. */}
       <div className="mb-5 flex flex-col gap-5 md:hidden">
         {cards?.length > 0 && (
           <div>
-            <p className="text-[15px] text-ink/60">Debes en total</p>
+            <p className="text-[15px] text-ink/70">Debes en total</p>
             <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">
               {hidden ? MASK : formatMoney(cards.reduce((sum, card) => sum + card.used, 0))}
             </p>
+            {nextDue && <p className="mt-2 text-[15px] font-medium text-caution">{dueText(nextDue).replace('Se paga', 'Próximo pago')}</p>}
           </div>
         )}
         <CircleActions
@@ -143,7 +190,7 @@ export default function Cards() {
           <Loader2 className="animate-spin" aria-hidden="true" /> Cargando…
         </p>
       ) : (
-        cards && <CardsList cards={cards} online={online} hidden={hidden} onAdd={() => setSheet(true)} />
+        cards && <CardsList compact={mobile} cards={cards} online={online} hidden={hidden} onAdd={() => setSheet(true)} />
       )}
       <Sheet open={sheet} title="Agregar tarjeta" onClose={() => setSheet(false)}>
         <CardForm disabled={!online} onSubmit={handleCreate} onCancel={() => setSheet(false)} />

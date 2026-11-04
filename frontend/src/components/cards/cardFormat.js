@@ -37,6 +37,17 @@ export function syncPreview({ limit, used }, available, money) {
  * @param {{ name: string, last4: string }} card
  * @returns {string}
  */
+/**
+ * Cuándo se paga, para los avisos: "Se paga en 3 días". Si ya se pagó o está atrasada, como `paymentText`.
+ * @param {{ daysToPayment: number, paidThisCycle: boolean }} card
+ * @returns {string}
+ */
+export function dueText(card) {
+  const { daysToPayment: days } = card;
+  if (card.paidThisCycle || days < 0) return paymentText(card);
+  return `Se paga ${days === 0 ? 'hoy' : days === 1 ? 'mañana' : `en ${days} días`}`;
+}
+
 export function cardMark({ name, last4 }) {
   return name.includes(`••${last4}`) ? name : `${name} ••${last4}`;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Crown, Download, Lightbulb, Loader2, LogOut, UserPlus } from 'lucide-react';
+import { Crown, Download, Lightbulb, Loader2, LogOut, UserPlus } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
@@ -12,7 +12,10 @@ import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import usePageTitle from '@/hooks/usePageTitle';
+import { getDisplayName, getInitial } from '@/lib/displayName';
+import Sheet from '@/components/common/Sheet';
 
 /** Lo que se abre desde Cuenta porque no se usa todos los días. */
 export const LINKS = [
@@ -52,8 +55,90 @@ function Group({ label, children }) {
  * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030), cierre de sesión y eliminar la
  * cuenta (FT-0017).
  */
+const ROW = 'flex min-h-[52px] w-full items-center justify-between gap-3 text-left text-[15px] font-medium focus-visible:outline-2 focus-visible:outline-violet';
+
+/** Grupo de filas del perfil en el celular. */
+function RowGroup({ label, children }) {
+  return (
+    <section aria-label={label} className="mt-6">
+      <h2 className="mb-2 text-sm font-medium text-ink/70">{label}</h2>
+      <div className="divide-y divide-ink/10 rounded-2xl border border-ink/10 bg-surface px-3.5">{children}</div>
+    </section>
+  );
+}
+
+/** Perfil en el celular: una lista corta; cada ajuste se abre en su propia hoja. */
+function MobileAccount({ onSignOut, leaving }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(null);
+  const row = (key, label) => (
+    <button type="button" className={ROW} onClick={() => setOpen(key)}>
+      {label}
+    </button>
+  );
+  const close = () => setOpen(null);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen('perfil')} className="flex items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-violet">
+        <span aria-hidden="true" className="grid size-14 place-items-center rounded-full bg-brand-soft text-[22px] font-semibold text-brand">
+          {getInitial(user)}
+        </span>
+        <h1 className="text-[28px] font-semibold tracking-tight">{getDisplayName(user) || 'Tu cuenta'}</h1>
+      </button>
+
+      <RowGroup label="Preferencias">
+        <NotificationBell asRow className={ROW} />
+        {row('alertas', 'Alertas y recordatorios')}
+        <Link to={LINKS[0].to} className={ROW}>
+          {LINKS[0].label}
+        </Link>
+        {row('categorias', 'Mis categorías')}
+        {row('apariencia', 'Apariencia')}
+        {row('whatsapp', 'Anotar por WhatsApp')}
+      </RowGroup>
+
+      <RowGroup label="FinTrack">
+        {LINKS.slice(1).map(({ to, label }) => (
+          <Link key={to} to={to} className={ROW}>
+            {label}
+          </Link>
+        ))}
+      </RowGroup>
+
+      <RowGroup label="Sesión">
+        <button type="button" className={ROW} onClick={onSignOut} disabled={leaving}>
+          {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
+        </button>
+        <button type="button" className={`${ROW} text-negative`} onClick={() => setOpen('eliminar')}>
+          Eliminar cuenta
+        </button>
+      </RowGroup>
+
+      <Sheet open={open === 'perfil'} title="Tu perfil" onClose={close}>
+        <ProfileCard />
+      </Sheet>
+      <Sheet open={open === 'alertas'} title="Alertas y recordatorios" onClose={close}>
+        <NotificationSettings />
+      </Sheet>
+      <Sheet open={open === 'categorias'} title="Mis categorías" onClose={close}>
+        <CustomCategories />
+      </Sheet>
+      <Sheet open={open === 'apariencia'} title="Apariencia" onClose={close}>
+        <ThemeSelector />
+      </Sheet>
+      <Sheet open={open === 'whatsapp'} title="Anotar por WhatsApp" onClose={close}>
+        <WhatsappLink />
+      </Sheet>
+      <Sheet open={open === 'eliminar'} title="Eliminar cuenta" onClose={close}>
+        <DeleteAccount />
+      </Sheet>
+    </>
+  );
+}
+
 export default function Account() {
   usePageTitle('Cuenta');
+  const mobile = useMediaQuery('(width < 48rem)');
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
@@ -64,39 +149,14 @@ export default function Account() {
     navigate('/login', { replace: true });
   };
 
+  if (mobile) return <MobileAccount onSignOut={handleSignOut} leaving={leaving} />;
+
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Cuenta" />
 
       <div className="flex flex-col gap-8">
         <ProfileCard />
-        {/* Desde tablet la campana está en el menú lateral. */}
-        <Panel className="p-1 md:hidden">
-          <NotificationBell label className="w-full pr-3" />
-        </Panel>
-
-        {/* Desde tablet están en el menú lateral, y Exportar en Movimientos. */}
-        <div className="md:hidden">
-          <Group label="Más">
-            <Panel className="divide-y divide-ink/10 p-0">
-              {LINKS.map(({ to, label, detail, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-3 p-4 transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-                >
-                  <Icon className="size-5 shrink-0 text-brand" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{label}</span>
-                    <span className="block text-sm text-ink/60">{detail}</span>
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-                </Link>
-              ))}
-            </Panel>
-          </Group>
-        </div>
-
         <Group label="Preferencias">
           <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
             <ThemeSelector />

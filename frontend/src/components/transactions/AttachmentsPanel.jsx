@@ -26,7 +26,7 @@ export function formatSize(bytes) {
  * muestra nada. Diseño básico; Nicolás lo pule en FT-0052.
  * @param {{ transactionId: string }} props
  */
-export default function AttachmentsPanel({ transactionId }) {
+export default function AttachmentsPanel({ transactionId, bare = false }) {
   const online = useOnlineStatus();
   const [state, setState] = useState({ status: 'loading' }); // loading | hidden | ready | error
   const [busy, setBusy] = useState(false);
@@ -98,7 +98,7 @@ export default function AttachmentsPanel({ transactionId }) {
   const full = state.status === 'ready' && state.items.length >= state.max;
 
   return (
-    <section aria-labelledby="soportes-title" className="mt-5 border-t border-ink/10 pt-5">
+    <section aria-labelledby="soportes-title" className={bare ? undefined : 'mt-5 border-t border-ink/10 pt-5'}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 id="soportes-title" className="flex items-center gap-2 font-semibold">
           <Paperclip className="size-4" aria-hidden="true" /> Soportes
