@@ -10,6 +10,12 @@ import { MAX_AMOUNT } from '@/lib/money';
 const INCOME_WORDS =
   /(?<!\p{L})(me pagaron|pagaron|recib[ií]|me consignaron|me dieron|me entr[oó]|me entraron|me transfirieron|me depositaron|me giraron|me abonaron|me devolvieron|gan[eé]|cobr[eé]|vend[ií]|salario|sueldo|prima|ingreso)(?!\p{L})/u;
 
+/**
+ * "Hice 38 mil", "hoy me hice 40.000": así cuenta lo que ganó quien trabaja por días (FT-0038). Solo
+ * si el monto va justo después; "hice mercado 80 mil" sigue siendo un gasto.
+ */
+const WORK_INCOME = /(?<!\p{L})(?:me\s+)?hice(?=\s+\$?\s?\d)/iu;
+
 /** Montos dichos solo con palabras, como se habla en Colombia. */
 const SPOKEN_AMOUNTS = [
   // Sin una cifra antes, pegada o no: en "30.000mil pesos" o "10 mil pesos", "mil pesos" no es otro monto.
@@ -100,7 +106,8 @@ export function parseSpokenTransaction(text, now = new Date()) {
     String((millions.toLowerCase() === 'un' ? 1 : Number(millions)) * 1e6 + Number(thousands) * 1e3),
   );
   const lower = said.toLowerCase();
-  const type = INCOME_WORDS.test(lower) ? 'ingreso' : 'gasto';
+  const workIncome = WORK_INCOME.test(lower);
+  const type = workIncome || INCOME_WORDS.test(lower) ? 'ingreso' : 'gasto';
 
   const found = [...lower.matchAll(NUMBER)].map((match) => ({
     text: match[0].trim(),
@@ -129,7 +136,8 @@ export function parseSpokenTransaction(text, now = new Date()) {
   const options = amount ? (total ? [amount, total] : [amount]) : [];
 
   // Solo se quita el número usado como monto: "2 almuerzos de 12 mil" → "2 almuerzos".
-  let description = biggest ? said.replace(new RegExp(escapeRegExp(biggest.text), 'i'), ' ') : said;
+  let description = workIncome ? said.replace(WORK_INCOME, ' ') : said;
+  if (biggest) description = description.replace(new RegExp(escapeRegExp(biggest.text), 'i'), ' ');
   description = description.replace(FILLER, ' ').replace(/\s+/g, ' ').replace(EDGE_PUNCTUATION, '').slice(0, 200);
   if (description) description = description[0].toUpperCase() + description.slice(1);
   else if (type === 'ingreso') description = 'Pago recibido';

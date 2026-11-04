@@ -9,6 +9,16 @@ describe('parseSpokenTransaction', () => {
     expect(parseSpokenTransaction('$45.900 en Éxito')).toMatchObject({ amount: 45900, description: 'Éxito' });
   });
 
+  it('"hice" + monto es lo que ganó; "hice mercado" sigue siendo gasto (FT-0038)', () => {
+    expect(parseSpokenTransaction('hice 38 mil')).toMatchObject({ type: 'ingreso', amount: 38000, description: 'Pago recibido' });
+    expect(parseSpokenTransaction('hoy me hice 40.000 en domicilios')).toMatchObject({
+      type: 'ingreso',
+      amount: 40000,
+      description: 'Domicilios',
+    });
+    expect(parseSpokenTransaction('hice mercado 80 mil')).toMatchObject({ type: 'gasto', description: 'Hice mercado' });
+  });
+
   it('acepta millones con coma o punto decimal', () => {
     expect(parseSpokenTransaction('me pagaron 1,2 millones').amount).toBe(1_200_000);
     expect(parseSpokenTransaction('me pagaron 1.2 millones').amount).toBe(1_200_000);
