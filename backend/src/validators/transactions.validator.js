@@ -7,6 +7,8 @@ const MAX_PAGE_SIZE = 100;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TYPES = ['ingreso', 'gasto'];
 const PERIODS = ['week', 'month', 'year'];
+const MAX_INSTALLMENTS = 48;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isValidPeriod(value) {
   return PERIODS.includes(value);
@@ -102,6 +104,25 @@ function readFields(body, details) {
     }
   }
 
+  // `card` es el id de la tarjeta (o `null` para quitarla); si es de otro usuario lo decide el servicio.
+  if ('card' in body) {
+    if (body.card === null) out.card = null;
+    else if (typeof body.card === 'string' && UUID_RE.test(body.card)) out.card = body.card;
+    else details.push({ field: 'card', problem: 'Debe ser el id de una tarjeta' });
+  }
+
+  if ('installments' in body && body.installments !== null) {
+    const n = body.installments;
+    if (!Number.isInteger(n) || n < 1 || n > MAX_INSTALLMENTS) {
+      details.push({
+        field: 'installments',
+        problem: `Debe ser un entero entre 1 y ${MAX_INSTALLMENTS}`,
+      });
+    } else {
+      out.installments = n;
+    }
+  }
+
   return out;
 }
 
@@ -142,7 +163,7 @@ export function parseCreateTransaction(body) {
  */
 export function parseUpdateTransaction(body) {
   const source = body && typeof body === 'object' ? body : {};
-  const known = ['amount', 'description', 'type', 'date', 'category'];
+  const known = ['amount', 'description', 'type', 'date', 'category', 'card', 'installments'];
   const details = [];
   if (!known.some((field) => field in source)) {
     details.push({ field: 'body', problem: 'Envía al menos un campo para modificar' });

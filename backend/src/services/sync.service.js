@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import { AppError } from '../errors/app-error.js';
+import { findCard } from '../repositories/cards.repository.js';
 import { listCategories } from '../repositories/categories.repository.js';
 import * as repo from '../repositories/sync.repository.js';
 import { resolveCategory } from './categorization.service.js';
@@ -16,6 +17,7 @@ import * as transactions from './transactions.service.js';
  *   Operaciones aplicadas sin conflicto. Los `create` y `update` traen la transacción guardada,
  *   porque no vuelven en `serverChanges` y el dispositivo necesita la categoría que le quedó.
  * @property {Array<{ localId: string, serverId: string, resolution: 'server_wins'|'client_wins', serverVersion: TransactionRecord|null }>} conflicts Operaciones que chocaron con un cambio del servidor.
+ * @property {Array<{ localId: string, code: 'cardDropped' }>} notices Cosas que el servidor ajustó para no perder lo digitado offline (p. ej. una tarjeta que ya no vale).
  * @property {TransactionRecord[]} serverChanges Lo que cambió en el servidor desde `lastSyncedAt`.
  * @property {Date} syncedAt Hora del servidor para la próxima sincronización.
  */
@@ -49,16 +51,38 @@ async function assertCategories(userId, operations, current) {
 }
 
 /**
+ * Si la transacción trae una tarjeta que no sirve (ajena, borrada, inexistente o no es un gasto),
+ * la quita junto con las cuotas y avisa, en vez de rechazar lo que el usuario digitó offline.
+ * @param {string} userId
+ * @param {string} localId
+ * @param {object} transaction
+ * @param {'ingreso'|'gasto'|undefined} type Tipo con el que quedará la transacción.
+ * @param {Array<{ localId: string, code: string }>} notices Se le agrega el aviso si hubo descarte.
+ * @returns {Promise<object>} La misma transacción, o una copia sin `card` ni `installments` (en un update la tarjeta actual queda como estaba).
+ */
+async function dropInvalidCard(userId, localId, transaction, type, notices) {
+  if (!transaction.card) return transaction;
+  if (type === 'gasto' && (await findCard(transaction.card, userId))) return transaction;
+  notices.push({ localId, code: 'cardDropped' });
+  const rest = { ...transaction };
+  delete rest.card;
+  delete rest.installments;
+  return rest;
+}
+
+/**
  * Aplica un `create` sin duplicar: si ese `localId` ya existe, devuelve la que ya estaba.
  * La IA solo se usa mientras quede cupo (`aiQuota.left`); sin cupo queda `sin_clasificar`.
  * @param {string} userId
  * @param {SyncOperation} operation
  * @param {{ left: number }} aiQuota Se descuenta cada vez que se consulta a la IA.
+ * @param {Array<{ localId: string, code: string }>} notices
  * @returns {Promise<TransactionRecord>}
  */
-async function applyCreate(userId, { localId, transaction }, aiQuota) {
+async function applyCreate(userId, { localId, transaction: input }, aiQuota, notices) {
   const existing = await repo.findByLocalId(userId, localId);
   if (existing) return existing;
+  const transaction = await dropInvalidCard(userId, localId, input, input.type, notices);
 
   let decided = { category: null, source: 'sin_clasificar' };
   if (transaction.category) {
@@ -82,9 +106,10 @@ async function applyCreate(userId, { localId, transaction }, aiQuota) {
  * @param {TransactionRecord|null} current Versión actual en el servidor.
  * @param {Date|null} lastSyncedAt
  * @param {Set<string>} touched Ids ya modificados por este mismo lote: no cuentan como cambio del servidor.
+ * @param {Array<{ localId: string, code: string }>} notices
  * @returns {Promise<{ synced?: { localId: string, serverId: string, transaction?: TransactionRecord }, conflict?: object, touched?: string }>}
  */
-async function applyChange(userId, operation, current, lastSyncedAt, touched) {
+async function applyChange(userId, operation, current, lastSyncedAt, touched, notices) {
   const { localId, serverId } = operation;
 
   // No existe o es de otro usuario (RN-01): se le pide al dispositivo descartar el cambio.
@@ -113,7 +138,14 @@ async function applyChange(userId, operation, current, lastSyncedAt, touched) {
   // En `update` se devuelve la versión final: el servidor pudo recalcular la categoría con IA.
   let transaction;
   if (operation.op === 'update') {
-    transaction = await transactions.update(userId, serverId, operation.transaction);
+    const changes = await dropInvalidCard(
+      userId,
+      localId,
+      operation.transaction,
+      operation.transaction.type ?? current.type,
+      notices,
+    );
+    transaction = await transactions.update(userId, serverId, changes);
   } else {
     await transactions.remove(userId, serverId);
   }
@@ -151,18 +183,19 @@ export async function syncBatch(userId, { lastSyncedAt, operations }) {
   // Fase 2: aplicar en orden.
   const synced = [];
   const conflicts = [];
+  const notices = [];
   const touched = new Set();
   const aiQuota = { left: env.syncAiMax };
 
   for (const operation of operations) {
     if (operation.op === 'create') {
-      const record = await applyCreate(userId, operation, aiQuota);
+      const record = await applyCreate(userId, operation, aiQuota, notices);
       synced.push({ localId: operation.localId, serverId: record.id, transaction: record });
       touched.add(record.id);
     } else {
       // Se vuelve a leer: una operación anterior del lote pudo cambiarla.
       const latest = await repo.findForSync(operation.serverId, userId);
-      const result = await applyChange(userId, operation, latest, lastSyncedAt, touched);
+      const result = await applyChange(userId, operation, latest, lastSyncedAt, touched, notices);
       if (result.synced) synced.push(result.synced);
       if (result.conflict) conflicts.push(result.conflict);
       if (result.touched) touched.add(result.touched);
@@ -172,5 +205,5 @@ export async function syncBatch(userId, { lastSyncedAt, operations }) {
   // Fase 3: lo que cambió en el servidor (otros dispositivos), sin lo de este lote.
   const syncedAt = await repo.getServerTime();
   const serverChanges = await repo.listChangedSince(userId, lastSyncedAt, [...touched]);
-  return { synced, conflicts, serverChanges, syncedAt };
+  return { synced, conflicts, serverChanges, syncedAt, notices };
 }

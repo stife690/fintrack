@@ -72,7 +72,11 @@ export default function NotificationSettings() {
     setNotice('');
     setSaving(true);
     try {
-      const settings = await saveReminderSettings({ times: nextTimes, timezone });
+      const settings = await saveReminderSettings({
+        times: nextTimes,
+        timezone,
+        cardReminders: saved?.cardReminders,
+      });
       setSaved(settings);
       setTimes(settings.times.length > 0 ? settings.times : [SUGGESTED_TIMES[0]]);
       // `formatTime` ya termina en punto ("p. m."), así que el mensaje no agrega otro.
@@ -83,6 +87,26 @@ export default function NotificationSettings() {
         settings.times.length === 0
           ? 'Recordatorio desactivado.'
           : `Listo: te recordaremos todos los días a las ${list}${list.endsWith('.') ? '' : '.'}`,
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Activa o desactiva el aviso de pago de tarjetas sin tocar las horas guardadas. */
+  const toggleCardReminders = async () => {
+    setError('');
+    setNotice('');
+    setSaving(true);
+    try {
+      setSaved(
+        await saveReminderSettings({
+          times: saved.times,
+          timezone: saved.timezone,
+          cardReminders: !saved.cardReminders,
+        }),
       );
     } catch (err) {
       setError(err.message);
@@ -230,6 +254,32 @@ export default function NotificationSettings() {
             {error}
           </p>
         )}
+      </Card>
+
+      <Card title="Pago de tarjetas">
+        <div className="flex items-center justify-between gap-4">
+          <p id="card-reminders-label" className="text-ink/60">
+            Te avisamos 3 días antes del día de pago de cada tarjeta.
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={saved?.cardReminders ?? false}
+            aria-labelledby="card-reminders-label"
+            onClick={toggleCardReminders}
+            disabled={loading || !saved || saving}
+            className="grid size-11 shrink-0 place-items-center disabled:opacity-50"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-6 w-11 items-center rounded-full p-0.5 transition-colors ${saved?.cardReminders ? 'bg-primary' : 'bg-ink/20'}`}
+            >
+              <span
+                className={`size-5 rounded-full bg-white transition-transform ${saved?.cardReminders ? 'translate-x-5' : ''}`}
+              />
+            </span>
+          </button>
+        </div>
       </Card>
 
       {notice && (

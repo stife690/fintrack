@@ -23,6 +23,7 @@ import {
   queueUpdate,
   uncacheTransaction,
 } from '@/offline/sync';
+import { listCards } from '@/services/cardService';
 import { TRANSACTION_SAVED_EVENT, saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
   CATEGORIES_CHANGED_EVENT,
@@ -39,7 +40,7 @@ const PAGE_SIZE = 10;
  * Calcula qué campos cambiaron al editar. Si el usuario deja la categoría en
  * "Que la IA la sugiera" se envía `category: null` y la API vuelve a categorizar.
  * @param {import('@/services/transactionService').Transaction} initial
- * @param {{ type: string, amount: number, description: string, date: string, category: string|null }} values
+ * @param {{ type: string, amount: number, description: string, date: string, category: string|null, card: string|null, installments: number|null }} values
  * @returns {Partial<typeof values>}
  */
 function diff(initial, values) {
@@ -48,6 +49,10 @@ function diff(initial, values) {
     if (values[field] !== initial[field]) changes[field] = values[field];
   }
   if (values.category !== initial.category) changes.category = values.category;
+  // Una tarjeta eliminada cuenta como "sin tarjeta": el formulario no la ofrece.
+  const wasCard = initial.card && !initial.card.deleted ? initial.card.id : null;
+  if (values.card !== wasCard) changes.card = values.card;
+  if (values.installments !== (wasCard ? initial.installments : null)) changes.installments = values.installments;
   return changes;
 }
 
@@ -145,6 +150,7 @@ export default function Transactions() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState(null);
   const [categories, setCategories] = useState({ expense: [], income: [] });
+  const [cards, setCards] = useState([]); // tarjetas para "Pagado con"
   const [filters, setFilters] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState({ data: [], total: 0 });
@@ -179,6 +185,13 @@ export default function Transactions() {
     getCategories()
       .then(setCategories)
       .catch((err) => setError(err.message));
+  }, []);
+
+  // Sin tarjetas (o sin red ni copia) la fila "Pagado con" simplemente no aparece.
+  useEffect(() => {
+    listCards()
+      .then(setCards)
+      .catch(() => {});
   }, []);
 
   // Una categoría creada, editada o eliminada desde el formulario se refleja sin volver a pedirlas.
@@ -265,6 +278,10 @@ export default function Transactions() {
       }
       // Conflicto (otro dispositivo cambió el mismo movimiento): la copia ya tiene la versión final.
       if (detail.conflicts?.length && !detail.synced?.length) reload();
+      // El gasto se guardó, pero su tarjeta ya no existía.
+      if (detail.notices?.some((n) => n.code === 'cardDropped')) {
+        setNotice('Guardamos el gasto sin tarjeta: esa tarjeta ya no existe. Puedes asignarle una al editarlo.');
+      }
       if (detail.rejected?.length) {
         setError('Un movimiento guardado sin conexión no se pudo sincronizar. Revísalo en "Pendientes de sincronizar".');
       }
@@ -289,7 +306,7 @@ export default function Transactions() {
           updated = await updateTransaction(editing.id, changes);
         } catch (err) {
           if (err.code !== 'NETWORK_ERROR') throw err;
-          await queueUpdate(editing, changes);
+          await queueUpdate(editing, changes, cards.find((c) => c.id === changes.card));
           setBudgetAlert({ alert: null, category: null });
           setNotice('Cambios guardados sin conexión. Se sincronizarán cuando vuelva internet.');
           setEditing(null);
@@ -380,6 +397,7 @@ export default function Transactions() {
           )}
           <TransactionForm
             categories={categories}
+            cards={cards}
             initial={editing}
             defaultType={defaultType}
             autoFocus={Boolean(quickType)}

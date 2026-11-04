@@ -7,6 +7,7 @@ import usersRoutes from './routes/users.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import transactionsRoutes from './routes/transactions.routes.js';
 import budgetsRoutes from './routes/budgets.routes.js';
+import cardsRoutes from './routes/cards.routes.js';
 import syncRoutes from './routes/sync.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
@@ -92,6 +93,7 @@ export function createApp() {
   app.use('/api/v1/categories', categoriesRoutes);
   app.use('/api/v1/transactions', transactionsRoutes);
   app.use('/api/v1/budgets', budgetsRoutes);
+  app.use('/api/v1/cards', cardsRoutes);
   app.use('/api/v1/push', pushRoutes);
   app.use('/api/v1/insights', insightsRoutes);
   app.use('/api/v1/analytics', analyticsRoutes);

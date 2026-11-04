@@ -12,12 +12,13 @@
  */
 import { db } from './db';
 import { clearVacaCache, flushContributions } from './vacaQueue';
+import { clearCardCache } from './cardCache';
 import { apiRequest } from '@/lib/apiRequest';
 import { plainText } from '@/lib/plainText';
 import { getSession } from '@/auth/tokenStorage';
 
 /**
- * Evento en `window`: `detail` es `{ pending, syncing, synced?, rejected?, conflicts? }`.
+ * Evento en `window`: `detail` es `{ pending, syncing, synced?, rejected?, conflicts?, notices? }`.
  * `conflicts` trae lo que resolvió el servidor (`server_wins`/`client_wins`, con `serverVersion`).
  */
 export const SYNC_EVENT = 'fintrack:sync';
@@ -32,6 +33,8 @@ const FIELD_LABELS = {
   type: 'Tipo',
   date: 'Fecha',
   category: 'Categoría',
+  card: 'Tarjeta',
+  installments: 'Cuotas',
   serverId: 'Movimiento',
   updatedAt: 'Hora del cambio',
 };
@@ -90,7 +93,7 @@ async function requestBackgroundSync() {
 
 /**
  * Guarda en el dispositivo un movimiento registrado sin conexión.
- * @param {{ amount: number, description: string, type: string, date: string, category?: string|null }} values
+ * @param {{ amount: number, description: string, type: string, date: string, category?: string|null, card?: string|null, installments?: number|null }} values
  * @param {string} [localId] El que ya se usó en un `POST /transactions` que falló, para no duplicar.
  * @returns {Promise<import('./db').PendingOperation>}
  */
@@ -102,7 +105,7 @@ export async function queueCreate(values, localId = crypto.randomUUID()) {
     localId,
     userId,
     op: 'create',
-    transaction: { ...values, category: values.category ?? null },
+    transaction: { ...values, category: values.category ?? null, card: values.card ?? null, installments: values.installments ?? null },
     createdAt: new Date().toISOString(),
   };
   await db.pending.add(operation);
@@ -115,16 +118,17 @@ export async function queueCreate(values, localId = crypto.randomUUID()) {
  * Guarda una edición hecha sin conexión y la aplica de una vez a la copia local.
  * Varias ediciones del mismo movimiento se juntan en una sola operación.
  * @param {import('./db').CachedTransaction} current Cómo está el movimiento ahora.
- * @param {object} changes Solo los campos que cambian.
+ * @param {object} changes Solo los campos que cambian (`card` es el id de la tarjeta o `null`).
+ * @param {object|null} [previewCard] Datos de la tarjeta nueva (`{ id, name, last4, deleted }`) para mostrarla en la copia local.
  * @returns {Promise<void>}
  */
-export async function queueUpdate(current, changes) {
+export async function queueUpdate(current, changes, previewCard = null) {
   const userId = currentUserId();
   if (!userId) throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
 
   // Sin categoría la IA la sugiere al sincronizar; mientras tanto se ve "Sin clasificar".
   const source = 'category' in changes ? (changes.category ? 'manual' : 'sin_clasificar') : current.source;
-  const preview = { ...current, ...changes, source };
+  const preview = { ...current, ...changes, ...('card' in changes && { card: previewCard }), source };
   const updatedAt = new Date().toISOString();
   // Se junta con una edición anterior solo si no se está enviando: si no, el servidor confirmaría
   // la versión vieja y se borraría de la cola con el cambio nuevo adentro.
@@ -270,6 +274,7 @@ export async function clearCachedHistory(userId) {
   await db.transactions.where('userId').equals(userId).delete();
   await db.meta.delete(`lastSyncedAt:${userId}`);
   await clearVacaCache(userId);
+  await clearCardCache(userId);
 }
 
 /**
@@ -398,7 +403,9 @@ async function sendBatch(userId, queue, metaKey, lastSyncedAt) {
     }
   });
   if (confirmed.length > 0) {
-    await announce({ synced: result.synced, ...(conflicts.length && { conflicts }) });
+    // `notices`: avisos del servidor, p. ej. 'cardDropped' (la tarjeta del gasto ya no existía).
+    const notices = result.notices ?? [];
+    await announce({ synced: result.synced, ...(conflicts.length && { conflicts }), ...(notices.length && { notices }) });
   }
 
   // Si había más de un lote, se envía el siguiente.

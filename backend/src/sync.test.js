@@ -125,6 +125,7 @@ test(
       assert.equal(res.status, 200);
       assert.deepEqual(Object.keys(res.body).sort(), [
         'conflicts',
+        'notices',
         'serverChanges',
         'synced',
         'syncedAt',
@@ -352,3 +353,42 @@ test(
     });
   },
 );
+
+test('sync: una tarjeta inválida se descarta con aviso y el gasto se guarda', options, async () => {
+  await withApi(async (api) => {
+    const token = await newUserToken();
+    const userId = JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).sub;
+    const { rows } = await pool.query(
+      `INSERT INTO tarjetas (usuario_id, nombre, franquicia, nivel, ultimos4, cupo_total, dia_pago)
+       VALUES ($1, 'Visa', 'visa', 'clasica', '9999', 1000000, 15) RETURNING id`,
+      [userId],
+    );
+    const ok = await sync(api, token, null, [
+      { op: 'create', localId: 'a', transaction: expense({ card: rows[0].id, installments: 2 }) },
+    ]);
+    assert.equal(ok.body.synced[0].transaction.card.last4, '9999');
+    assert.deepEqual(ok.body.notices, []);
+
+    const res = await sync(api, token, null, [
+      { op: 'create', localId: 'b', transaction: expense({ card: randomUUID(), installments: 3 }) },
+    ]);
+    assert.equal(res.status, 200);
+    const saved = res.body.synced[0].transaction;
+    assert.equal(saved.card, null);
+    assert.equal(saved.installments, null);
+    assert.deepEqual(res.body.notices, [{ localId: 'b', code: 'cardDropped' }]);
+
+    // Un update con tarjeta inválida también conserva el resto del cambio.
+    const upd = await sync(api, token, res.body.syncedAt, [
+      {
+        op: 'update',
+        localId: 'b',
+        serverId: saved.id,
+        updatedAt: FUTURE,
+        transaction: { amount: 999, card: randomUUID() },
+      },
+    ]);
+    assert.equal(upd.body.synced[0].transaction.amount, 999);
+    assert.deepEqual(upd.body.notices, [{ localId: 'b', code: 'cardDropped' }]);
+  });
+});

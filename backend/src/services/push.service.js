@@ -17,6 +17,7 @@ import { createPushSender } from './push-sender.service.js';
  * @property {string[]} times Horas locales del recordatorio (HH:mm), ordenadas; vacío si está desactivado.
  * @property {string|null} time Primera hora de `times` (o `null`). Compatibilidad con clientes anteriores.
  * @property {string} timezone Zona horaria IANA.
+ * @property {boolean} cardReminders Si recibe el aviso de pago de tarjetas.
  */
 
 /**
@@ -33,7 +34,7 @@ import { createPushSender } from './push-sender.service.js';
  *   unsubscribe: (userId: string, endpoint: string) => Promise<void>,
  *   sendToUser: (userId: string, payload: object) => Promise<{ sent: number, removed: number }>,
  *   getReminderSettings: (userId: string) => Promise<ReminderSettingsResponse>,
- *   updateReminderSettings: (userId: string, settings: { times: string[], timezone: string }) => Promise<ReminderSettingsResponse>
+ *   updateReminderSettings: (userId: string, settings: { times: string[], timezone: string, cardReminders?: boolean }) => Promise<ReminderSettingsResponse>
  * }}
  */
 export function createPushService(deps = {}) {
@@ -48,7 +49,7 @@ export function createPushService(deps = {}) {
   const reminders = deps.reminders ?? { findReminderSettings, saveReminderSettings };
 
   /**
-   * @param {{ times: string[], timezone: string }|null} settings
+   * @param {{ times: string[], timezone: string, cardReminders: boolean }|null} settings
    * @returns {ReminderSettingsResponse}
    */
   function requireSettings(settings) {
@@ -56,7 +57,12 @@ export function createPushService(deps = {}) {
       // El token es válido pero la cuenta ya no existe.
       throw new AppError(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     }
-    return { times: settings.times, time: settings.times[0] ?? null, timezone: settings.timezone };
+    return {
+      times: settings.times,
+      time: settings.times[0] ?? null,
+      timezone: settings.timezone,
+      cardReminders: settings.cardReminders,
+    };
   }
 
   return {

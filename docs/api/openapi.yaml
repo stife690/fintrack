@@ -47,6 +47,8 @@ tags:
     description: Las 15 categorías de todos y las propias de cada usuario (RN-02)
   - name: Budgets
     description: Presupuestos y alertas (F5, F6 — REQ-016 a REQ-019)
+  - name: Cards
+    description: Tarjetas de crédito, pagos y ajuste con el banco
   - name: Insights
     description: Insights financieros por IA (F7 — REQ-020, REQ-021)
   - name: Analytics
@@ -755,6 +757,202 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ---------------------------------------------------------------- Cards
+  /cards:
+    get:
+      tags: [Cards]
+      summary: Lista las tarjetas de crédito del usuario con usado, disponible y próximo pago
+      responses:
+        "200":
+          description: Tarjetas activas (lista vacía si no hay)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Card" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Cards]
+      summary: Crea una tarjeta (solo los últimos 4 dígitos; nunca número, CVV ni vencimiento)
+      description: |
+        `used` = `limit` − `available`. `name` por defecto es "{Franquicia} {Nivel} ••{last4}".
+        Niveles: visa y mastercard `clasica|gold|platinum|black`; amex `green|blue|gold|platinum`; otra `clasica`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardInput" }
+      responses:
+        "201":
+          description: Tarjeta creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: "CARD_EXISTS — ya hay una tarjeta activa con esos últimos 4 dígitos"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    get:
+      tags: [Cards]
+      summary: Detalle de una tarjeta
+      responses:
+        "200":
+          description: Tarjeta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Cards]
+      summary: Edita una tarjeta (campos opcionales; no acepta `available`)
+      description: |
+        Enviar `available` responde 422 (para eso está `sync-with-bank`). Cambiar `limit` mantiene la
+        deuda base; un cupo menor que lo usado responde 422 en `limit`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardInput" }
+      responses:
+        "200":
+          description: Tarjeta actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "CARD_EXISTS — otra tarjeta activa ya tiene esos últimos 4 dígitos"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Cards]
+      summary: Borra la tarjeta (borrado lógico; los gastos conservan su tarjeta)
+      responses:
+        "204": { description: Borrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cards/{id}/payments:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      tags: [Cards]
+      summary: Registra un pago a la tarjeta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { $ref: "#/components/schemas/Amount" }
+                date: { type: string, format: date, description: "AAAA-MM-DD; hoy por defecto. Una fecha futura (en la zona del usuario) da 422 en `date`." }
+      responses:
+        "201":
+          description: Pago registrado y tarjeta recalculada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      date: { type: string, format: date }
+                      amount: { type: number }
+                  card: { $ref: "#/components/schemas/Card" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{id}/payments/{paymentId}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+      - { name: paymentId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [Cards]
+      summary: Borra un pago (borrado lógico)
+      responses:
+        "204": { description: Borrado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cards/{id}/sync-with-bank:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      tags: [Cards]
+      summary: Ajusta la tarjeta a lo que dice el banco
+      description: |
+        `used` pasa a ser `limit` − `available`. Si el banco cobra más de lo que FinTrack tenía, se crea un
+        gasto "Cargos del banco · {nombre}" (categoría `otros`, hoy) ligado a la tarjeta; FinTrack no calcula
+        intereses, solo registra la diferencia que el usuario reporta. Si cobra menos, solo queda un ajuste
+        (`kind: adjustment` en los movimientos). Todo ocurre en una transacción.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [available]
+              properties:
+                available: { type: number, minimum: 0 }
+                statementTotal: { type: number, minimum: 0 }
+                statementDueDate: { type: string, format: date }
+      responses:
+        "200":
+          description: Tarjeta ajustada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  card: { $ref: "#/components/schemas/Card" }
+                  chargeTransaction: { type: object, nullable: true, description: "Gasto de cargos creado, o null." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{id}/movements:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    get:
+      tags: [Cards]
+      summary: Compras desde la última base, gastos de cargos del banco, todos los pagos y ajustes negativos, del más nuevo al más viejo
+      responses:
+        "200":
+          description: Movimientos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    kind: { type: string, enum: [purchase, payment, adjustment] }
+                    id: { type: string, format: uuid }
+                    date: { type: string, format: date }
+                    amount: { type: number, description: "En `adjustment` lleva signo (negativo)." }
+                    description: { type: string }
+                    installments: { type: integer, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ---------------------------------------------------------------- Mi plata
   /money-profile:
     get:
@@ -848,7 +1046,7 @@ paths:
                       type: object
                       properties:
                         date: { type: string, format: date }
-                        kind: { type: string, enum: [compromiso, vaca, ingreso] }
+                        kind: { type: string, enum: [compromiso, vaca, ingreso, card] }
                         id: { type: string, nullable: true }
                         name: { type: string }
                         amount: { type: number, nullable: true }
@@ -1768,6 +1966,39 @@ components:
                   problem: { type: string, example: Debe ser un número mayor que 0 }
 
     # ---------- Tipos base
+    CardInput:
+      type: object
+      description: En `POST` son obligatorios network, tier, last4, limit, available y paymentDay; en `PUT` todos son opcionales y `available` no se acepta.
+      properties:
+        network: { type: string, enum: [visa, mastercard, amex, otra] }
+        tier: { type: string, enum: [clasica, gold, platinum, black, green, blue] }
+        last4: { type: string, pattern: '^\d{4}$' }
+        limit: { type: number, exclusiveMinimum: true, minimum: 0 }
+        available: { type: number, minimum: 0, description: "Solo al crear; 0 ≤ available ≤ limit." }
+        paymentDay: { type: integer, minimum: 1, maximum: 31 }
+        cutoffDay: { type: integer, minimum: 1, maximum: 31, nullable: true }
+        name: { type: string, maxLength: 40, description: "Si no se da (o se editan dígitos o nivel de una tarjeta con el nombre por defecto), se usa \"Amex Blue ••1234\"." }
+    Card:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        network: { type: string, enum: [visa, mastercard, amex, otra] }
+        tier: { type: string }
+        last4: { type: string }
+        limit: { type: number }
+        used: { type: number }
+        available: { type: number }
+        paymentDay: { type: integer }
+        cutoffDay: { type: integer, nullable: true }
+        statementTotal: { type: number, nullable: true, description: "null cuando el extracto ya venció (su fecha límite es anterior a nextPaymentDate) o lo pagado desde que se dio lo cubre." }
+        statementDueDate: { type: string, format: date, nullable: true, description: "null en los mismos casos que statementTotal." }
+        nextPaymentDate: { type: string, format: date, description: "Primer vencimiento sin \"Ya pagué\"; si ya pasó, el pago está atrasado." }
+        daysToPayment: { type: integer, description: "Negativo si el pago está atrasado." }
+        paidThisCycle: { type: boolean, description: "El vencimiento de este mes (y los anteriores) ya tienen pago; cuenta todos los pagos, también los anteriores a una actualización con el banco." }
+        paidDueDate: { type: string, format: date, nullable: true, description: "Vencimiento del último ciclo pagado (el calendario lo muestra pagado en esa fecha)." }
+        paidAmount: { type: number, description: "Suma de los pagos de ese ciclo; 0 si no hay." }
+        reminderSentFor: { type: string, format: date, nullable: true, description: Fecha de pago ya avisada por push }
     Amount:
       type: number
       format: double
@@ -1896,6 +2127,11 @@ components:
             Compatibilidad con clientes anteriores. En la respuesta es la primera hora de `times` (o null).
             En el PUT se acepta en lugar de `times` (una sola hora; null desactiva).
         timezone: { type: string, example: America/Bogota }
+        cardReminders:
+          type: boolean
+          description: |
+            Si recibe el aviso push 3 días antes del pago de una tarjeta (a la primera hora de `times`, o 09:00).
+            Opcional en el PUT: si se omite, no cambia.
 
     # ---------- Transacciones
     Category:
@@ -1935,6 +2171,22 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time, description: Usado para last-write-wins (RN-07) }
         deletedAt: { type: string, format: date-time, nullable: true }
+        card:
+          type: object
+          nullable: true
+          required: [id, name, last4, deleted]
+          description: Tarjeta con la que se pagó el gasto; `null` si no usó tarjeta. Si la tarjeta se borró, sigue aquí con `deleted: true`.
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            last4: { type: string }
+            deleted: { type: boolean }
+        installments:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 48
+          description: Cuotas del gasto con tarjeta; `null` si no usó tarjeta.
     TransactionInput:
       type: object
       required: [amount, description, type, date]
@@ -1946,6 +2198,16 @@ components:
           allOf: [{ $ref: "#/components/schemas/NullableCategoryKey" }]
           description: Opcional; si viene vacío se categoriza con IA.
         date: { type: string, format: date }
+        card:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tarjeta propia (no borrada) con la que se pagó. Solo un gasto puede llevarla; si no, 422 en el campo `card`.
+        installments:
+          type: integer
+          minimum: 1
+          maximum: 48
+          description: Cuotas (1 por defecto con tarjeta). Se ignora si no hay `card`.
         localId:
           type: string
           minLength: 1
@@ -1962,6 +2224,16 @@ components:
         type: { $ref: "#/components/schemas/TransactionType" }
         category: { $ref: "#/components/schemas/NullableCategoryKey" }
         date: { type: string, format: date }
+        card:
+          type: string
+          format: uuid
+          nullable: true
+          description: Tarjeta propia (no borrada); `null` la quita. Al cambiar `type` a ingreso se quita sola. Solo un gasto puede llevarla; si no, 422 en el campo `card`.
+        installments:
+          type: integer
+          minimum: 1
+          maximum: 48
+          description: Cuotas (1 por defecto con tarjeta). Se ignora si no hay `card`.
     TransactionWithAlert:
       type: object
       required: [transaction, alert]
@@ -2182,7 +2454,7 @@ components:
           items: { $ref: "#/components/schemas/SyncOperation" }
     SyncResponse:
       type: object
-      required: [synced, conflicts, serverChanges, syncedAt]
+      required: [synced, conflicts, serverChanges, syncedAt, notices]
       properties:
         synced:
           type: array
@@ -2216,6 +2488,18 @@ components:
         serverChanges:
           type: array
           items: { $ref: "#/components/schemas/Transaction" }
+        notices:
+          type: array
+          description: |
+            Avisos de cosas que el servidor ajustó para no perder lo digitado offline. `cardDropped`:
+            la tarjeta ya no es válida (borrada, ajena, inexistente o el movimiento no es un gasto);
+            el gasto se guardó sin tarjeta.
+          items:
+            type: object
+            required: [localId, code]
+            properties:
+              localId: { type: string }
+              code: { type: string, enum: [cardDropped] }
         syncedAt:
           type: string
           format: date-time
