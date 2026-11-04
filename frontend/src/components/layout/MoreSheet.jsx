@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   CreditCard,
   HandCoins,
+  Inbox,
   Briefcase,
   CalendarDays,
   ChevronRight,
@@ -27,6 +28,7 @@ export const MORE_GROUPS = [
       { to: '/app/mi-plata', label: 'Mi plata', detail: 'Tu saldo y pagos de cada mes', icon: Wallet },
       { to: '/app/tarjetas', label: 'Tarjetas', detail: 'Cupo y próximo pago', icon: CreditCard },
       { to: '/app/cuentas', label: 'Cuentas', detail: 'Quién te debe y a quién le debes', icon: HandCoins },
+      { to: '/app/por-confirmar', label: 'Por confirmar', detail: 'Pagos con Apple Pay desde tu iPhone', icon: Inbox },
       { to: '/app/calendario', label: 'Calendario', detail: 'Cuánto te queda después de cada pago', icon: CalendarDays },
       { to: '/app/presupuestos', label: 'Presupuestos', detail: 'Límites por categoría', icon: Target },
       { to: '/app/renta', label: 'Renta y DIAN', detail: 'Si debes declarar y cuándo', icon: Landmark },

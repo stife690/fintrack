@@ -4,6 +4,7 @@ import { ChevronRight, Loader2, LogOut, Wallet } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
+import ShortcutLink from '@/components/account/ShortcutLink';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
 import PageHeader from '@/components/layout/PageHeader';
@@ -81,6 +82,7 @@ export default function Account() {
           </Section>
           <CustomCategories />
           <WhatsappLink />
+          <ShortcutLink />
         </Group>
 
         <Group label="Alertas">
