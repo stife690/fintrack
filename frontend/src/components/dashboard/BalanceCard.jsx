@@ -19,12 +19,16 @@ function Amount({ value, hidden, className }) {
 
 /**
  * Total del periodo (ingresos o gastos) en una tarjeta blanca que se monta sobre la franja violeta.
+ * Lleva a "Cómo va el mes".
  * @param {{ label: string, value?: number, hidden: boolean, positive?: boolean }} props
  */
 function Total({ label, value, hidden, positive = false }) {
   const Icon = positive ? ArrowDownLeft : ArrowUpRight;
   return (
-    <div className="min-w-0 flex-1 rounded-2xl border border-ink/10 bg-surface p-4 shadow-[0_8px_24px_-12px_rgb(22_20_31/0.25)]">
+    <Link
+      to="/app/mes"
+      className="min-w-0 flex-1 rounded-2xl border border-ink/10 bg-surface p-4 shadow-[0_8px_24px_-12px_rgb(22_20_31/0.25)] transition-colors hover:border-ink/20 focus-visible:outline-2 focus-visible:outline-violet"
+    >
       <p className="flex items-center gap-1.5 text-sm text-ink/60">
         <span
           aria-hidden="true"
@@ -40,7 +44,8 @@ function Total({ label, value, hidden, positive = false }) {
       <p className="mt-1.5 truncate text-base font-semibold sm:text-xl">
         <Amount value={value} hidden={hidden} />
       </p>
-    </div>
+      <span className="sr-only">, ver cómo va el mes</span>
+    </Link>
   );
 }
 
