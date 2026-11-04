@@ -13,3 +13,13 @@ export function paymentText(card) {
   if (card.daysToPayment === 1) return `Pagas en 1 día${when}`;
   return `Pagas en ${card.daysToPayment} días${when}`;
 }
+
+/**
+ * Texto corto de una tarjeta: su nombre con los últimos 4 dígitos. Los nombres por defecto
+ * ("Amex Blue ••1234") ya los traen; los personalizados ("Mi Amex") se completan.
+ * @param {{ name: string, last4: string }} card
+ * @returns {string}
+ */
+export function cardMark({ name, last4 }) {
+  return name.includes(`••${last4}`) ? name : `${name} ••${last4}`;
+}

@@ -53,6 +53,10 @@ describe('transactionSchema: tarjeta y cuotas', () => {
   it('gasto con tarjeta lleva las cuotas como número', () => {
     expect(transactionSchema.parse({ ...base, card: 'c1', installments: '12' })).toMatchObject({ card: 'c1', installments: 12 });
   });
+  it('cuotas decimales dan el mensaje en español', () => {
+    const r = transactionSchema.safeParse({ ...base, card: 'c1', installments: '2.5' });
+    expect(r.error.issues[0].message).toBe('De 1 a 48 cuotas');
+  });
   it('cuotas vacías, 0 o 49 se rechazan con tarjeta', () => {
     for (const installments of ['', '0', '49']) {
       expect(transactionSchema.safeParse({ ...base, card: 'c1', installments }).success).toBe(false);

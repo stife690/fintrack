@@ -27,8 +27,8 @@ export const transactionSchema = z.object({
   // '' se deja pasar aquí (campo oculto sin tarjeta) y se exige abajo; así nunca se vuelve 0.
   installments: z.union([
     z.literal(''),
-    z.string().trim().min(1).pipe(z.coerce.number({ error: 'Ingresa las cuotas' }).int('Ingresa las cuotas').min(1, 'De 1 a 48 cuotas').max(48, 'De 1 a 48 cuotas')),
-  ]),
+    z.string().trim().min(1).pipe(z.coerce.number({ error: 'Ingresa las cuotas' }).int('De 1 a 48 cuotas').min(1, 'De 1 a 48 cuotas').max(48, 'De 1 a 48 cuotas')),
+  ], { error: 'De 1 a 48 cuotas' }),
 })
   .refine((v) => v.type !== 'gasto' || !v.card || v.installments !== '', { message: 'Ingresa las cuotas', path: ['installments'] })
   // Tarjeta y cuotas solo aplican a un gasto pagado con tarjeta.
