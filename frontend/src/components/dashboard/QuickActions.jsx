@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeftRight, CreditCard, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
+import { CreditCard, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
+import CircleActions from '@/components/common/CircleActions';
 import { cn } from '@/lib/utils';
 
 const ACTIONS = [
@@ -8,10 +9,9 @@ const ACTIONS = [
   { to: '/app/presupuestos', label: 'Presupuesto', icon: Target, tone: 'bg-brand-soft text-brand' },
 ];
 
-/** Círculos del celular: desde aquí se llega a cada sección, ya que no hay menú. */
+/** Círculos del celular: desde aquí se llega a cada sección, ya que no hay menú. Los movimientos, con "Ver todos". */
 export const CIRCLES = [
-  { to: '/app/transacciones?nuevo=gasto', label: 'Anotar', icon: Plus, primary: true },
-  { to: '/app/transacciones', label: 'Movimientos', icon: ArrowLeftRight },
+  { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
   { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
   { to: '/app/insights', label: 'Consejos', icon: Sparkles },
   { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },
@@ -26,29 +26,7 @@ export const CIRCLES = [
 export default function QuickActions() {
   return (
     <>
-      <nav aria-label="Accesos" className="-mx-4 md:hidden">
-        <ul className="flex gap-1 overflow-x-auto px-2 pb-1 [scrollbar-width:none]">
-          {CIRCLES.map(({ to, label, icon: Icon, primary }) => (
-            <li key={to} className="shrink-0">
-              <Link
-                to={to}
-                className="flex w-[78px] flex-col items-center gap-1.5 rounded-2xl py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-violet"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'grid size-[60px] place-items-center rounded-full transition-transform duration-150 motion-safe:active:scale-95',
-                    primary ? 'bg-brand text-white' : 'bg-brand-soft text-brand',
-                  )}
-                >
-                  <Icon className="size-6" strokeWidth={primary ? 2.25 : 2} />
-                </span>
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <CircleActions label="Accesos" actions={CIRCLES} className="md:hidden" />
 
       <nav aria-label="Accesos rápidos" className="hidden md:block">
         <ul className="grid grid-cols-3 gap-3">

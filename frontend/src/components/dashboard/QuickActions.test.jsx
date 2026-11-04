@@ -8,7 +8,7 @@ describe('círculos del inicio', () => {
 
   it('llevan a las secciones que ya no están en un menú, sin repetirse', () => {
     const paths = CIRCLES.map(({ to }) => to);
-    for (const path of ['/app/transacciones', '/app/presupuestos', '/app/insights', '/app/tarjetas', '/app/cuentas', '/app/vacas']) {
+    for (const path of ['/app/presupuestos', '/app/insights', '/app/tarjetas', '/app/cuentas', '/app/vacas']) {
       expect(paths).toContain(path);
     }
     expect(new Set(paths).size).toBe(paths.length);

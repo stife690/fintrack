@@ -19,12 +19,17 @@ function Amount({ value, hidden, className }) {
 
 /**
  * Total del periodo (ingresos o gastos) en una tarjeta blanca que se monta sobre la franja violeta.
+ * Lleva a "Cómo va el mes".
  * @param {{ label: string, value?: number, hidden: boolean, positive?: boolean }} props
  */
-function Total({ label, value, hidden, positive = false }) {
+function Total({ label, value, hidden, positive = false, selected }) {
   const Icon = positive ? ArrowDownLeft : ArrowUpRight;
   return (
-    <div className="min-w-0 flex-1 rounded-2xl border border-ink/10 bg-surface p-4 shadow-[0_8px_24px_-12px_rgb(22_20_31/0.25)]">
+    <Link
+      to="/app/mes"
+      state={{ selected }}
+      className="min-w-0 flex-1 rounded-2xl border border-ink/10 bg-surface p-4 shadow-[0_8px_24px_-12px_rgb(22_20_31/0.25)] transition-colors hover:border-ink/20 focus-visible:outline-2 focus-visible:outline-violet"
+    >
       <p className="flex items-center gap-1.5 text-sm text-ink/60">
         <span
           aria-hidden="true"
@@ -40,7 +45,8 @@ function Total({ label, value, hidden, positive = false }) {
       <p className="mt-1.5 truncate text-base font-semibold sm:text-xl">
         <Amount value={value} hidden={hidden} />
       </p>
-    </div>
+      <span className="sr-only">, ver cómo va el mes</span>
+    </Link>
   );
 }
 
@@ -50,6 +56,7 @@ function Total({ label, value, hidden, positive = false }) {
  *
  * @param {object} props
  * @param {string} props.periodLabel Periodo legible, p. ej. `octubre`, `esta semana` o `2026`.
+ * @param {{ period: string, date: string }} [props.selected] Periodo elegido: "Cómo va el mes" abre en el mismo.
  * @param {{ income: number, expense: number, savings?: number, balance: number }|undefined} props.totals `undefined` mientras carga.
  *   `savings`: lo apartado en Ahorro/Inversión; ya viene restado del balance y no está en `expense`.
  * @param {string} [props.note] Reemplaza "Calculando…" cuando no hay totales que esperar (p. ej. sin conexión).
@@ -59,7 +66,7 @@ function Total({ label, value, hidden, positive = false }) {
  * @param {boolean} props.hidden
  * @param {() => void} props.onToggleHidden
  */
-export default function BalanceCard({ periodLabel, totals, note, plan = null, profile, onPlanChanged, hidden, onToggleHidden }) {
+export default function BalanceCard({ periodLabel, selected, totals, note, plan = null, profile, onPlanChanged, hidden, onToggleHidden }) {
   const negative = totals && totals.balance < 0;
   const saved = totals?.savings ?? 0;
   const money = (value) => (hidden ? MASK : formatMoney(value));
@@ -119,8 +126,8 @@ export default function BalanceCard({ periodLabel, totals, note, plan = null, pr
       </div>
 
       <div className="relative -mt-9 flex gap-3 px-3 md:gap-4 md:px-5">
-        <Total label="Ingresos" value={totals?.income} hidden={hidden} positive />
-        <Total label="Gastos" value={totals?.expense} hidden={hidden} />
+        <Total label="Ingresos" value={totals?.income} hidden={hidden} positive selected={selected} />
+        <Total label="Gastos" value={totals?.expense} hidden={hidden} selected={selected} />
       </div>
     </section>
   );

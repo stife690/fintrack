@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Plus } from 'lucide-react';
+import { CreditCard, Loader2, Plus } from 'lucide-react';
 import CardForm from '@/components/cards/CardForm';
 import { paymentText } from '@/components/cards/cardFormat';
 import CreditCardArt from '@/components/cards/CreditCardArt';
+import CircleActions from '@/components/common/CircleActions';
 import Sheet from '@/components/common/Sheet';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -105,11 +106,29 @@ export default function Cards() {
         title="Tarjetas"
         description="Tu cupo, lo que debes y cuándo pagar."
         actions={
-          <Button onClick={() => setSheet(true)} disabled={!online}>
+          <Button onClick={() => setSheet(true)} disabled={!online} className="max-md:hidden">
             <Plus aria-hidden="true" /> Agregar tarjeta
           </Button>
         }
       />
+      {/* En el celular: cuánto se debe en total y las acciones en círculos. */}
+      <div className="mb-5 flex flex-col gap-5 md:hidden">
+        {cards?.length > 0 && (
+          <div>
+            <p className="text-[15px] text-ink/60">Debes en total</p>
+            <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">
+              {hidden ? MASK : formatMoney(cards.reduce((sum, card) => sum + card.used, 0))}
+            </p>
+          </div>
+        )}
+        <CircleActions
+          label="Acciones de Tarjetas"
+          actions={[
+            { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
+            ...(online ? [{ onClick: () => setSheet(true), label: 'Agregar tarjeta', icon: CreditCard }] : []),
+          ]}
+        />
+      </div>
       {!online && <p className="mb-3 text-sm text-ink/60">Necesitas conexión para agregar o cambiar tarjetas.</p>}
       {error && (
         <p role="alert" className="mb-3 text-sm text-negative">

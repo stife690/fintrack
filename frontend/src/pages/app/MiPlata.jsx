@@ -1,20 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarDays, ChevronRight, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react';
+import CircleActions from '@/components/common/CircleActions';
+import { MASK } from '@/components/dashboard/BalanceCard';
 import MoneyInput from '@/components/common/MoneyInput';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import IncomeFields from '@/components/money/IncomeFields';
+import MovementList from '@/components/money/MovementList';
+import PendingPayments from '@/components/money/PendingPayments';
 import { formatMoney } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import useAsync from '@/hooks/useAsync';
+import useCategoryNames from '@/hooks/useCategoryNames';
+import useHiddenAmounts from '@/hooks/useHiddenAmounts';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
+import { planHeadline } from '@/lib/moneyPlan';
+import { cn } from '@/lib/utils';
+import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { balanceProposal, incomeSummary, readCommitmentForm, toProfileData } from '@/lib/moneyProfile';
 import {
   createCommitment,
   deleteCommitment,
+  getMoneyPlan,
   getMoneyProfile,
   updateCommitment,
   updateMoneyProfile,
@@ -336,13 +347,50 @@ function PaymentsSection({ commitments, onChanged }) {
 }
 
 /**
+ * Saldo de Mi plata en el celular: cuánta plata hay y lo primero que hay que saber (lo que se puede
+ * gastar hoy, o lo que falta para los pagos).
+ * @param {{ plan: object, hidden: boolean }} props Plan con `ready: true`; `hidden` oculta los montos.
+ */
+function PlanHero({ plan, hidden }) {
+  const money = (value) => (hidden ? MASK : formatMoney(value));
+  const { label, value, note, warning } = planHeadline(plan, money);
+  return (
+    <div>
+      <p className="text-[15px] text-ink/60">Saldo disponible</p>
+      <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{money(plan.money)}</p>
+      <p className={cn('mt-2 text-[15px]', warning && 'text-negative')}>
+        {label} <strong className="font-semibold tabular-nums">{value}</strong>
+      </p>
+      <p className="mt-0.5 text-sm text-ink/60">{note}</p>
+    </div>
+  );
+}
+
+/**
  * Página privada `/app/mi-plata` (FT-0041): cómo recibe la plata el usuario y qué paga cada mes. De
- * aquí salen los números de la ficha del inicio, donde se ve y se corrige cuánta plata tiene.
+ * aquí salen los números de la ficha del inicio. En el celular, además, el saldo, las acciones y los movimientos.
  */
 export default function MiPlata() {
   usePageTitle('Mi plata');
+  const online = useOnlineStatus();
   const profile = useAsync(getMoneyProfile, []);
   const data = profile.data;
+  // Lo de arriba solo se ve en el celular: así el computador no pide datos que no muestra.
+  const mobile = useMediaQuery('(width < 48rem)');
+  const [hidden] = useHiddenAmounts();
+  const moneyPlan = useAsync(() => (mobile ? getMoneyPlan() : Promise.resolve(null)), [online, data, mobile]);
+  // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.
+  const plan = online && moneyPlan.data?.ready ? moneyPlan.data : null;
+  const { names } = useCategoryNames();
+  const [fixing, setFixing] = useState(false);
+  const balanceRef = useRef(null);
+  const { reload: reloadPlan } = moneyPlan;
+
+  // "Ya lo pagué" y lo anotado desde aquí cambian el saldo.
+  useEffect(() => {
+    window.addEventListener(TRANSACTION_SAVED_EVENT, reloadPlan);
+    return () => window.removeEventListener(TRANSACTION_SAVED_EVENT, reloadPlan);
+  }, [reloadPlan]);
 
   /** Guarda un cambio sin tocar lo demás del perfil. */
   const save = async ({ resetBalance = false, ...changes }) => {
@@ -356,9 +404,34 @@ export default function MiPlata() {
     profile.reload();
   };
 
+  const fixBalance = () => {
+    setFixing(true);
+    requestAnimationFrame(() => balanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  };
+
+  const actions = [
+    { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
+    { onClick: fixBalance, label: 'Corregir saldo', icon: Pencil },
+    { onClick: () => document.getElementById('pagos')?.scrollIntoView({ behavior: 'smooth' }), label: 'Pagos del mes', icon: ReceiptText },
+    { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
+  ];
+
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Mi plata" description="Con esto calculamos cuánto puedes gastar." />
+      <div className="max-md:sr-only">
+        <PageHeader title="Mi plata" description="Con esto calculamos cuánto puedes gastar." />
+      </div>
+
+      {/* En el celular, Mi plata es donde se ve la plata: saldo, acciones, pagos y movimientos (como en el diseño). */}
+      {mobile && (
+      <div className="mb-8 flex flex-col gap-5 md:hidden">
+        {plan && <PlanHero plan={plan} hidden={hidden} />}
+        <CircleActions label="Acciones de Mi plata" actions={actions} />
+        {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
+        <MovementList names={names} hidden={hidden} />
+      </div>
+      )}
+
       {profile.error && !data && (
         <p role="alert" className="text-sm text-negative">
           {profile.error}{' '}
@@ -369,22 +442,16 @@ export default function MiPlata() {
       )}
       {data && (
         <div className="flex flex-col gap-5">
+          <h2 className="-mb-2 px-1 text-sm font-medium text-ink/60 md:hidden">Cómo calculamos lo que puedes gastar</h2>
           <IncomeSection profile={data} onSave={save} />
-          {data.money === null && <BalanceSection profile={data} onSave={save} />}
-          <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
-          <Panel className="p-0 md:hidden">
-            <Link
-              to="/app/calendario"
-              className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-            >
-              <CalendarDays className="size-5 shrink-0 text-brand" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">Calendario</span>
-                <span className="block text-sm text-ink/60">Cuánto te queda después de cada pago</span>
-              </span>
-              <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-            </Link>
-          </Panel>
+          {(data.money === null || fixing) && (
+            <div ref={balanceRef}>
+              <BalanceSection profile={data} onSave={async (changes) => (await save(changes), setFixing(false))} />
+            </div>
+          )}
+          <div id="pagos" className="scroll-mt-4">
+            <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Crown, Download, Lightbulb, Loader2, LogOut, UserPlus, Wallet } from 'lucide-react';
+import { ChevronRight, Crown, Download, Lightbulb, Loader2, LogOut, UserPlus } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
@@ -48,7 +48,7 @@ function Group({ label, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), acceso a Mi plata, preferencias
+ * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), preferencias
  * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030), cierre de sesión y eliminar la
  * cuenta (FT-0017).
  */
@@ -73,19 +73,6 @@ export default function Account() {
         {/* Desde tablet la campana está en el menú lateral. */}
         <Panel className="p-1 md:hidden">
           <NotificationBell label className="w-full pr-3" />
-        </Panel>
-        <Panel className="p-0 md:p-0">
-          <Link
-            to="/app/mi-plata"
-            className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-          >
-            <Wallet className="size-5 shrink-0 text-brand" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">Mi plata</span>
-              <span className="block text-sm text-ink/60">Cómo recibes la plata y qué pagas cada mes</span>
-            </span>
-            <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-          </Link>
         </Panel>
 
         {/* Desde tablet están en el menú lateral, y Exportar en Movimientos. */}

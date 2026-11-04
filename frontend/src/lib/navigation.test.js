@@ -9,7 +9,9 @@ const NO_ENTRY = ['/app', '/app/bienvenida', '/app/notificaciones', '/app/lo-que
 /** Entradas que están dentro de una pantalla, no en una lista. */
 const INSIDE_SCREENS = {
   '/app/cuenta': 'avatar del inicio',
+  '/app/transacciones': 'Editar en el detalle de un movimiento',
   '/app/mi-plata': 'tarjeta morada del inicio',
+  '/app/mes': 'Ingresos y Gastos del inicio',
   '/app/calendario': 'Mi plata',
   '/app/renta': 'Consejos',
   '/app/negocios': 'selector de En grupo',

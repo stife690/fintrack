@@ -20,16 +20,14 @@ import {
   listCached,
   listConflicts,
   listPending,
-  queueDelete,
   queueUpdate,
-  uncacheTransaction,
 } from '@/offline/sync';
+import { removeTransaction } from '@/offline/removeTransaction';
 import { listCards } from '@/services/cardService';
 import { TRANSACTION_SAVED_EVENT, saveNewTransaction } from '@/offline/saveNewTransaction';
 import {
   CATEGORIES_CHANGED_EVENT,
   applyCategoryChange,
-  deleteTransaction,
   getCategories,
   listTransactions,
   updateTransaction,
@@ -239,10 +237,16 @@ export default function Transactions() {
   // Lo de la barra llena el formulario para revisarlo, también si ya se estaba aquí. Se usa una
   // sola vez: se borra del historial para que recargar no lo repita.
   useEffect(() => {
-    const dictated = location.state?.voiceDraft;
-    if (!dictated) return;
-    setEditing(null);
-    setDraft({ ...dictated });
+    const { voiceDraft: dictated, editTransaction } = location.state ?? {};
+    if (!dictated && !editTransaction) return;
+    // "Editar" desde el detalle de un movimiento abre el formulario con ese movimiento.
+    if (editTransaction) {
+      setDraft(null);
+      setEditing(editTransaction);
+    } else {
+      setEditing(null);
+      setDraft({ ...dictated });
+    }
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location, navigate]);
 
@@ -344,17 +348,7 @@ export default function Transactions() {
 
   const handleDelete = async (transaction) => {
     try {
-      let offline = !navigator.onLine;
-      if (!offline) {
-        try {
-          await deleteTransaction(transaction.id);
-        } catch (err) {
-          if (err.code !== 'NETWORK_ERROR') throw err;
-          offline = true;
-        }
-      }
-      if (offline) await queueDelete(transaction);
-      else uncacheTransaction(transaction.id).catch(() => {});
+      const { offline } = await removeTransaction(transaction);
       if (editing?.id === transaction.id) setEditing(null);
       setNotice(
         offline ? 'Eliminado sin conexión. Se sincronizará cuando vuelva internet.' : 'Movimiento eliminado.',

@@ -152,7 +152,7 @@ function Sidebar({ user }) {
 }
 
 /**
- * Encabezado del celular. En el inicio, la marca y el avatar, con un punto si hay avisos sin leer (la
+ * Encabezado del celular. En el inicio, el avatar a la izquierda, con un punto si hay avisos sin leer (la
  * lista está en Cuenta). En las demás pantallas, el botón para volver: atrás en el historial o, si la
  * pantalla se abrió directo (un enlace, un aviso), a la pantalla de la que cuelga.
  */
@@ -178,15 +178,11 @@ function MobileHeader({ user }) {
   }
 
   return (
-    <header className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
-      <Link to="/app" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-        <LogoMark className="size-7" />
-        FinTrack
-      </Link>
+    <header className="flex items-center px-2 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
       <Link
         to="/app/cuenta"
         aria-label={unread === 0 ? 'Tu cuenta' : `Tu cuenta, ${unread} ${unread === 1 ? 'aviso' : 'avisos'} sin leer`}
-        className="relative grid size-11 place-items-center"
+        className="relative grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-violet"
       >
         <Avatar user={user} />
         {unread > 0 && (
@@ -199,6 +195,9 @@ function MobileHeader({ user }) {
 
 /** Pantallas con la barra rápida para anotar desde tablet (FT-0013): donde se registran los movimientos. */
 const QUICK_ENTRY_PATHS = ['/app', '/app/transacciones'];
+
+/** Pantallas con una barra fija abajo en el celular: la de anotar o la caja del asistente (Consejos). */
+const BOTTOM_BAR_PATHS = [...QUICK_ENTRY_PATHS, '/app/insights'];
 
 /** Se trae el perfil una vez por carga de la app (el marco se vuelve a montar al cambiar de ruta). */
 let profileSynced = false;
@@ -237,6 +236,7 @@ function Shell() {
   const { pending, rejected, conflicts, conflictsLost, syncing } = useOfflineSync();
   const { pathname } = useLocation();
   const quickEntry = QUICK_ENTRY_PATHS.includes(pathname);
+  const bottomBar = BOTTOM_BAR_PATHS.includes(pathname);
   useSyncProfile();
 
   return (
@@ -267,7 +267,8 @@ function Shell() {
           id="contenido"
           className={cn(
             'flex-1 px-4 pt-2 md:px-8 md:pt-8',
-            quickEntry ? 'pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-28' : 'pb-[calc(2rem+env(safe-area-inset-bottom))] md:pb-12',
+            bottomBar ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(2rem+env(safe-area-inset-bottom))]',
+            quickEntry ? 'md:pb-28' : 'md:pb-12',
           )}
         >
           <div className="mx-auto w-full max-w-6xl">

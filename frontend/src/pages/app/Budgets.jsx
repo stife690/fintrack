@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Plus, Target } from 'lucide-react';
+import CircleActions from '@/components/common/CircleActions';
+import { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import BudgetForm from '@/components/budgets/BudgetForm';
 import BudgetList from '@/components/budgets/BudgetList';
 import PageHeader from '@/components/layout/PageHeader';
@@ -101,6 +103,9 @@ export default function Budgets() {
     }
   };
 
+  /** Lleva al formulario: arriba en computador, al final de la lista en el celular. */
+  const showForm = () => document.getElementById('form-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   return (
     <>
       <PageHeader
@@ -108,8 +113,20 @@ export default function Budgets() {
         description="Un límite por categoría para cada mes. Te avisamos al 80 % y al pasarte."
       />
 
+      {/* En el celular: acciones en círculos y un solo aviso arriba; el formulario va después de la lista. */}
+      <div className="mb-5 flex flex-col gap-4 md:hidden">
+        <CircleActions
+          label="Acciones de Presupuestos"
+          actions={[
+            { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
+            { onClick: () => (setEditing(null), showForm()), label: 'Crear límite', icon: Target },
+          ]}
+        />
+        <BudgetAlert budgets={budgets} names={categoryNames} linked={false} />
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <Panel aria-labelledby="form-title" className="h-fit lg:sticky lg:top-8">
+        <Panel aria-labelledby="form-title" className="h-fit scroll-mt-4 max-md:order-last lg:sticky lg:top-8">
           <h2 id="form-title" className="mb-5 text-lg font-semibold tracking-tight">
             {editing ? 'Cambiar límite' : 'Nuevo presupuesto'}
           </h2>
@@ -165,7 +182,7 @@ export default function Budgets() {
                 budgets={budgets}
                 categoryNames={categoryNames}
                 disabled={!online}
-                onEdit={(b) => (setEditing(b), setNotice(''), window.scrollTo({ top: 0, behavior: 'smooth' }))}
+                onEdit={(b) => (setEditing(b), setNotice(''), showForm())}
                 onDelete={handleDelete}
               />
             )}
