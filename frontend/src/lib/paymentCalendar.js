@@ -2,11 +2,7 @@
  * Lógica de la pantalla Calendario (FT-0025), separada de la vista para poder probarla.
  * Los eventos vienen de `GET /money-profile/calendar` (ver `moneyProfileService`).
  */
-
-const MONTHS = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
+import { monthCells } from '@/lib/calendar';
 
 /** Filtros de la pantalla: `mios` son los pagos propios y los días de pago. */
 export const FILTERS = [
@@ -14,30 +10,6 @@ export const FILTERS = [
   { id: 'mios', label: 'Míos' },
   { id: 'vacas', label: 'Vacas' },
 ];
-
-/**
- * @param {string} month AAAA-MM
- * @param {number} offset
- * @returns {string} AAAA-MM
- */
-export function shiftMonth(month, offset) {
-  const [year, m] = month.split('-').map(Number);
-  const date = new Date(Date.UTC(year, m - 1 + offset, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-/** @returns {string} p. ej. `Noviembre 2026`. */
-export function monthLabel(month) {
-  const [year, m] = month.split('-').map(Number);
-  const name = MONTHS[m - 1];
-  return `${name[0].toUpperCase()}${name.slice(1)} ${year}`;
-}
-
-/** @returns {string} p. ej. `12 nov`. */
-export function dayLabel(date) {
-  const [, m, d] = date.split('-').map(Number);
-  return `${d} ${MONTHS[m - 1].slice(0, 3)}`;
-}
 
 /**
  * @template {{ kind: string }} T
@@ -78,34 +50,25 @@ function toneOf(event) {
 }
 
 /**
- * Celdas del mes empezando en lunes. Las primeras son `null` hasta el día 1.
+ * Celdas del mes con el total por pagar de cada día y su tono.
  * @param {string} month AAAA-MM
  * @param {Array<{ date: string, kind: string, amount: number|null, status: string|null, risk: string|null }>} events
  * @param {string} today AAAA-MM-DD
  * @returns {Array<null|{ day: number, date: string, isToday: boolean, isPast: boolean, total: number, tone: string|null }>}
  */
 export function calendarCells(month, events, today) {
-  const [year, m] = month.split('-').map(Number);
-  const days = new Date(Date.UTC(year, m, 0)).getUTCDate();
-  // getUTCDay: 0 es domingo; la semana empieza el lunes.
-  const blanks = (new Date(Date.UTC(year, m - 1, 1)).getUTCDay() + 6) % 7;
-  const cells = Array.from({ length: blanks }, () => null);
-  for (let day = 1; day <= days; day += 1) {
-    const date = `${month}-${String(day).padStart(2, '0')}`;
-    const ofDay = events.filter((e) => e.date === date);
+  return monthCells(month, today).map((cell) => {
+    if (!cell) return null;
+    const ofDay = events.filter((e) => e.date === cell.date);
     const tones = ofDay.map(toneOf).filter(Boolean);
-    cells.push({
-      day,
-      date,
-      isToday: date === today,
-      isPast: date < today,
+    return {
+      ...cell,
       total: ofDay
         .filter((e) => e.kind !== 'ingreso' && e.status !== 'pagado')
         .reduce((acc, e) => acc + e.amount, 0),
       tone: TONE_ORDER.find((t) => tones.includes(t)) ?? null,
-    });
-  }
-  return cells;
+    };
+  });
 }
 
 /**
