@@ -6,6 +6,7 @@ import { findUserById } from '../repositories/users.repository.js';
 import * as repo from '../repositories/whatsapp.repository.js';
 import { parseSpokenTransaction } from './entry-parser.js';
 import { todayIso } from './insights.service.js';
+import { getPlan } from './money-plan.service.js';
 import { create as createTransaction, summary as summarizePeriod } from './transactions.service.js';
 import { sendText } from './whatsapp-client.service.js';
 
@@ -20,6 +21,8 @@ const CODE_RE = /^FT-[A-Z0-9]{8}$/;
 /** Preguntas que entiende el bot, sobre el texto en minúsculas y sin tildes. */
 const BALANCE_QUESTION = /(?<!\p{L})(cuanto tengo|cuanta plata tengo|cuanto me queda|saldo|balance)(?!\p{L})/u;
 const EXPENSE_QUESTION = /(?<!\p{L})(cuanto (he gastado|llevo gastado|gaste)|mis gastos|gastos del mes)(?!\p{L})/u;
+const PROGRESS_QUESTION =
+  /(?<!\p{L})(como voy|como vamos|como va mi dia|mi meta|meta de hoy|cuanto puedo gastar|cuanto me falta|cuanto (tengo|debo|necesito) (que )?hacer|avance)(?!\p{L})/u;
 const ANY_QUESTION = /\?|^¿?\s*(cuanto|cuanta|que|como|cual)(?!\p{L})/u;
 
 export const REPLIES = {
@@ -33,7 +36,8 @@ export const REPLIES = {
   noDescription: '¿En qué fue? Agrega una palabra, como "almuerzo 15 mil".',
   dailyLimit: 'Llegaste al límite de mensajes de hoy. Mañana sigo registrando.',
   failed: 'No pude guardar ese movimiento. Inténtalo de nuevo en un momento.',
-  help: 'Por ahora puedo decirte tu saldo y tus gastos del mes. Prueba con "cuánto tengo" o "cuánto he gastado".',
+  help: 'Puedo decirte cómo vas hoy, tu saldo y tus gastos del mes. Prueba con "cómo voy", "cuánto tengo" o "cuánto he gastado".',
+  noPlan: `Para decirte cómo vas hoy, primero cuéntame cómo te entra la plata en FinTrack: ${env.appUrl}/app/mi-plata`,
   queryFailed: 'No pude consultar tus movimientos. Inténtalo de nuevo en un momento.',
   noMovements: (month) => `En ${month} aún no tienes movimientos.`,
   noExpenses: (month) => `En ${month} aún no tienes gastos.`,
@@ -158,12 +162,64 @@ function monthName(date) {
 }
 
 /**
+ * @param {number} days
+ * @returns {string} `1 día` o `3 días`.
+ */
+const daysText = (days) => (days === 1 ? '1 día' : `${days} días`);
+
+/**
+ * `15 de noviembre` a partir de `2026-11-15`.
+ * @param {string} date AAAA-MM-DD
+ * @returns {string}
+ */
+function dayAndMonth(date) {
+  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${date}T12:00:00Z`),
+  );
+}
+
+/**
+ * Avance del día según Mi plata (FT-0038), con las mismas cuentas y palabras que la tarjeta de la
+ * app (`frontend/src/lib/moneyPlan.js`): quien cobra en fecha fija ve cuánto puede gastar hoy; quien
+ * no, cuánto lleva hoy y cuánto necesita hacer al día para cubrir sus pagos.
+ * @param {object} plan Respuesta de `getPlan` (`money-plan.service.js`).
+ * @returns {string|null} `null` si el usuario no ha configurado Mi plata.
+ */
+export function planProgress(plan) {
+  if (!plan?.ready) return null;
+  if (plan.mode === 'daily') {
+    if (plan.shortfall > 0) {
+      return `Te faltan ${money(plan.shortfall)} para tus pagos antes del ${dayAndMonth(plan.nextPay)}.`;
+    }
+    if (plan.dayStatus === 'over') {
+      return `Hoy te pasaste ${money(plan.overBy)} de tu límite de ${money(plan.perDay)}.`;
+    }
+    const left = `${money(plan.leftToday)} más`;
+    if (plan.dayStatus === 'near') return `Ya casi llegas: hoy puedes gastar ${left}.`;
+    return `Hoy puedes gastar ${left}; faltan ${daysText(plan.days)} para tu pago.`;
+  }
+  if (plan.mode === 'goal') {
+    const usual = plan.usualIncome ? ` (sueles hacer ${money(plan.usualIncome)})` : '';
+    return [
+      `Hoy llevas ${money(plan.todayIncome)}${usual}.`,
+      `Para cubrir todo necesitas hacer ${money(plan.goal)} al día hasta ${plan.until} (${daysText(plan.days)}).`,
+    ].join('\n');
+  }
+  if (plan.shortfall > 0) {
+    return `Te faltan ${money(plan.shortfall)}. Revisa tus movimientos o corrige tu saldo en FinTrack.`;
+  }
+  if (plan.runwayDays === null) return `Ya cubres tus pagos. Tienes libres ${money(plan.free)}.`;
+  return `Ya cubres tus pagos. Lo que tienes te alcanza para ${daysText(plan.runwayDays)} a tu ritmo.`;
+}
+
+/**
  * Crea el servicio del bot. Las dependencias se inyectan para probarlo sin BD, IA ni Meta.
  * @param {object} [deps]
  * @param {Pick<typeof repo, 'findPhone'|'findUserIdByPhone'|'saveLinkCode'|'confirmLink'|'removeLink'|'claimMessage'|'countRecentMessages'>} [deps.repository]
  * @param {typeof createTransaction} [deps.createTransaction]
  * @param {typeof listCategories} [deps.listCategories]
  * @param {typeof summarizePeriod} [deps.summarize]
+ * @param {typeof getPlan} [deps.getPlan]
  * @param {typeof sendText} [deps.sendText]
  * @param {typeof findUserById} [deps.findUser]
  * @param {() => Date} [deps.now]
@@ -175,6 +231,7 @@ export function createWhatsappService(deps = {}) {
   const save = deps.createTransaction ?? createTransaction;
   const categoriesOf = deps.listCategories ?? listCategories;
   const summarize = deps.summarize ?? summarizePeriod;
+  const planOf = deps.getPlan ?? getPlan;
   const send = deps.sendText ?? sendText;
   const findUser = deps.findUser ?? findUserById;
   const now = deps.now ?? (() => new Date());
@@ -274,6 +331,15 @@ export function createWhatsappService(deps = {}) {
   }
 
   /**
+   * Avance del día, o la invitación a configurar Mi plata.
+   * @param {string} userId
+   * @returns {Promise<string>}
+   */
+  async function progressReply(userId) {
+    return planProgress(await planOf(userId)) ?? REPLIES.noPlan;
+  }
+
+  /**
    * Responde un mensaje sin monto: una consulta del mes o, si no lo es, qué hace falta aclarar.
    * @param {string} userId
    * @param {string} text
@@ -282,7 +348,10 @@ export function createWhatsappService(deps = {}) {
    */
   async function answer(userId, text, today) {
     const asked = text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
-    const query = BALANCE_QUESTION.test(asked) ? balanceReply : EXPENSE_QUESTION.test(asked) && expensesReply;
+    let query = null;
+    if (PROGRESS_QUESTION.test(asked)) query = progressReply;
+    else if (BALANCE_QUESTION.test(asked)) query = balanceReply;
+    else if (EXPENSE_QUESTION.test(asked)) query = expensesReply;
     if (!query) return ANY_QUESTION.test(asked) ? REPLIES.help : REPLIES.noAmount;
     return query(userId, today).catch((err) => {
       console.error(`No se pudo consultar el mes por WhatsApp (${err.message})`);
@@ -314,9 +383,17 @@ export function createWhatsappService(deps = {}) {
       localId: `wa-${hashCode(id).slice(0, 61)}`,
     });
     const name = await categoryName(userId, saved.category);
-    const when =saved.date === today ? '' : ` del ${saved.date}`;
+    const when = saved.date === today ? '' : ` del ${saved.date}`;
     const what = saved.type === 'ingreso' ? 'ingreso' : 'gasto';
-    return `Guardé un ${what} de ${money(saved.amount)}${when} en ${name}.`;
+    const done = `Guardé un ${what} de ${money(saved.amount)}${when} en ${name}.`;
+    // Lo guardado ya quedó: si el avance falla, se responde sin él.
+    const progress = await planOf(userId)
+      .then(planProgress)
+      .catch((err) => {
+        console.error(`No se pudo calcular Mi plata por WhatsApp (${err.message})`);
+        return null;
+      });
+    return progress ? `${done}\n${progress}` : done;
   }
 
   /**

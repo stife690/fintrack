@@ -9,6 +9,7 @@ import {
   extractMessages,
   isValidSignature,
   maskPhone,
+  planProgress,
 } from './services/whatsapp.service.js';
 
 const PHONE = '573001112233';
@@ -16,11 +17,13 @@ const message = (text, id = 'wamid.1') => ({ id, from: PHONE, text });
 
 /**
  * Servicio con repositorio en memoria.
- * @param {{ linked?: boolean, recent?: number, save?: (userId: string, input: object) => Promise<object>, income?: number, expense?: number, savings?: number, byCategory?: object[], summary?: (userId: string, query: object) => Promise<object> }} [options]
+ * @param {{ linked?: boolean, recent?: number, save?: (userId: string, input: object) => Promise<object>, income?: number, expense?: number, savings?: number, byCategory?: object[], summary?: (userId: string, query: object) => Promise<object>, plan?: object|(() => Promise<object>) }} [options]
+ *   `plan`: lo que devuelve Mi plata; por defecto, sin configurar.
  * @returns {{ service: ReturnType<typeof createWhatsappService>, sent: string[], saved: object[], queries: object[] }}
  */
 function setup(options = {}) {
   const { linked = true, recent = 0, save, income = 0, expense = 0, savings = 0, byCategory = [], summary } = options;
+  const plan = options.plan ?? { ready: false };
   const sent = [];
   const saved = [];
   const queries = [];
@@ -49,6 +52,7 @@ function setup(options = {}) {
         queries.push(query);
         return { income: { total: income }, expense: { total: expense, byCategory }, savings: { total: savings } };
       }),
+    getPlan: typeof plan === 'function' ? plan : async () => plan,
     sendText: async (_to, body) => sent.push(body),
     now: () => new Date('2026-11-02T15:00:00Z'),
     dailyMax: 3,
@@ -264,3 +268,116 @@ test('si no se puede guardar, avisa', async () => {
   await service.handleMessage(message('almuerzo 15 mil'));
   assert.equal(sent[0], REPLIES.failed);
 });
+
+/** Plan de quien no tiene fecha fija de pago, con meta del día. */
+const GOAL_PLAN = {
+  ready: true,
+  mode: 'goal',
+  goal: 45000,
+  days: 7,
+  until: 'Arriendo',
+  todayIncome: 38000,
+  usualIncome: 42000,
+  shortfall: 0,
+};
+const GOAL_TEXT =
+  'Hoy llevas $38.000 (sueles hacer $42.000).\nPara cubrir todo necesitas hacer $45.000 al día hasta Arriendo (7 días).';
+
+test('Mi plata en el bot (FT-0038): avance del día según cómo le entra la plata', () => {
+  assert.equal(planProgress({ ready: false }), null);
+  assert.equal(planProgress(null), null);
+
+  const daily = { ready: true, mode: 'daily', shortfall: 0, perDay: 30000, leftToday: 12000, overBy: 0, days: 5 };
+  assert.equal(
+    planProgress({ ...daily, dayStatus: 'ok' }),
+    'Hoy puedes gastar $12.000 más; faltan 5 días para tu pago.',
+  );
+  assert.equal(
+    planProgress({ ...daily, dayStatus: 'near', leftToday: 4000 }),
+    'Ya casi llegas: hoy puedes gastar $4.000 más.',
+  );
+  assert.equal(
+    planProgress({ ...daily, dayStatus: 'over', leftToday: 0, overBy: 8000 }),
+    'Hoy te pasaste $8.000 de tu límite de $30.000.',
+  );
+  assert.equal(
+    planProgress({ ...daily, shortfall: 150000, nextPay: '2026-11-15' }),
+    'Te faltan $150.000 para tus pagos antes del 15 de noviembre.',
+  );
+
+  assert.equal(planProgress(GOAL_PLAN), GOAL_TEXT);
+  assert.equal(
+    planProgress({ ...GOAL_PLAN, usualIncome: null, days: 1 }),
+    'Hoy llevas $38.000.\nPara cubrir todo necesitas hacer $45.000 al día hasta Arriendo (1 día).',
+  );
+
+  const runway = { ready: true, mode: 'runway', shortfall: 0, free: 200000 };
+  assert.equal(
+    planProgress({ ...runway, runwayDays: 9 }),
+    'Ya cubres tus pagos. Lo que tienes te alcanza para 9 días a tu ritmo.',
+  );
+  assert.equal(planProgress({ ...runway, runwayDays: null }), 'Ya cubres tus pagos. Tienes libres $200.000.');
+  assert.match(planProgress({ ...runway, shortfall: 5000, runwayDays: 0 }), /^Te faltan \$5\.000\./);
+});
+
+test('"hice 38 mil" se guarda como ingreso y responde el avance del día', async () => {
+  const { service, sent, saved } = setup({ plan: GOAL_PLAN });
+  await service.handleMessage(message('hice 38 mil'));
+
+  assert.equal(saved[0].type, 'ingreso');
+  assert.equal(saved[0].amount, 38000);
+  assert.equal(sent[0], `Guardé un ingreso de $38.000 en Alimentación.\n${GOAL_TEXT}`);
+});
+
+test('sin Mi plata, o si el avance falla, solo confirma lo guardado', async () => {
+  const plain = setup();
+  await plain.service.handleMessage(message('almuerzo 15 mil'));
+  assert.equal(plain.sent[0], 'Guardé un gasto de $15.000 en Alimentación.');
+
+  const broken = setup({
+    plan: async () => {
+      throw new Error('base caída');
+    },
+  });
+  const errors = [];
+  const original = console.error;
+  console.error = (text) => errors.push(text);
+  try {
+    await broken.service.handleMessage(message('almuerzo 15 mil'));
+  } finally {
+    console.error = original;
+  }
+  assert.equal(broken.saved.length, 1);
+  assert.equal(broken.sent[0], 'Guardé un gasto de $15.000 en Alimentación.');
+  assert.match(errors[0], /Mi plata/);
+});
+
+test('"¿cómo voy?" responde el avance, o invita a configurar Mi plata', async () => {
+  const withPlan = setup({ plan: GOAL_PLAN });
+  await withPlan.service.handleMessage(message('¿Cómo voy hoy?'));
+  assert.equal(withPlan.sent[0], GOAL_TEXT);
+  assert.equal(withPlan.saved.length, 0);
+
+  for (const [i, text] of ['cuánto puedo gastar', 'cuanto me falta', 'mi meta'].entries()) {
+    const without = setup();
+    await without.service.handleMessage(message(text, `wamid.${i}`));
+    assert.equal(without.sent[0], REPLIES.noPlan, text);
+  }
+});
+
+test('el analizador: "hice" + monto es lo que ganó; "hice mercado" sigue siendo gasto', () => {
+  const now = new Date('2026-11-03T12:00:00');
+  const cases = [
+    ['hice 38 mil', 'ingreso', 38000, 'Pago recibido'],
+    ['hoy me hice 40.000', 'ingreso', 40000, 'Pago recibido'],
+    ['hice $45.000 en domicilios', 'ingreso', 45000, 'Domicilios'],
+    ['hice mercado 80 mil', 'gasto', 80000, 'Hice mercado'],
+    ['me hice un corte 20 mil', 'gasto', 20000, 'Me hice un corte'],
+  ];
+  for (const [text, type, amount, description] of cases) {
+    const { type: t, amount: a, description: d } = parseSpokenTransaction(text, now);
+    assert.deepEqual({ type: t, amount: a, description: d }, { type, amount, description }, text);
+  }
+  assert.equal(parseSpokenTransaction('ayer hice 52 mil', now).date, '2026-11-02');
+});
+
