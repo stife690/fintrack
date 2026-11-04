@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_NAME_LENGTH, parseUpdateProfile } from './validators/users.validator.js';
+import {
+  MAX_NAME_LENGTH,
+  parseDeleteAccount,
+  parseUpdateProfile,
+} from './validators/users.validator.js';
 
 /**
  * Comprueba que `fn` lance un AppError de validación con ese código HTTP.
@@ -42,4 +46,19 @@ test('parseUpdateProfile rechaza un cuerpo que no es objeto (400)', () => {
   assertRejects(() => parseUpdateProfile(null), 400);
   assertRejects(() => parseUpdateProfile('Ana'), 400);
   assertRejects(() => parseUpdateProfile([]), 400);
+});
+
+test('parseDeleteAccount: pide contraseña o Google, uno solo (FT-0017)', () => {
+  assert.deepEqual(parseDeleteAccount({ password: 'clave-1' }), { password: 'clave-1' });
+  assert.deepEqual(parseDeleteAccount({ googleCredential: 'jwt' }), { googleCredential: 'jwt' });
+  for (const body of [
+    {},
+    { password: '' },
+    { password: 'a', googleCredential: 'b' },
+    { password: 7 },
+  ]) {
+    assert.throws(() => parseDeleteAccount(body), { statusCode: 422 }, JSON.stringify(body));
+  }
+  assert.throws(() => parseDeleteAccount(null), { statusCode: 400 });
+  assert.throws(() => parseDeleteAccount({ password: 'x'.repeat(201) }), { statusCode: 422 });
 });

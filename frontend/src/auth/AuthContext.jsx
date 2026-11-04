@@ -2,9 +2,17 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { saveSession, getSession, clearSession, SESSION_KEY } from './tokenStorage';
 import { authFetch, SESSION_EXPIRED_EVENT } from '@/lib/authFetch';
 import { login, loginWithGoogle, verifyEmail } from '@/services/authService';
-import { unsubscribeThisDevice } from '@/services/pushService';
+import { forgetThisDevice, unsubscribeThisDevice } from '@/services/pushService';
+import { deleteAccount as deleteAccountRequest } from '@/services/userService';
 
 const AuthContext = createContext(null);
+
+/**
+ * Marca de un solo uso para que el login avise que la cuenta se eliminó (FT-0017). Va en
+ * `sessionStorage` y no en el estado de la navegación: al borrar la sesión, la ruta protegida
+ * redirige al login por su cuenta y ese estado se perdería.
+ */
+export const ACCOUNT_DELETED_KEY = 'fintrack:account-deleted';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getSession()?.user ?? null);
@@ -60,12 +68,34 @@ export function AuthProvider({ children }) {
     } catch {
       // Si falla (sin conexión o token vencido), igual cerramos la sesión local.
     }
+    forgetLocalSession();
+  }
+
+  /** Borra la sesión y el historial guardados en este dispositivo. */
+  function forgetLocalSession() {
     const userId = getSession()?.user?.id;
     clearSession();
     setUser(null);
     // Import dinámico: Dexie no entra al bundle inicial. Si falla, el historial queda en el
     // dispositivo, pero la sesión igual se cierra.
     if (userId) import('@/offline/sync').then((m) => m.clearCachedHistory(userId)).catch(() => {});
+  }
+
+  /**
+   * Elimina la cuenta (FT-0017) y limpia este dispositivo. Si la API la rechaza (contraseña mal),
+   * lanza el error y la sesión sigue abierta. Al quedar sin sesión, la ruta protegida lleva al
+   * login, que muestra el aviso gracias a `ACCOUNT_DELETED_KEY`.
+   * @param {{ password: string } | { googleCredential: string }} confirmation
+   */
+  async function deleteAccount(confirmation) {
+    await deleteAccountRequest(confirmation);
+    await forgetThisDevice().catch(() => {});
+    try {
+      sessionStorage.setItem(ACCOUNT_DELETED_KEY, '1');
+    } catch {
+      // Sin almacenamiento (modo privado estricto): solo se pierde el aviso.
+    }
+    forgetLocalSession();
   }
 
   /**
@@ -82,7 +112,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signInWithGoogle, confirmEmail, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, signIn, signInWithGoogle, confirmEmail, signOut, deleteAccount, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

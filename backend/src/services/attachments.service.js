@@ -93,7 +93,7 @@ function toView(record) {
  * @param {import('./attachment-storage.service.js').AttachmentStorage|null} [deps.storage]
  * @param {typeof defaultRepo} [deps.repository]
  * @param {typeof env} [deps.config]
- * @returns {object} `isEnabledFor`, `list`, `upload`, `read`, `remove` y `removeAllOf`.
+ * @returns {object} `isEnabledFor`, `list`, `upload`, `read`, `remove`, `removeAllOf` y `removeFiles`.
  */
 export function createAttachmentsService(deps = {}) {
   const storage = 'storage' in deps ? deps.storage : selectStorage();
@@ -243,13 +243,24 @@ export function createAttachmentsService(deps = {}) {
      * @returns {Promise<void>}
      */
     async removeAllOf(userId, transactionId) {
-      const keys = await repo.deleteAttachmentsOf(transactionId, userId);
-      if (keys.length === 0 || !storage) return;
-      await storage.remove(keys).catch((err) => {
-        console.error(`No se pudieron borrar ${keys.length} soportes (${err.message})`);
-      });
+      await removeFiles(await repo.deleteAttachmentsOf(transactionId, userId));
     },
+
+    removeFiles,
   };
+
+  /**
+   * Borra archivos cuyas filas ya no existen (movimiento o cuenta eliminados). Si falla el
+   * almacenamiento, el error va al log y no se lanza: lo importante (la base) ya quedó borrado.
+   * @param {string[]} keys
+   * @returns {Promise<void>}
+   */
+  async function removeFiles(keys) {
+    if (keys.length === 0 || !storage) return;
+    await storage.remove(keys).catch((err) => {
+      console.error(`No se pudieron borrar ${keys.length} soportes (${err.message})`);
+    });
+  }
 }
 
 export const attachments = createAttachmentsService();

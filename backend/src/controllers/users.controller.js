@@ -1,7 +1,8 @@
+import { accountService } from '../services/account.service.js';
 import { pushService } from '../services/push.service.js';
 import { getProfile, updateProfile } from '../services/users.service.js';
 import { parseReminderSettings } from '../validators/push.validator.js';
-import { parseUpdateProfile } from '../validators/users.validator.js';
+import { parseDeleteAccount, parseUpdateProfile } from '../validators/users.validator.js';
 
 /**
  * `GET /api/v1/users/me`: perfil del usuario dueño del token.
@@ -41,4 +42,16 @@ export async function getReminderSettings(req, res) {
  */
 export async function putReminderSettings(req, res) {
   res.json(await pushService.updateReminderSettings(req.userId, parseReminderSettings(req.body)));
+}
+
+/**
+ * `DELETE /api/v1/users/me`: elimina la cuenta y todos sus datos (FT-0017). Pide confirmar con la
+ * contraseña o con Google. Responde 204 sin cuerpo.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function deleteMe(req, res) {
+  await accountService.remove(req.userId, parseDeleteAccount(req.body));
+  res.status(204).end();
 }
