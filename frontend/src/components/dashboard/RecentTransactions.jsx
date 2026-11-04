@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
-import CategoryIcon from '@/components/categories/CategoryIcon';
 import Panel from '@/components/layout/Panel';
-import { formatMoney, formatRelativeDay } from '@/components/transactions/format';
-import { cn } from '@/lib/utils';
+import MovementRow from '@/components/transactions/MovementRow';
+import { formatRelativeDay } from '@/components/transactions/format';
 
 /**
  * Últimos movimientos del usuario, con ícono de categoría, día y monto con signo.
@@ -19,7 +18,11 @@ export default function RecentTransactions({ transactions, names, hidden, error 
         <h2 id="recent-title" className="text-lg font-semibold tracking-tight">
           Últimos movimientos
         </h2>
-        <Link to="/app/transacciones" className="text-sm font-medium text-brand hover:underline">
+        {/* En el celular la lista completa está en Mi plata, como en el diseño. */}
+        <Link to="/app/mi-plata" className="-my-3 py-3 text-sm font-medium text-brand hover:underline md:hidden">
+          Ver todos
+        </Link>
+        <Link to="/app/transacciones" className="hidden text-sm font-medium text-brand hover:underline md:inline">
           Ver todo
         </Link>
       </div>
@@ -44,24 +47,9 @@ export default function RecentTransactions({ transactions, names, hidden, error 
         </div>
       ) : (
         <ul className="mt-2 divide-y divide-ink/10">
-          {transactions.map((t) => {
-            const income = t.type === 'ingreso';
-            return (
-              <li key={t.id} className="flex items-center gap-3 py-3">
-                <CategoryIcon category={t.category} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{t.description}</p>
-                  <p className="truncate text-sm text-ink/60">
-                    {t.category ? (names[t.category] ?? t.category) : 'Sin clasificar'} · {formatRelativeDay(t.date)}
-                  </p>
-                </div>
-                <p className={cn('shrink-0 font-semibold tabular-nums', income ? 'text-positive' : 'text-ink')}>
-                  <span className="sr-only">{income ? 'Ingreso de ' : 'Gasto de '}</span>
-                  {hidden ? '••••' : `${income ? '+' : '−'}${formatMoney(t.amount)}`}
-                </p>
-              </li>
-            );
-          })}
+          {transactions.map((t) => (
+            <MovementRow key={t.id} transaction={t} names={names} hidden={hidden} day={formatRelativeDay(t.date)} />
+          ))}
         </ul>
       )}
     </Panel>

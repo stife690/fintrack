@@ -31,5 +31,7 @@ export function backPath(pathname) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   if (path === '/app') return null;
   if (PARENTS[path]) return PARENTS[path];
+  // El detalle de un movimiento se abre desde la lista de Mi plata.
+  if (path.startsWith('/app/transacciones/')) return '/app/mi-plata';
   return WITH_DETAIL.find((section) => path.startsWith(`${section}/`)) ?? '/app';
 }

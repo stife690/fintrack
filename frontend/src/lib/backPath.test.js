@@ -27,6 +27,8 @@ describe('backPath', () => {
 
   it('lleva cada detalle a su sección', () => {
     expect(backPath('/app/tarjetas/12')).toBe('/app/tarjetas');
+    expect(backPath('/app/transacciones/abc')).toBe('/app/mi-plata');
+    expect(backPath('/app/transacciones/exportar')).toBe('/app/cuenta');
     expect(backPath('/app/vacas/12')).toBe('/app/vacas');
     expect(backPath('/app/vacas/unirse/ABC')).toBe('/app/vacas');
     expect(backPath('/app/negocios/12')).toBe('/app/negocios');
