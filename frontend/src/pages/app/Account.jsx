@@ -6,7 +6,6 @@ import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
-import NotificationBell from '@/components/layout/NotificationBell';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
@@ -55,7 +54,7 @@ function Group({ label, children }) {
  * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030), cierre de sesión y eliminar la
  * cuenta (FT-0017).
  */
-const ROW = 'flex min-h-[52px] w-full items-center justify-between gap-3 text-left text-[15px] font-medium focus-visible:outline-2 focus-visible:outline-violet';
+const ROW = 'flex min-h-[52px] w-full items-center justify-between gap-3 text-left text-[15px] font-medium transition-opacity active:opacity-60 focus-visible:outline-2 focus-visible:outline-violet';
 
 /** Grupo de filas del perfil en el celular. */
 function RowGroup({ label, children }) {
@@ -87,8 +86,7 @@ function MobileAccount({ onSignOut, leaving }) {
       </button>
 
       <RowGroup label="Preferencias">
-        <NotificationBell asRow className={ROW} />
-        {row('alertas', 'Alertas y recordatorios')}
+        {row('alertas', 'Notificaciones')}
         <Link to={LINKS[0].to} className={ROW}>
           {LINKS[0].label}
         </Link>
@@ -117,7 +115,7 @@ function MobileAccount({ onSignOut, leaving }) {
       <Sheet open={open === 'perfil'} title="Tu perfil" onClose={close}>
         <ProfileCard />
       </Sheet>
-      <Sheet open={open === 'alertas'} title="Alertas y recordatorios" onClose={close}>
+      <Sheet open={open === 'alertas'} title="Notificaciones" onClose={close}>
         <NotificationSettings />
       </Sheet>
       <Sheet open={open === 'categorias'} title="Mis categorías" onClose={close}>

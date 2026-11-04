@@ -1,5 +1,5 @@
-import { Suspense, useEffect } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
   CreditCard,
   HandCoins,
@@ -258,7 +258,9 @@ function Shell() {
         >
           <div className="mx-auto w-full max-w-6xl">
             <Suspense fallback={<SectionFallback />}>
-              <Outlet />
+              <PageEnter key={pathname}>
+                <Outlet />
+              </PageEnter>
             </Suspense>
           </div>
         </main>
@@ -267,6 +269,24 @@ function Shell() {
       {quickEntry && <QuickEntryBar />}
     </div>
   );
+}
+
+let firstPage = true;
+
+/**
+ * Entrada de cada pantalla: llega desde la derecha al avanzar y desde la izquierda al volver. No se
+ * anima lo primero que se ve al abrir la app, ni Anotar, que es a pantalla completa y sube por su cuenta.
+ */
+function PageEnter({ children }) {
+  const type = useNavigationType();
+  const { pathname } = useLocation();
+  const [enter] = useState(() => {
+    const first = firstPage;
+    firstPage = false;
+    if (first || pathname === '/app/anotar') return undefined;
+    return type === 'POP' ? 'motion-safe:animate-page-back' : 'motion-safe:animate-page-in';
+  });
+  return <div className={enter}>{children}</div>;
 }
 
 /**

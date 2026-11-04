@@ -73,6 +73,13 @@
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-page-in: page-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-page-back: page-back 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-screen-up: screen-up 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-done-in: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+  --animate-pop: pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-bar-in: bar-in 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-row-in: row-in 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   /* Registro por voz (FT-0013): anillos del micrófono y barras de la onda mientras escucha. */
   --animate-voice-ring: voice-ring 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
   --animate-voice-wave: voice-wave 0.9s ease-in-out infinite;
@@ -102,6 +109,58 @@
     from {
       opacity: 0;
       transform: translateY(24px);
+    }
+  }
+
+  /* Pantalla que llega: desde la derecha al avanzar, desde la izquierda al volver. */
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+  }
+
+  @keyframes page-back {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+  }
+
+  @keyframes screen-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+  }
+
+  @keyframes bar-in {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  /* Movimiento recién agregado: se abre su espacio y queda resaltado un momento. */
+  @keyframes row-in {
+    from {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      background-color: var(--color-brand-soft);
+    }
+    35% {
+      max-height: 6rem;
+      opacity: 1;
+      background-color: var(--color-brand-soft);
+    }
+    to {
+      max-height: 6rem;
     }
   }
 

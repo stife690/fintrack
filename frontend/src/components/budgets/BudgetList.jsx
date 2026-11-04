@@ -167,7 +167,7 @@ function CompactRow({ budget, name, disabled, onEdit }) {
         type="button"
         disabled={disabled}
         onClick={() => onEdit(budget)}
-        aria-label={`${name}: ${formatPercent(budget.percentage)}. Cambiar o eliminar`}
+        aria-label={`${name}: ${formatPercent(budget.percentage)}. Ver detalle`}
         className="block w-full py-4 text-left focus-visible:outline-2 focus-visible:outline-violet disabled:cursor-default"
       >
         <span className="flex justify-between text-base">

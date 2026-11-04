@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import ErrorBoundary, { hasChunkFailed } from '@/components/common/ErrorBoundary';
+import ScrollMemory from '@/components/common/ScrollMemory';
 import UpdatePrompt from '@/components/common/UpdatePrompt';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import AppShell from '@/components/layout/AppShell';
@@ -17,7 +18,11 @@ const Dashboard = lazy(() => import('@/pages/app/Dashboard'));
 const Welcome = lazy(() => import('@/pages/app/Welcome'));
 const MiPlata = lazy(() => import('@/pages/app/MiPlata'));
 const Calendar = lazy(() => import('@/pages/app/Calendar'));
-const Month = lazy(() => import('@/pages/app/Month'));
+const PeriodDetail = lazy(() => import('@/pages/app/PeriodDetail'));
+const Notifications = lazy(() => import('@/pages/app/Notifications'));
+const BudgetDetail = lazy(() => import('@/pages/app/BudgetDetail'));
+const FixBalance = lazy(() => import('@/pages/app/FixBalance'));
+const MoneyPayments = lazy(() => import('@/pages/app/MoneyPayments'));
 const Anotar = lazy(() => import('@/pages/app/Anotar'));
 const Transactions = lazy(() => import('@/pages/app/Transactions'));
 const TransactionDetail = lazy(() => import('@/pages/app/TransactionDetail'));
@@ -39,15 +44,6 @@ const VacaJoin = lazy(() => import('@/pages/app/VacaJoin'));
 const Negocios = lazy(() => import('@/pages/app/Negocios'));
 const NegocioDetail = lazy(() => import('@/pages/app/NegocioDetail'));
 const NegocioJoin = lazy(() => import('@/pages/app/NegocioJoin'));
-
-/** Lleva el scroll arriba al cambiar de página (salvo al navegar a un #ancla). */
-function ScrollToTop() {
-  const { pathname, hash } = useLocation();
-  useEffect(() => {
-    if (!hash) window.scrollTo(0, 0);
-  }, [pathname, hash]);
-  return null;
-}
 
 /**
  * Si un chunk falló antes (ver ErrorBoundary), al navegar con conexión se recarga la
@@ -84,14 +80,14 @@ function RouteFallback() {
  * socios y roles · `/app/negocios/unirse/:code` enlace de invitación (FT-0016).
  * `/app/mi-plata` ingresos, saldo y pagos de cada mes (FT-0041).
  * `/app/calendario` pagos del mes y cuánto queda después de cada uno (FT-0025).
- * `/app/notificaciones` se conserva y redirige a Cuenta (enlaces viejos o instalados).
+ * `/app/notificaciones` lista de avisos, desde la campana del inicio.
  * Fuera del marco: `/app/bienvenida` preguntas de la primera vez (FT-0036).
  */
 export default function App() {
   const { pathname } = useLocation();
   return (
     <>
-      <ScrollToTop />
+      <ScrollMemory />
       <ReloadAfterChunkError />
       {/* Aviso de versión nueva (FT-0020): fuera de las rutas, sale en cualquier pantalla. */}
       <UpdatePrompt />
@@ -117,7 +113,12 @@ export default function App() {
                 <Route path="/app/cuenta" element={<Account />} />
                 <Route path="/app/mi-plata" element={<MiPlata />} />
                 <Route path="/app/calendario" element={<Calendar />} />
-                <Route path="/app/mes" element={<Month />} />
+                <Route path="/app/mes" element={<Navigate to="/app/gastos" replace />} />
+                <Route path="/app/ingresos" element={<PeriodDetail type="ingreso" />} />
+                <Route path="/app/gastos" element={<PeriodDetail type="gasto" />} />
+                <Route path="/app/mi-plata/pagos" element={<MoneyPayments />} />
+                <Route path="/app/mi-plata/corregir" element={<FixBalance />} />
+                <Route path="/app/presupuestos/:category" element={<BudgetDetail />} />
                 <Route path="/app/anotar" element={<Anotar />} />
                 <Route path="/app/renta" element={<Renta />} />
                 <Route path="/app/invitar" element={<Invite />} />
@@ -133,7 +134,7 @@ export default function App() {
                 <Route path="/app/negocios" element={<Negocios />} />
                 <Route path="/app/negocios/unirse/:code" element={<NegocioJoin />} />
                 <Route path="/app/negocios/:id" element={<NegocioDetail />} />
-                <Route path="/app/notificaciones" element={<Navigate to="/app/cuenta" replace />} />
+                <Route path="/app/notificaciones" element={<Notifications />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

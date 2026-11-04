@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Check, ChevronLeft, Delete, Loader2, Mic, Plus, Sparkles, X } from 'lucide-react';
+import CategoryIcon from '@/components/categories/CategoryIcon';
 import NewCategoryDialog from '@/components/categories/NewCategoryDialog';
 import ChipGroup from '@/components/common/ChipGroup';
 import Segmented from '@/components/common/Segmented';
@@ -86,9 +87,16 @@ export default function Anotar() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const step = params.get('paso') ?? '1';
+  const navigationType = useNavigationType();
+  // Cada paso entra desde la derecha al avanzar y desde la izquierda al volver; el primero sube con la pantalla.
+  const stepEnter = useRef({ step, className: undefined });
+  if (stepEnter.current.step !== step) {
+    stepEnter.current = { step, className: navigationType === 'POP' ? 'motion-safe:animate-page-back' : 'motion-safe:animate-page-in' };
+  }
   // Desde el detalle de una tarjeta (`?tarjeta=id`) llega con esa tarjeta elegida.
   const [startCard] = useState(() => params.get('tarjeta') ?? CASH);
-  const [form, setForm] = useState(() => empty(startCard));
+  // Desde un presupuesto (`?categoria=clave`) llega con esa categoría elegida.
+  const [form, setForm] = useState(() => ({ ...empty(startCard), category: params.get('categoria') ?? AI }));
   const [result, setResult] = useState(null); // lo que devolvió `saveNewTransaction`
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -194,16 +202,16 @@ export default function Anotar() {
     return (
       <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-between gap-8 rounded-3xl bg-violet p-6 text-white max-md:rounded-none max-md:fixed max-md:inset-0 max-md:z-50 max-md:max-w-none max-md:overflow-y-auto max-md:px-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] max-md:pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="my-auto">
-          <span className="grid size-16 place-items-center rounded-full bg-white text-brand">
+          <span className="grid size-16 place-items-center rounded-full bg-white text-brand motion-safe:animate-pop">
             <Check className="size-8" strokeWidth={2.5} aria-hidden="true" />
           </span>
-          <h1 role="status" className="mt-6 text-[32px] font-semibold tracking-tight">
+          <h1 role="status" className="mt-6 text-[32px] font-semibold tracking-tight motion-safe:animate-done-in">
             {values.type === 'gasto' ? 'Gasto guardado' : 'Ingreso guardado'}
           </h1>
-          <p className="mt-2 text-lg">
+          <p className="mt-2 text-lg motion-safe:animate-done-in">
             {values.description} · {formatMoney(values.amount)}
           </p>
-          <div className="mt-8 divide-y divide-white/30 rounded-2xl bg-white/15 px-4">
+          <div className="mt-8 divide-y divide-white/30 rounded-2xl bg-white/15 px-4 motion-safe:animate-done-in">
             {offline ? (
               <p className="py-4 text-[15px]">Guardado sin conexión. Se sincronizará cuando vuelva internet.</p>
             ) : (
@@ -248,7 +256,7 @@ export default function Anotar() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col max-md:bg-surface max-md:fixed max-md:inset-0 max-md:z-50 max-md:max-w-none max-md:overflow-y-auto max-md:px-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] max-md:pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col max-md:overflow-x-hidden max-md:motion-safe:animate-screen-up max-md:bg-surface max-md:fixed max-md:inset-0 max-md:z-50 max-md:max-w-none max-md:overflow-y-auto max-md:px-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] max-md:pt-[max(1rem,env(safe-area-inset-top))]">
       <h1 className="sr-only">Anotar</h1>
       <div className="flex items-center gap-3">
         {/* A pantalla completa en el celular: cierra o vuelve desde aquí, junto al progreso. */}
@@ -264,6 +272,7 @@ export default function Anotar() {
         <span aria-hidden="true" className="w-[34px] shrink-0 md:hidden" />
       </div>
 
+      <div key={step} className={cn('flex min-w-0 flex-1 flex-col', stepEnter.current.className)}>
       {step === '1' && (
         <>
           <Segmented
@@ -355,10 +364,11 @@ export default function Anotar() {
                   aria-pressed={form.category === c.key}
                   onClick={() => set({ category: c.key })}
                   className={cn(
-                    'h-11 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet',
+                    'flex h-11 items-center gap-1.5 rounded-full border pl-2 pr-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet',
                     form.category === c.key ? 'border-brand bg-brand-soft text-brand' : 'border-ink/15 bg-surface',
                   )}
                 >
+                  <CategoryIcon category={c.key} className="size-7 rounded-full [&>svg]:size-4" />
                   {c.name}
                 </button>
               </li>
@@ -484,6 +494,7 @@ export default function Anotar() {
           }
         }}
       />
+      </div>
     </div>
   );
 }
