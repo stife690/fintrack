@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePageTitle from '@/hooks/usePageTitle';
 import { loginSchema } from '@/lib/validation/auth';
-import { useAuth } from '@/auth/AuthContext';
+import { ACCOUNT_DELETED_KEY, useAuth } from '@/auth/AuthContext';
 import { getReturnTo, invitationKind } from '@/auth/returnTo';
 import { resendVerification } from '@/services/authService';
 
@@ -32,6 +32,11 @@ export default function Login() {
   // Correo de la cuenta sin confirmar con el que se intentó entrar, y el aviso del reenvío.
   const [unverified, setUnverified] = useState(null);
   const [resendNotice, setResendNotice] = useState('');
+  // Aviso de un solo uso tras eliminar la cuenta (FT-0017); se borra al mostrarlo.
+  const [accountDeleted] = useState(() => readFlag(ACCOUNT_DELETED_KEY));
+  useEffect(() => {
+    if (accountDeleted) removeFlag(ACCOUNT_DELETED_KEY);
+  }, [accountDeleted]);
   const invitation = invitationKind(getReturnTo(location.state?.from));
 
   const {
@@ -101,6 +106,11 @@ export default function Login() {
           Contraseña actualizada. Inicia sesión con la nueva.
         </p>
       )}
+      {accountDeleted && (
+        <p className="rounded-xl bg-white/10 px-4 py-3 text-sm text-white/80" role="status">
+          Eliminamos tu cuenta y tus datos. Te enviamos un correo de confirmación.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
         <div className="space-y-4">
@@ -163,4 +173,22 @@ export default function Login() {
       </form>
     </AuthLayout>
   );
+}
+
+/** @param {string} key @returns {boolean} */
+function readFlag(key) {
+  try {
+    return sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** @param {string} key */
+function removeFlag(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // Sin almacenamiento: no hay nada que borrar.
+  }
 }

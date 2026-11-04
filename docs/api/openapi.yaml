@@ -412,6 +412,44 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Users]
+      summary: Elimina la cuenta y todos sus datos (FT-0017)
+      description: >
+        Pide confirmar con la contraseña o, en cuentas creadas con Google, con un `credential` nuevo
+        de Google del mismo correo. En una sola transacción borra la cuenta y sus datos
+        (movimientos, presupuestos, tarjetas, Mi plata, sesiones, WhatsApp, push e invitaciones
+        pendientes a su correo); luego los archivos de sus soportes y envía un correo de aviso.
+        En las vacas y negocios compartidos donde era el único administrador o dueño, el miembro
+        más antiguo pasa a serlo; los que quedan sin miembros se borran. Sus aportes en vacas
+        ajenas quedan sin nombre para que el total del grupo no cambie. No se puede deshacer.
+        Comparte el límite de intentos por IP con el login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [password]
+                  properties:
+                    password: { type: string, maxLength: 200 }
+                - type: object
+                  required: [googleCredential]
+                  properties:
+                    googleCredential: { type: string, description: "id_token de Google Identity Services" }
+      responses:
+        "204": { description: Cuenta eliminada }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: "`CONFIRMATION_FAILED`: la contraseña o la cuenta de Google no coinciden"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { description: "`GOOGLE_NOT_CONFIGURED`: el servidor no tiene Google configurado" }
 
   /users/me/reminder-settings:
     get:
@@ -1977,7 +2015,7 @@ components:
       description: Soporte de pago de un movimiento (FT-0044). Nunca incluye dónde está guardado.
       properties:
         id: { type: string, format: uuid }
-        name: { type: string, description: Nombre original, solo para mostrarlo }
+        name: { type: string, description: "Nombre original, solo para mostrarlo" }
         type: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
         size: { type: integer, description: Bytes }
         createdAt: { type: string, format: date-time }
@@ -2265,7 +2303,7 @@ components:
           type: object
           nullable: true
           required: [id, name, last4, deleted]
-          description: Tarjeta con la que se pagó el gasto; `null` si no usó tarjeta. Si la tarjeta se borró, sigue aquí con `deleted: true`.
+          description: "Tarjeta con la que se pagó el gasto; `null` si no usó tarjeta. Si la tarjeta se borró, sigue aquí con `deleted: true`."
           properties:
             id: { type: string, format: uuid }
             name: { type: string }

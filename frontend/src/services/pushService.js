@@ -91,6 +91,16 @@ export async function unsubscribeThisDevice() {
 }
 
 /**
+ * Da de baja los avisos solo en este navegador, sin llamar a la API. Para cuando la cuenta ya se
+ * eliminó (FT-0017): el servidor borró sus suscripciones y ya no hay token con qué avisarle.
+ * @returns {Promise<void>}
+ */
+export async function forgetThisDevice() {
+  if (!isPushSupported()) return;
+  await (await getCurrentSubscription())?.unsubscribe();
+}
+
+/**
  * Horas y zona horaria de los recordatorios diarios (`GET /users/me/reminder-settings`).
  * @returns {Promise<ReminderSettings>}
  */

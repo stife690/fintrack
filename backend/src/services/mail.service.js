@@ -102,14 +102,50 @@ export async function sendVerificationEmail({ to, link, hours }) {
 }
 
 /**
- * Plantilla HTML de los correos de la cuenta (recuperar contraseña y verificar el correo). Usa
- * tablas y estilos en línea porque Gmail y Outlook ignoran el CSS moderno; los colores son los de
- * la marca (violeta #6142ff). Los textos son fijos del backend, no los escribe el usuario.
- * @param {{ heading: string, intro: string, button: string, link: string, expiry: string, footer: string }} data
- *   `expiry`: cuánto dura el enlace (p. ej. "30 minutos").
+ * Avisa que la cuenta se eliminó (FT-0017). Si no fue el dueño, al menos se entera.
+ * @param {{ to: string }} data
+ * @returns {Promise<void>}
+ */
+export async function sendAccountDeletedEmail({ to }) {
+  const footer =
+    'Si no fuiste tú, alguien entró con tu contraseña: cámbiala en los demás servicios donde la uses y escríbenos respondiendo este correo.';
+  await sendEmail({
+    to,
+    subject: 'Tu cuenta de FinTrack fue eliminada',
+    html: accountHtml({
+      heading: 'Tu cuenta fue eliminada',
+      intro:
+        'Borramos tu cuenta de FinTrack y tus datos: movimientos, presupuestos, tarjetas, soportes y ajustes. Esto no se puede deshacer. Si algún día vuelves, puedes crear una cuenta nueva con este mismo correo.',
+      footer,
+    }),
+    text: [
+      'Borramos tu cuenta de FinTrack y tus datos: movimientos, presupuestos, tarjetas, soportes y ajustes.',
+      'Esto no se puede deshacer. Si algún día vuelves, puedes crear una cuenta nueva con este mismo correo.',
+      '',
+      footer,
+    ].join('\n'),
+  });
+}
+
+/**
+ * Plantilla HTML de los correos de la cuenta (recuperar contraseña, verificar el correo y avisar que
+ * se eliminó). Usa tablas y estilos en línea porque Gmail y Outlook ignoran el CSS moderno; los
+ * colores son los de la marca (violeta #6142ff). Los textos son fijos del backend, no los escribe
+ * el usuario.
+ * @param {{ heading: string, intro: string, button?: string, link?: string, expiry?: string, footer: string }} data
+ *   `expiry`: cuánto dura el enlace (p. ej. "30 minutos"). Sin `link` el correo no lleva botón.
  * @returns {string}
  */
 function accountHtml({ heading, intro, button, link, expiry, footer }) {
+  const action = link
+    ? `<a href="${link}" style="display:inline-block;background:#6142ff;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
+            ${button}
+          </a>
+          <p style="margin:28px 0 0;font-size:13px;line-height:1.6;color:#6e6b7b">
+            El enlace vence en ${expiry} y sirve una sola vez. Si el botón no funciona, copia esta dirección en tu navegador:<br>
+            <a href="${link}" style="color:#5b3df5;word-break:break-all">${link}</a>
+          </p>`
+    : '';
   return `<!doctype html>
 <html lang="es">
 <body style="margin:0;padding:0;background:#f5f4f9;font-family:Arial,Helvetica,sans-serif;color:#16141f">
@@ -125,13 +161,7 @@ function accountHtml({ heading, intro, button, link, expiry, footer }) {
           <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#4b4858">
             ${intro}
           </p>
-          <a href="${link}" style="display:inline-block;background:#6142ff;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
-            ${button}
-          </a>
-          <p style="margin:28px 0 0;font-size:13px;line-height:1.6;color:#6e6b7b">
-            El enlace vence en ${expiry} y sirve una sola vez. Si el botón no funciona, copia esta dirección en tu navegador:<br>
-            <a href="${link}" style="color:#5b3df5;word-break:break-all">${link}</a>
-          </p>
+          ${action}
           <hr style="border:none;border-top:1px solid #ece9f3;margin:28px 0">
           <p style="margin:0;font-size:13px;line-height:1.6;color:#6e6b7b">
             ${footer}

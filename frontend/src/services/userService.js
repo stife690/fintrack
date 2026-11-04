@@ -28,3 +28,14 @@ export function getProfile() {
 export function updateProfile(name) {
   return apiRequest('/users/me', { method: 'PATCH', body: { name } });
 }
+
+/**
+ * Elimina la cuenta y todos sus datos (FT-0017). No se puede deshacer.
+ * @param {{ password: string } | { googleCredential: string }} confirmation Contraseña, o el
+ *   `credential` de Google para las cuentas creadas con Google.
+ * @returns {Promise<null>}
+ * @throws {Error} Con `code: 'CONFIRMATION_FAILED'` si la contraseña o la cuenta de Google no coinciden.
+ */
+export function deleteAccount(confirmation) {
+  return apiRequest('/users/me', { method: 'DELETE', body: confirmation });
+}

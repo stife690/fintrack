@@ -55,6 +55,9 @@ export function createApp() {
   app.use('/api/v1/whatsapp/webhook', webhookRouter);
   app.use(express.json());
   app.use(healthRoutes);
+  // Un solo contador por IP para todo lo que prueba contraseñas, borrar la cuenta incluido (FT-0017).
+  const authRateLimit = createAuthRateLimit();
+  app.delete('/api/v1/users/me', authRateLimit);
   app.use(
     [
       '/api/v1/auth/login',
@@ -65,7 +68,7 @@ export function createApp() {
       '/api/v1/auth/verify-email',
       '/api/v1/auth/resend-verification',
     ],
-    createAuthRateLimit(),
+    authRateLimit,
   );
   // Crear y editar pueden pedir la categoría a la IA: llevan límite de peticiones (contrato §1).
   const aiRateLimit = createAiRateLimit();

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Loader2, LogOut, Wallet } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
+import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
@@ -39,7 +40,8 @@ function Group({ label, children }) {
 
 /**
  * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), acceso a Mi plata, preferencias
- * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030) y cierre de sesión.
+ * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030), cierre de sesión y eliminar la
+ * cuenta (FT-0017).
  */
 export default function Account() {
   usePageTitle('Cuenta');
@@ -96,6 +98,7 @@ export default function Account() {
               {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </Button>
           </Panel>
+          <DeleteAccount />
         </Group>
       </div>
     </div>
