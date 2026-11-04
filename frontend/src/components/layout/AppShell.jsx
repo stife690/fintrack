@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import NotificationBell from '@/components/layout/NotificationBell';
-import { NotificationsProvider, useNotifications } from '@/components/layout/NotificationsProvider';
+import { NotificationsProvider } from '@/components/layout/NotificationsProvider';
 import SyncStatus from '@/components/layout/SyncStatus';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
 import { useAuth } from '@/auth/AuthContext';
@@ -156,39 +156,24 @@ function Sidebar({ user }) {
  * lista está en Cuenta). En las demás pantallas, el botón para volver: atrás en el historial o, si la
  * pantalla se abrió directo (un enlace, un aviso), a la pantalla de la que cuelga.
  */
-function MobileHeader({ user }) {
+function MobileHeader() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { unread } = useNotifications();
   const parent = backPath(pathname);
 
-  if (parent) {
-    return (
-      <header className="flex items-center px-2 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
-        <button
-          type="button"
-          aria-label="Volver"
-          onClick={() => (canGoBack(window.history.state) ? navigate(-1) : navigate(parent, { replace: true }))}
-          className="grid size-11 place-items-center rounded-full transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-        >
-          <ChevronLeft className="size-6" aria-hidden="true" />
-        </button>
-      </header>
-    );
-  }
+  // El inicio lleva el avatar dentro de su franja morada.
+  if (!parent) return null;
 
   return (
     <header className="flex items-center px-2 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
-      <Link
-        to="/app/cuenta"
-        aria-label={unread === 0 ? 'Tu cuenta' : `Tu cuenta, ${unread} ${unread === 1 ? 'aviso' : 'avisos'} sin leer`}
-        className="relative grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-violet"
+      <button
+        type="button"
+        aria-label="Volver"
+        onClick={() => (canGoBack(window.history.state) ? navigate(-1) : navigate(parent, { replace: true }))}
+        className="grid size-11 place-items-center rounded-full transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
       >
-        <Avatar user={user} />
-        {unread > 0 && (
-          <span aria-hidden="true" className="absolute right-0.5 top-0.5 size-3 rounded-full bg-brand ring-2 ring-canvas" />
-        )}
-      </Link>
+        <ChevronLeft className="size-6" aria-hidden="true" />
+      </button>
     </header>
   );
 }
@@ -251,7 +236,7 @@ function Shell() {
       <Sidebar user={user} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileHeader user={user} />
+        <MobileHeader />
 
         <SyncStatus
           online={online}

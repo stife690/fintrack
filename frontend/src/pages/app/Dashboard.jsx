@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import BalanceCard from '@/components/dashboard/BalanceCard';
-import BudgetOverview, { BudgetAlert, hasBudgetAlert } from '@/components/dashboard/BudgetOverview';
+import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import CardsSummary from '@/components/dashboard/CardsSummary';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
+import MobileHome from '@/components/dashboard/MobileHome';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
 import HealthCard from '@/components/dashboard/HealthCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
@@ -18,10 +19,10 @@ import PendingPayments from '@/components/money/PendingPayments';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
-import { cn } from '@/lib/utils';
 import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { periodLabel, todayIso } from '@/lib/period';
@@ -54,6 +55,7 @@ export default function Dashboard() {
   usePageTitle('Inicio');
   const { user } = useAuth();
   const [hidden, toggleHidden] = useHiddenAmounts();
+  const mobile = useMediaQuery('(width < 48rem)');
   const online = useOnlineStatus();
   const offlineNote = online ? undefined : 'Sin conexión: se actualiza al volver internet.';
   const month = currentMonth();
@@ -141,8 +143,28 @@ export default function Dashboard() {
 
   if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
-  const mobileNotice =
-    plan?.pending.length > 0 ? 'payments' : budgets.data && hasBudgetAlert(budgets.data) ? 'budget' : 'cards';
+  if (mobile) {
+    const loadingBalance = online && moneyProfile.loading && !moneyProfile.data;
+    return (
+      <MobileHome
+        balance={loadingBalance ? undefined : (moneyProfile.data?.money ?? totals?.balance ?? null)}
+        totals={totals}
+        budgets={budgets.data}
+        cards={cards.data}
+        recent={recent.data?.data}
+        pending={plan?.pending}
+        recentError={recent.error}
+        names={names}
+        monthLabel={label}
+        empty={empty}
+        welcomePending={welcomePending}
+        setupPending={setupPending}
+        onWelcomeDone={moneyProfile.reload}
+        hidden={hidden}
+        onToggleHidden={toggleHidden}
+      />
+    );
+  }
 
   const balanceCard = (
     <BalanceCard
@@ -174,10 +196,6 @@ export default function Dashboard() {
           {setupPending && <MoneySetupLink />}
           {empty ? (
             <>
-              {/* En el celular son la única forma de llegar a las secciones; desde tablet está el menú lateral. */}
-              <div className="md:hidden">
-                <QuickActions />
-              </div>
               {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
               <DashboardEmpty />
             </>
@@ -186,10 +204,7 @@ export default function Dashboard() {
               {welcomePending && <MoneyInvite onDone={moneyProfile.reload} />}
               <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
               {balanceCard}
-              {/* En el celular, un solo aviso: el más urgente (pagos, luego presupuesto, luego tarjetas). */}
-              <div className={cn('empty:hidden', mobileNotice !== 'cards' && 'max-md:hidden')}>
-                <CardsSummary cards={cards.data} hidden={hidden} />
-              </div>
+              <CardsSummary cards={cards.data} hidden={hidden} />
               {summary.error && online && (
                 <p role="alert" className="-mt-2 text-sm text-negative">
                   No pudimos calcular el balance: {summary.error}{' '}
@@ -200,11 +215,7 @@ export default function Dashboard() {
               )}
               {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
               <QuickActions />
-              {budgets.data && (
-                <div className={cn('empty:hidden', mobileNotice !== 'budget' && 'max-md:hidden')}>
-                  <BudgetAlert budgets={budgets.data} names={names} />
-                </div>
-              )}
+              {budgets.data && <BudgetAlert budgets={budgets.data} names={names} />}
               <IncomeExpenseChart
                 period={selected.period}
                 date={selected.date}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Search } from 'lucide-react';
+import { ChevronDown, Loader2, Search } from 'lucide-react';
 import MovementRow from '@/components/transactions/MovementRow';
 import { SEARCH_DELAY_MS } from '@/components/transactions/TransactionFilters';
 import { formatRelativeDay } from '@/components/transactions/format';
@@ -90,8 +90,10 @@ export default function MovementList({ names, hidden = false }) {
         <h2 id="movimientos-title" className="text-lg font-semibold tracking-tight">
           Movimientos
         </h2>
-        <Link to="/app/mes" className="-my-3 py-3 text-sm font-medium text-brand">
-          Cómo va el mes
+        <Link to="/app/mes" className="-my-3 flex items-center gap-1 py-3 text-sm font-medium capitalize text-brand">
+          {new Date().toLocaleDateString('es-CO', { month: 'long' })}
+          <span className="sr-only">, ver cómo va el mes</span>
+          <ChevronDown className="size-4" aria-hidden="true" />
         </Link>
       </div>
 

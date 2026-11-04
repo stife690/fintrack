@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Delete, Loader2, Mic, Sparkles } from 'lucide-react';
+import { Check, ChevronLeft, Delete, Loader2, Mic, Plus, Sparkles, X } from 'lucide-react';
+import NewCategoryDialog from '@/components/categories/NewCategoryDialog';
 import ChipGroup from '@/components/common/ChipGroup';
+import Segmented from '@/components/common/Segmented';
+import { currentMonth } from '@/components/budgets/month';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
 import DateQuickPick from '@/components/transactions/DateQuickPick';
 import VoiceEntry from '@/components/transactions/VoiceEntry';
@@ -16,6 +19,7 @@ import { NETWORK_LABELS } from '@/lib/cardStyles';
 import { cn } from '@/lib/utils';
 import { today, transactionSchema } from '@/lib/validation/transaction';
 import { saveNewTransaction } from '@/offline/saveNewTransaction';
+import { listBudgets } from '@/services/budgetService';
 import { listCards } from '@/services/cardService';
 import { getMoneyPlan } from '@/services/moneyProfileService';
 
@@ -93,7 +97,11 @@ export default function Anotar() {
   const shownDone = useRef(false); // ya se vio "listo": volver atrás empieza de nuevo
   const heading = useRef(null);
   const firstStep = useRef(step);
-  const { categories, names } = useCategoryNames();
+  const { categories, names: loadedNames } = useCategoryNames();
+  // Las que se crean aquí mismo: quedan elegidas y de primeras, aunque la lista esté recortada.
+  const [created, setCreated] = useState([]);
+  const [creating, setCreating] = useState(false);
+  const names = { ...loadedNames, ...Object.fromEntries(created.map((c) => [c.key, c.name])) };
   const cards = useAsync(listCards, []);
 
   const set = (changes) => setForm((f) => ({ ...f, ...changes }));
@@ -147,13 +155,23 @@ export default function Anotar() {
     setSaving(true);
     try {
       const saved = await saveNewTransaction(values);
-      setResult({ ...saved, values, money: null });
+      setResult({ ...saved, values, money: null, left: null });
       setParams({ paso: 'listo', ...keep }, { replace: true });
       // El saldo llega después: "listo" no espera otra respuesta del servidor.
       if (!saved.offline) {
         getMoneyPlan()
           .then((plan) => plan.ready && setResult((r) => r && { ...r, money: plan.money }))
           .catch(() => {});
+        // Cuánto queda del presupuesto de esa categoría, si tiene y el gasto es de este mes.
+        const category = saved.transaction?.category;
+        if (values.type === 'gasto' && category && values.date.startsWith(currentMonth())) {
+          listBudgets(currentMonth())
+            .then((budgets) => {
+              const budget = budgets.find((b) => b.category === category);
+              if (budget) setResult((r) => r && { ...r, left: Math.max(0, budget.amount - budget.consumed) });
+            })
+            .catch(() => {});
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -164,15 +182,17 @@ export default function Anotar() {
 
   const expense = form.type === 'gasto';
   const amount = Number(form.amount || 0);
-  const list = (expense ? categories?.expense : categories?.income) ?? [];
+  const loaded = (expense ? categories?.expense : categories?.income) ?? [];
+  const mine = created.filter((c) => c.type === form.type);
+  const list = [...mine, ...loaded.filter((c) => !mine.some((m) => m.key === c.key))];
   const shown = allCategories ? list : list.slice(0, VISIBLE_CATEGORIES);
   const categoryName = form.category === AI ? 'la sugiere la IA' : names[form.category] ?? form.category;
 
   if (step === 'listo' && result) {
-    const { values, transaction, alert, offline, money } = result;
+    const { values, transaction, alert, offline, money, left } = result;
     const category = transaction?.category;
     return (
-      <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-between gap-8 rounded-3xl bg-violet p-6 text-white">
+      <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-between gap-8 rounded-3xl bg-violet p-6 text-white max-md:rounded-none max-md:fixed max-md:inset-0 max-md:z-50 max-md:max-w-none max-md:overflow-y-auto max-md:px-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] max-md:pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="my-auto">
           <span className="grid size-16 place-items-center rounded-full bg-white text-brand">
             <Check className="size-8" strokeWidth={2.5} aria-hidden="true" />
@@ -188,17 +208,24 @@ export default function Anotar() {
               <p className="py-4 text-[15px]">Guardado sin conexión. Se sincronizará cuando vuelva internet.</p>
             ) : (
               <>
-                {category && (
-                  <p className="flex min-h-[60px] items-center justify-between gap-4 text-[15px]">
-                    <span>{transaction.source === 'ia' ? 'Categoría (sugerida por IA)' : 'Categoría'}</span>
-                    <strong className="font-semibold">{names[category] ?? category}</strong>
-                  </p>
-                )}
                 {money !== null && (
                   <p className="flex min-h-[60px] items-center justify-between gap-4 text-[15px]">
                     <span>Tu saldo ahora</span>
                     <strong className="text-[17px] font-semibold tabular-nums">{formatMoney(money)}</strong>
                   </p>
+                )}
+                {left !== null ? (
+                  <p className="flex min-h-[60px] items-center justify-between gap-4 text-[15px]">
+                    <span>Te quedan en {names[category] ?? category}</span>
+                    <strong className="text-[17px] font-semibold tabular-nums">{formatMoney(left)}</strong>
+                  </p>
+                ) : (
+                  category && (
+                    <p className="flex min-h-[60px] items-center justify-between gap-4 text-[15px]">
+                      <span>{transaction.source === 'ia' ? 'Categoría (sugerida por IA)' : 'Categoría'}</span>
+                      <strong className="font-semibold">{names[category] ?? category}</strong>
+                    </p>
+                  )
                 )}
               </>
             )}
@@ -221,17 +248,26 @@ export default function Anotar() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col">
+    <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col max-md:bg-surface max-md:fixed max-md:inset-0 max-md:z-50 max-md:max-w-none max-md:overflow-y-auto max-md:px-4 max-md:pb-[max(1rem,env(safe-area-inset-bottom))] max-md:pt-[max(1rem,env(safe-area-inset-top))]">
       <h1 className="sr-only">Anotar</h1>
       <div className="flex items-center gap-3">
+        {/* A pantalla completa en el celular: cierra o vuelve desde aquí, junto al progreso. */}
+        <button
+          type="button"
+          aria-label={step === '1' ? 'Cerrar' : 'Volver al paso anterior'}
+          onClick={() => (step === '1' ? navigate('/app', { replace: true }) : navigate(-1))}
+          className="-ml-2.5 grid size-11 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-violet md:hidden"
+        >
+          {step === '1' ? <X className="size-6" aria-hidden="true" /> : <ChevronLeft className="size-6" aria-hidden="true" />}
+        </button>
         <Progress step={step} />
+        <span aria-hidden="true" className="w-[34px] shrink-0 md:hidden" />
       </div>
 
       {step === '1' && (
         <>
-          <ChipGroup
-            legend="Tipo de movimiento"
-            hideLegend
+          <Segmented
+            label="Tipo de movimiento"
             className="mt-4"
             options={[
               { value: 'gasto', label: 'Gasto' },
@@ -338,7 +374,26 @@ export default function Anotar() {
                 </button>
               </li>
             )}
+            <li>
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="flex h-11 items-center gap-1.5 rounded-full border border-dashed border-ink/30 bg-surface px-3.5 text-sm font-medium text-brand focus-visible:outline-2 focus-visible:outline-violet"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                Nueva categoría
+              </button>
+            </li>
           </ul>
+          <NewCategoryDialog
+            open={creating}
+            type={form.type}
+            onClose={() => setCreating(false)}
+            onCreated={(category) => {
+              setCreated((current) => [{ ...category, type: form.type }, ...current]);
+              set({ category: category.key });
+            }}
+          />
 
           <Button size="lg" className="mt-auto" disabled={!form.description.trim()} onClick={() => go('3')}>
             Continuar

@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
@@ -375,6 +376,9 @@ export default function MiPlata() {
   const online = useOnlineStatus();
   const profile = useAsync(getMoneyProfile, []);
   const data = profile.data;
+  const [params, setParams] = useSearchParams();
+  // En el celular, cómo recibe la plata y sus pagos van aparte, para que Mi plata sea saldo y movimientos.
+  const settings = params.get('ver') === 'pagos';
   // Lo de arriba solo se ve en el celular: así el computador no pide datos que no muestra.
   const mobile = useMediaQuery('(width < 48rem)');
   const [hidden] = useHiddenAmounts();
@@ -406,13 +410,14 @@ export default function MiPlata() {
 
   const fixBalance = () => {
     setFixing(true);
+    setParams({ ver: 'pagos' });
     requestAnimationFrame(() => balanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   };
 
   const actions = [
     { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
     { onClick: fixBalance, label: 'Corregir saldo', icon: Pencil },
-    { onClick: () => document.getElementById('pagos')?.scrollIntoView({ behavior: 'smooth' }), label: 'Pagos del mes', icon: ReceiptText },
+    { onClick: () => setParams({ ver: 'pagos' }), label: 'Pagos del mes', icon: ReceiptText },
     { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
   ];
 
@@ -423,16 +428,28 @@ export default function MiPlata() {
       </div>
 
       {/* En el celular, Mi plata es donde se ve la plata: saldo, acciones, pagos y movimientos (como en el diseño). */}
-      {mobile && (
-      <div className="mb-8 flex flex-col gap-5 md:hidden">
-        {plan && <PlanHero plan={plan} hidden={hidden} />}
+      {mobile && !settings && (
+      <div className="flex flex-col gap-5 md:hidden">
+        {plan ? (
+          <PlanHero plan={plan} hidden={hidden} />
+        ) : (
+          typeof data?.money === 'number' && (
+            <div>
+              <p className="text-[15px] text-ink/70">Saldo disponible</p>
+              <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">
+                {hidden ? '$ ••••••' : formatMoney(data.money)}
+              </p>
+            </div>
+          )
+        )}
         <CircleActions label="Acciones de Mi plata" actions={actions} />
-        {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
+        {plan?.pending.length > 0 && <PendingPayments notice pending={plan.pending} />}
         <MovementList names={names} hidden={hidden} />
       </div>
       )}
+      {mobile && settings && <h1 className="mb-5 text-[28px] font-semibold tracking-tight md:hidden">Pagos del mes</h1>}
 
-      {profile.error && !data && (
+      {(!mobile || settings) && profile.error && !data && (
         <p role="alert" className="text-sm text-negative">
           {profile.error}{' '}
           <button type="button" className="underline" onClick={profile.reload}>
@@ -440,9 +457,8 @@ export default function MiPlata() {
           </button>
         </p>
       )}
-      {data && (
+      {(!mobile || settings) && data && (
         <div className="flex flex-col gap-5">
-          <h2 className="-mb-2 px-1 text-sm font-medium text-ink/60 md:hidden">Cómo calculamos lo que puedes gastar</h2>
           <IncomeSection profile={data} onSave={save} />
           {(data.money === null || fixing) && (
             <div ref={balanceRef}>

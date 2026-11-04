@@ -99,7 +99,7 @@ export default function TransactionDetail() {
 
       {/* Recibos (FT-0044): solo de movimientos que ya están en el servidor. */}
       <Panel>
-        <AttachmentsPanel transactionId={t.id} />
+        <AttachmentsPanel bare transactionId={t.id} />
       </Panel>
 
       {error && (

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Landmark, Loader2, Sparkles } from 'lucide-react';
+import { ArrowUp, ChevronRight, Landmark, Loader2, Sparkles } from 'lucide-react';
+import Sheet from '@/components/common/Sheet';
+import { LEVELS } from '@/components/insights/analytics';
 import AssistantChat from '@/components/insights/AssistantChat';
 import InsightCard from '@/components/insights/InsightCard';
 import MonthAnalytics from '@/components/insights/MonthAnalytics';
@@ -8,7 +10,11 @@ import MonthHighlights from '@/components/insights/MonthHighlights';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import { formatMonth } from '@/components/budgets/month';
+import useAsync from '@/hooks/useAsync';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
+import { cn } from '@/lib/utils';
+import { getAnalytics } from '@/services/analyticsService';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getInsights } from '@/services/insightService';
 
@@ -22,6 +28,8 @@ export function insightsTitle({ period, month, from }) {
   const monday = new Date(`${from}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
   return `Esta semana, desde el lunes ${monday}`;
 }
+
+const LEVEL_TEXT = { positive: 'text-positive', caution: 'text-caution', negative: 'text-negative' };
 
 /**
  * Página privada `/app/insights`: consejos generados por IA a partir de los totales por
@@ -57,6 +65,107 @@ export default function Insights() {
   const retry = useCallback(() => setVersion((v) => v + 1), []);
   // Sin una semana de historial no hay consejos con IA: se muestra el mes hasta hoy, calculado aquí.
   const noHistory = error?.code === 'INSUFFICIENT_HISTORY';
+  const mobile = useMediaQuery('(width < 48rem)');
+  const [panel, setPanel] = useState(null); // null | 'detail' | 'chat'
+  const analytics = useAsync(() => (mobile ? getAnalytics() : Promise.resolve(null)), [mobile]);
+
+  if (mobile) {
+    const health = analytics.data && !analytics.data.empty ? analytics.data.health : null;
+    return (
+      <>
+        <h1 className="text-[28px] font-semibold tracking-tight">Consejos</h1>
+
+        <button
+          type="button"
+          onClick={() => setPanel('detail')}
+          className="mt-4 flex w-full items-center gap-4 rounded-2xl border border-ink/10 bg-surface p-3.5 text-left focus-visible:outline-2 focus-visible:outline-violet"
+        >
+          <span className="grid size-[60px] shrink-0 place-items-center rounded-2xl bg-ink/5 text-2xl font-semibold tabular-nums">
+            {health ? health.score : '–'}
+          </span>
+          <span className="min-w-0 flex-1 text-[15px]">
+            <span className="block text-ink/70">Salud financiera</span>
+            <strong className={cn('mt-0.5 block text-lg font-semibold', health && LEVEL_TEXT[LEVELS[health.level].tone])}>
+              {health ? LEVELS[health.level].label : 'Tu mes en números'}
+            </strong>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
+        </button>
+
+        <section aria-labelledby="insights-title" className="mt-6" aria-busy={loading}>
+          <h2 id="insights-title" className="text-lg font-semibold tracking-tight first-letter:uppercase">
+            {data ? (data.period === 'week' ? 'Esta semana' : formatMonth(data.month)) : 'Este mes'}
+          </h2>
+          {loading && !data ? (
+            <p className="flex items-center gap-2 py-6 text-ink/60">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Analizando tus movimientos…
+            </p>
+          ) : noHistory ? (
+            <div className="mt-2">
+              <MonthHighlights message={error.message} />
+            </div>
+          ) : error ? (
+            <p role="alert" className="py-3 text-sm text-negative">
+              {!online
+                ? 'Sin conexión. Los insights necesitan internet; vuelve a intentarlo cuando regreses.'
+                : error.code === 'AI_UNAVAILABLE'
+                  ? 'Nuestro asistente no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.'
+                  : error.message}{' '}
+              <button type="button" className="underline" onClick={retry}>
+                Reintentar
+              </button>
+            </p>
+          ) : (
+            <ul className="mt-2 flex flex-col gap-2.5">
+              {data.insights.map((insight) => (
+                <li key={`${insight.type}-${insight.title}`} className="rounded-2xl border border-ink/10 bg-surface p-3.5">
+                  <h3 className="text-[15px] font-semibold">{insight.title}</h3>
+                  <p className="mt-1 text-sm leading-snug text-ink/70">{insight.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="pendiente" className="mt-6">
+          <h2 id="pendiente" className="text-lg font-semibold tracking-tight">
+            Para tener en cuenta
+          </h2>
+          <Link
+            to="/app/renta"
+            className="mt-2 flex min-h-16 items-center gap-3 rounded-2xl border border-ink/10 bg-surface px-3.5 py-2.5 focus-visible:outline-2 focus-visible:outline-violet"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+              <Landmark className="size-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium">Renta y DIAN</span>
+              <span className="block text-[13px] text-ink/70">Averigua si te toca declarar y cuándo</span>
+            </span>
+            <ChevronRight className="size-[18px] shrink-0 text-ink/60" aria-hidden="true" />
+          </Link>
+        </section>
+
+        <button
+          type="button"
+          onClick={() => setPanel('chat')}
+          className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-full border border-ink/15 bg-surface py-1.5 pl-4 pr-1.5 text-left shadow-lg focus-visible:outline-2 focus-visible:outline-violet"
+        >
+          <span className="min-w-0 flex-1 text-base text-ink/60">Pregunta sobre tu plata</span>
+          <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-brand text-white">
+            <ArrowUp className="size-5" />
+          </span>
+        </button>
+
+        <Sheet open={panel === 'detail'} title="Tu mes en números" onClose={() => setPanel(null)}>
+          <MonthAnalytics />
+        </Sheet>
+        <Sheet open={panel === 'chat'} title="Pregúntale a FinTrack" onClose={() => setPanel(null)}>
+          <AssistantChat embedded className="border-0 bg-transparent p-0 md:p-0" />
+        </Sheet>
+      </>
+    );
+  }
 
   return (
     <>
@@ -104,20 +213,6 @@ export default function Insights() {
               </ul>
             )}
           </div>
-        </Panel>
-
-        <Panel className="p-0 md:hidden" aria-label="Para tener en cuenta">
-          <Link
-            to="/app/renta"
-            className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-          >
-            <Landmark className="size-5 shrink-0 text-brand" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">Renta y DIAN</span>
-              <span className="block text-sm text-ink/60">Averigua si te toca declarar y cuándo</span>
-            </span>
-            <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-          </Link>
         </Panel>
 
         <AssistantChat className="xl:sticky xl:top-6" />

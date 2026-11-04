@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ChipGroup from '@/components/common/ChipGroup';
+import Segmented from '@/components/common/Segmented';
 import PeriodJumpPicker from '@/components/dashboard/PeriodJumpPicker';
 import { PERIOD_OPTIONS, isCurrentPeriod, periodLabel, shiftPeriod, todayIso } from '@/lib/period';
 import { cn } from '@/lib/utils';
@@ -38,10 +39,44 @@ function ArrowButton({ label, onClick, disabled = false, children }) {
  * @param {string} props.date Un día del periodo elegido, AAAA-MM-DD.
  * @param {(next: { period: 'week'|'month'|'year', date: string }) => void} props.onChange
  * @param {string} [props.className]
+ * @param {boolean} [props.stacked] En dos filas: la franja de opciones y debajo las flechas a lado y lado.
  */
-export default function PeriodSelector({ period, date, onChange, className }) {
+export default function PeriodSelector({ period, date, onChange, className, stacked = false }) {
   const label = periodLabel(period, date);
   const atCurrent = isCurrentPeriod(period, date);
+
+  if (stacked) {
+    return (
+      <div className={className}>
+        <Segmented
+          label="Periodo del resumen"
+          options={PERIOD_OPTIONS}
+          value={period}
+          onChange={(next) => onChange({ period: next, date: todayIso() })}
+        />
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            type="button"
+            aria-label="Periodo anterior"
+            onClick={() => onChange({ period, date: shiftPeriod(period, date, -1) })}
+            className="grid size-11 place-items-center rounded-full"
+          >
+            <ChevronLeft className="size-5" aria-hidden="true" />
+          </button>
+          <PeriodJumpPicker period={period} date={date} label={label} onPick={(next) => onChange({ period, date: next })} />
+          <button
+            type="button"
+            aria-label="Periodo siguiente"
+            disabled={atCurrent}
+            onClick={() => onChange({ period, date: shiftPeriod(period, date, 1) })}
+            className="grid size-11 place-items-center rounded-full disabled:opacity-40"
+          >
+            <ChevronRight className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-3', className)}>
