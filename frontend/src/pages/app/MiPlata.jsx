@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
+import { MASK } from '@/components/dashboard/BalanceCard';
 import MoneyInput from '@/components/common/MoneyInput';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import useAsync from '@/hooks/useAsync';
 import useCategoryNames from '@/hooks/useCategoryNames';
+import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { planHeadline } from '@/lib/moneyPlan';
@@ -346,14 +348,15 @@ function PaymentsSection({ commitments, onChanged }) {
 /**
  * Saldo de Mi plata en el celular: cuánta plata hay y lo primero que hay que saber (lo que se puede
  * gastar hoy, o lo que falta para los pagos).
- * @param {{ plan: object }} props Plan con `ready: true`.
+ * @param {{ plan: object, hidden: boolean }} props Plan con `ready: true`; `hidden` oculta los montos.
  */
-function PlanHero({ plan }) {
-  const { label, value, note, warning } = planHeadline(plan, formatMoney);
+function PlanHero({ plan, hidden }) {
+  const money = (value) => (hidden ? MASK : formatMoney(value));
+  const { label, value, note, warning } = planHeadline(plan, money);
   return (
     <div>
       <p className="text-[15px] text-ink/60">Saldo disponible</p>
-      <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{formatMoney(plan.money)}</p>
+      <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{money(plan.money)}</p>
       <p className={cn('mt-2 text-[15px]', warning && 'text-negative')}>
         {label} <strong className="font-semibold tabular-nums">{value}</strong>
       </p>
@@ -371,7 +374,11 @@ export default function MiPlata() {
   const online = useOnlineStatus();
   const profile = useAsync(getMoneyProfile, []);
   const data = profile.data;
-  const moneyPlan = useAsync(getMoneyPlan, [online, data]);
+  // shortcut: se decide al abrir la pantalla (girar una tablet no lo cambia); así el computador no
+  // pide datos que no muestra. Si hace falta, cambiar por un hook que escuche `matchMedia`.
+  const [mobile] = useState(() => window.matchMedia('(width < 48rem)').matches);
+  const [hidden] = useHiddenAmounts();
+  const moneyPlan = useAsync(() => (mobile ? getMoneyPlan() : Promise.resolve(null)), [online, data, mobile]);
   // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.
   const plan = online && moneyPlan.data?.ready ? moneyPlan.data : null;
   const { names } = useCategoryNames();
@@ -394,7 +401,6 @@ export default function MiPlata() {
       ...changes,
     };
     await updateMoneyProfile({ ...toProfileData(form), resetBalance });
-    setFixing(false);
     profile.reload();
   };
 
@@ -417,12 +423,14 @@ export default function MiPlata() {
       </div>
 
       {/* En el celular, Mi plata es donde se ve la plata: saldo, acciones, pagos y movimientos (como en el diseño). */}
+      {mobile && (
       <div className="mb-8 flex flex-col gap-5 md:hidden">
-        {plan && <PlanHero plan={plan} />}
+        {plan && <PlanHero plan={plan} hidden={hidden} />}
         <CircleActions label="Acciones de Mi plata" actions={actions} />
         {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
-        <MovementList names={names} />
+        <MovementList names={names} hidden={hidden} />
       </div>
+      )}
 
       {profile.error && !data && (
         <p role="alert" className="text-sm text-negative">
@@ -438,7 +446,7 @@ export default function MiPlata() {
           <IncomeSection profile={data} onSave={save} />
           {(data.money === null || fixing) && (
             <div ref={balanceRef}>
-              <BalanceSection profile={data} onSave={save} />
+              <BalanceSection profile={data} onSave={async (changes) => (await save(changes), setFixing(false))} />
             </div>
           )}
           <div id="pagos" className="scroll-mt-4">

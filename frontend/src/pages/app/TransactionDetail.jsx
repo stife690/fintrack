@@ -3,12 +3,14 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { cardMark } from '@/components/cards/cardFormat';
 import ConfirmButton from '@/components/common/ConfirmButton';
+import { MASK } from '@/components/dashboard/BalanceCard';
 import Panel from '@/components/layout/Panel';
 import AttachmentsPanel from '@/components/transactions/AttachmentsPanel';
 import { formatDate, formatMoney, formatRelativeDay } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
 import useAsync from '@/hooks/useAsync';
 import useCategoryNames from '@/hooks/useCategoryNames';
+import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import usePageTitle from '@/hooks/usePageTitle';
 import { canGoBack } from '@/lib/backPath';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,7 @@ export default function TransactionDetail() {
   const fetched = useAsync(() => (passed ? Promise.resolve(passed) : getTransaction(id)), [id, passed]);
   const t = fetched.data;
   const { names } = useCategoryNames();
+  const [hidden] = useHiddenAmounts();
   const [error, setError] = useState('');
   usePageTitle(t ? t.description : 'Movimiento');
 
@@ -79,7 +82,7 @@ export default function TransactionDetail() {
         <h1 className="text-[15px] text-ink/60">{t.description}</h1>
         <p className={cn('mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums', income && 'text-positive')}>
           <span className="sr-only">{income ? 'Ingreso de ' : 'Gasto de '}</span>
-          {`${income ? '+' : '−'}${formatMoney(t.amount)}`}
+          {hidden ? MASK : `${income ? '+' : '−'}${formatMoney(t.amount)}`}
         </p>
       </div>
 

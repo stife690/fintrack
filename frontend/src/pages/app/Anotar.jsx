@@ -119,9 +119,14 @@ export default function Anotar() {
     setSaving(true);
     try {
       const saved = await saveNewTransaction(values);
-      const plan = saved.offline ? null : await getMoneyPlan().catch(() => null);
-      setResult({ ...saved, values, money: plan?.ready ? plan.money : null });
+      setResult({ ...saved, values, money: null });
       setParams({ paso: 'listo' }, { replace: true });
+      // El saldo llega después: "listo" no espera otra respuesta del servidor.
+      if (!saved.offline) {
+        getMoneyPlan()
+          .then((plan) => plan.ready && setResult((r) => r && { ...r, money: plan.money }))
+          .catch(() => {});
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -359,6 +364,8 @@ export default function Anotar() {
           if (!draft) return;
           set({
             type: draft.type,
+            // Si cambió de gasto a ingreso (o al revés), la categoría y la tarjeta elegidas ya no aplican.
+            ...(draft.type !== form.type && { category: AI, card: CASH }),
             amount: draft.amount ? String(Math.round(draft.amount)) : form.amount,
             description: draft.description ?? '',
             date: draft.date ?? form.date,

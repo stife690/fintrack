@@ -147,6 +147,7 @@ export default function Dashboard() {
   const balanceCard = (
     <BalanceCard
       periodLabel={periodLabel(selected.period, selected.date)}
+      selected={selected}
       totals={totals}
       note={offlineNote}
       plan={plan}

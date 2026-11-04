@@ -119,7 +119,7 @@ export default function Budgets() {
           label="Acciones de Presupuestos"
           actions={[
             { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
-            { onClick: showForm, label: 'Crear límite', icon: Target },
+            { onClick: () => (setEditing(null), showForm()), label: 'Crear límite', icon: Target },
           ]}
         />
         <BudgetAlert budgets={budgets} names={categoryNames} />

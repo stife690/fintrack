@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
 import PeriodSelector from '@/components/dashboard/PeriodSelector';
 import PageHeader from '@/components/layout/PageHeader';
@@ -21,14 +21,17 @@ import { getSummary } from '@/services/summaryService';
  * abre al tocar Ingresos o Gastos en el inicio.
  */
 export default function Month() {
-  usePageTitle('Cómo va el mes');
   const online = useOnlineStatus();
   const [hidden] = useHiddenAmounts();
   const { names } = useCategoryNames();
-  const [selected, setSelected] = useState({ period: 'month', date: todayIso() });
+  // Llega con el periodo que se veía en el inicio, para mostrar los mismos números.
+  const { state } = useLocation();
+  const [selected, setSelected] = useState(state?.selected ?? { period: 'month', date: todayIso() });
   const summary = useAsync(() => getSummary(selected.period, selected.date), [selected.period, selected.date, online]);
-  const current = summary.loading ? undefined : summary.data;
+  // Si falla, no se dejan los números del periodo anterior.
+  const current = summary.loading || summary.error ? undefined : summary.data;
   const money = (value) => (current === undefined ? '…' : hidden ? MASK : formatMoney(value));
+  usePageTitle(selected.period === 'month' ? 'Cómo va el mes' : 'Cómo va el periodo');
 
   const rows = [
     ['Ingresos', current?.income.total, 'text-positive'],
@@ -42,7 +45,7 @@ export default function Month() {
       <PageHeader title="Cómo va el mes" />
       <PeriodSelector period={selected.period} date={selected.date} onChange={setSelected} />
 
-      {summary.error && !current ? (
+      {summary.error ? (
         <p role="alert" className="text-sm text-negative">
           {online ? summary.error : 'Sin conexión: se actualiza al volver internet.'}{' '}
           <button type="button" className="underline" onClick={summary.reload}>
