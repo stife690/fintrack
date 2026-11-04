@@ -97,7 +97,11 @@ export default function Anotar() {
   const cards = useAsync(listCards, []);
 
   const set = (changes) => setForm((f) => ({ ...f, ...changes }));
-  const go = (next) => setParams(startCard === CASH ? { paso: next } : { paso: next, tarjeta: startCard });
+  // La tarjeta de partida se queda en la dirección, así recargar no la pierde.
+  const keep = startCard === CASH ? {} : { tarjeta: startCard };
+  const go = (next) => setParams({ paso: next, ...keep });
+  // Solo vale una tarjeta que existe: con un enlace viejo, o sin poder cargarlas, va en efectivo.
+  const cardOk = form.card === CASH || Boolean(cards.data?.some((c) => c.id === form.card));
 
   // Al recargar en un paso sin datos, con "Anotar otro" o al volver atrás después de guardar, se
   // empieza de nuevo: así un mismo movimiento no se guarda dos veces.
@@ -112,7 +116,7 @@ export default function Anotar() {
       setForm(empty(startCard));
       setResult(null);
       setAllCategories(false);
-      if (step !== '1') setParams({}, { replace: true });
+      if (step !== '1') setParams(keep, { replace: true });
     }
   }, [step, form.amount, result, setParams]);
 
@@ -137,14 +141,14 @@ export default function Anotar() {
   }, [step, voice]);
 
   const save = async () => {
-    const { values, error: invalid } = toTransaction(form);
+    const { values, error: invalid } = toTransaction({ ...form, card: cardOk ? form.card : CASH });
     if (invalid) return setError(invalid);
     setError('');
     setSaving(true);
     try {
       const saved = await saveNewTransaction(values);
       setResult({ ...saved, values, money: null });
-      setParams({ paso: 'listo' }, { replace: true });
+      setParams({ paso: 'listo', ...keep }, { replace: true });
       // El saldo llega después: "listo" no espera otra respuesta del servidor.
       if (!saved.offline) {
         getMoneyPlan()
@@ -367,7 +371,7 @@ export default function Anotar() {
               onChange={(card) => set({ card })}
             />
           )}
-          {expense && form.card !== CASH && (
+          {expense && form.card !== CASH && cardOk && (
             <div className="mt-5 space-y-1.5">
               <Label htmlFor="anotar-cuotas">Cuotas</Label>
               <Input

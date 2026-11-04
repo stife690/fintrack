@@ -196,6 +196,9 @@ function MobileHeader({ user }) {
 /** Pantallas con la barra rápida para anotar desde tablet (FT-0013): donde se registran los movimientos. */
 const QUICK_ENTRY_PATHS = ['/app', '/app/transacciones'];
 
+/** Pantallas con una barra fija abajo en el celular: la de anotar o la caja del asistente (Consejos). */
+const BOTTOM_BAR_PATHS = [...QUICK_ENTRY_PATHS, '/app/insights'];
+
 /** Se trae el perfil una vez por carga de la app (el marco se vuelve a montar al cambiar de ruta). */
 let profileSynced = false;
 
@@ -233,8 +236,7 @@ function Shell() {
   const { pending, rejected, conflicts, conflictsLost, syncing } = useOfflineSync();
   const { pathname } = useLocation();
   const quickEntry = QUICK_ENTRY_PATHS.includes(pathname);
-  // En Consejos la caja del asistente queda fija abajo en el celular: también deja espacio.
-  const bottomBar = quickEntry || pathname === '/app/insights';
+  const bottomBar = BOTTOM_BAR_PATHS.includes(pathname);
   useSyncProfile();
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUp, Database, RotateCcw, Sparkles } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
 import useKeyboardInset from '@/hooks/useKeyboardInset';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { cn } from '@/lib/utils';
 import { askAssistant, MAX_QUESTION_CHARS, sourceLabels } from '@/services/assistantService';
@@ -42,15 +43,17 @@ export default function AssistantChat({ className }) {
   const logRef = useRef(null);
   const inputRef = useRef(null);
   const keyboard = useKeyboardInset();
+  const fixedBox = useMediaQuery('(width < 48rem)');
 
   // La lista crece hacia abajo: se baja sola para mostrar lo último.
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
     log.scrollTop = log.scrollHeight;
-    // Con la caja fija abajo (celular), la conversación tiene que quedar a la vista al preguntar.
-    if (messages.length > 0) log.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  }, [messages, pending, error]);
+    // Con la caja fija abajo (celular), la conversación tiene que quedar a la vista al preguntar;
+    // `scroll-mb` deja el final del chat por encima de la caja.
+    if (fixedBox && messages.length > 0) log.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [messages, pending, error, fixedBox]);
 
   /** Envía la conversación con la pregunta nueva (o reintenta la última si no hay pregunta). */
   async function send(conversation) {
@@ -110,7 +113,7 @@ export default function AssistantChat({ className }) {
         role="log"
         aria-live="polite"
         aria-busy={pending}
-        className="mt-4 flex max-h-[26rem] min-h-40 flex-col gap-3 overflow-y-auto overscroll-contain py-1"
+        className="mt-4 flex max-h-[26rem] min-h-40 scroll-mb-28 flex-col gap-3 overflow-y-auto overscroll-contain py-1"
       >
         {messages.length === 0 ? (
           <div className="my-auto">

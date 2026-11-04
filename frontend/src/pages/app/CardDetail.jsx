@@ -188,8 +188,8 @@ export default function CardDetail() {
         className="mb-4 md:hidden"
         actions={[
           { to: `/app/anotar?tarjeta=${id}`, label: 'Anotar', icon: Plus, primary: true },
-          { onClick: () => setSheet('pay'), label: 'Abonar', icon: CircleDollarSign, disabled: !online },
-          { onClick: () => setSheet('sync'), label: 'Actualizar saldo', icon: RefreshCw, disabled: !online },
+          { onClick: () => setSheet('pay'), label: 'Ya pagué', icon: CircleDollarSign, disabled: !online },
+          { onClick: () => setSheet('sync'), label: 'Actualizar con el banco', icon: RefreshCw, disabled: !online },
           { onClick: () => setSheet('edit'), label: 'Editar', icon: Pencil, disabled: !online },
         ]}
       />
