@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
-import { BudgetAlert } from '@/components/dashboard/BudgetOverview';
+import { BudgetAlert, hasBudgetAlert } from '@/components/dashboard/BudgetOverview';
 
 const names = { vivienda: 'Vivienda', transporte: 'Transporte' };
 const budget = (category, level, percentage) => ({ category, percentage, alert: { level, percentage } });
@@ -33,5 +33,19 @@ describe('BudgetAlert del inicio', () => {
 
   it('sin alertas no muestra nada', () => {
     expect(render([budget('vivienda', 'none', 20)])).toBe('');
+  });
+});
+
+describe('hasBudgetAlert', () => {
+  it('coincide con lo que muestra BudgetAlert (decide el aviso del inicio en el celular)', () => {
+    for (const budgets of [
+      [budget('vivienda', 'none', 20)],
+      [budget('vivienda', 'warning_80', 85)],
+      [budget('vivienda', 'exceeded_100', 100)],
+      [budget('vivienda', 'exceeded_100', 130)],
+      [],
+    ]) {
+      expect(hasBudgetAlert(budgets)).toBe(render(budgets) !== '');
+    }
   });
 });

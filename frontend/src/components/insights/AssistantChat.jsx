@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUp, Database, RotateCcw, Sparkles } from 'lucide-react';
 import Panel from '@/components/layout/Panel';
+import useKeyboardInset from '@/hooks/useKeyboardInset';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { cn } from '@/lib/utils';
 import { askAssistant, MAX_QUESTION_CHARS, sourceLabels } from '@/services/assistantService';
@@ -29,9 +31,9 @@ function errorText(err, online) {
  * Chat con el asistente financiero dentro de Insights. Responde con los totales del mes del
  * usuario (la API nunca le pasa descripciones a la IA). La conversación vive solo en esta
  * pantalla: al salir se borra.
- * @param {{ className?: string }} props
+ * @param {{ className?: string, embedded?: boolean }} props `embedded`: dentro de una hoja, la caja no va fija abajo.
  */
-export default function AssistantChat({ className }) {
+export default function AssistantChat({ className, embedded = false }) {
   const online = useOnlineStatus();
   const titleId = useId();
   const [messages, setMessages] = useState([]); // ChatMessage[]
@@ -40,12 +42,19 @@ export default function AssistantChat({ className }) {
   const [error, setError] = useState(null);
   const logRef = useRef(null);
   const inputRef = useRef(null);
+  const keyboard = useKeyboardInset();
+  const isPhone = useMediaQuery('(width < 48rem)');
+  const fixedBox = isPhone && !embedded;
 
   // La lista crece hacia abajo: se baja sola para mostrar lo último.
   useEffect(() => {
     const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [messages, pending, error]);
+    if (!log) return;
+    log.scrollTop = log.scrollHeight;
+    // Con la caja fija abajo (celular), la conversación tiene que quedar a la vista al preguntar;
+    // `scroll-mb` deja el final del chat por encima de la caja.
+    if (fixedBox && messages.length > 0) log.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [messages, pending, error, fixedBox]);
 
   /** Envía la conversación con la pregunta nueva (o reintenta la última si no hay pregunta). */
   async function send(conversation) {
@@ -105,7 +114,7 @@ export default function AssistantChat({ className }) {
         role="log"
         aria-live="polite"
         aria-busy={pending}
-        className="mt-4 flex max-h-[26rem] min-h-40 flex-col gap-3 overflow-y-auto overscroll-contain py-1"
+        className="mt-4 flex max-h-[26rem] min-h-40 scroll-mb-28 flex-col gap-3 overflow-y-auto overscroll-contain py-1"
       >
         {messages.length === 0 ? (
           <div className="my-auto">
@@ -171,8 +180,13 @@ export default function AssistantChat({ className }) {
         )}
       </div>
 
+      {/* En el celular la caja para preguntar queda fija abajo, como la barra para anotar del inicio. */}
       <form
-        className="mt-4 flex items-center gap-2 rounded-full border border-ink/15 bg-canvas py-1.5 pl-4 pr-1.5 focus-within:border-brand/50"
+        style={fixedBox && keyboard > 80 ? { bottom: keyboard + 8 } : undefined}
+        className={cn(
+          'mt-4 flex items-center gap-2 rounded-full border border-ink/15 bg-canvas py-1.5 pl-4 pr-1.5 focus-within:border-brand/50',
+          !embedded && 'max-md:fixed max-md:inset-x-3 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:z-40 max-md:mt-0 max-md:bg-surface max-md:shadow-lg',
+        )}
         onSubmit={(event) => {
           event.preventDefault();
           ask(draft);

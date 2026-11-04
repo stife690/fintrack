@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUp, Mic, Zap } from 'lucide-react';
 import VoiceEntry from '@/components/transactions/VoiceEntry';
@@ -6,28 +6,7 @@ import useAsync from '@/hooks/useAsync';
 import { canDictate as browserCanDictate } from '@/hooks/useSpeechRecognition';
 import { cn } from '@/lib/utils';
 import { getCategories } from '@/services/transactionService';
-
-/**
- * Alto del teclado del celular sobre la página (0 si está cerrado). En iPhone el teclado tapa los
- * elementos fijos de abajo en vez de empujarlos: con esto la barra se sube justo encima.
- * @returns {number} Píxeles.
- */
-function useKeyboardInset() {
-  const [inset, setInset] = useState(0);
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return undefined;
-    const update = () =>
-      setInset(Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop)));
-    viewport.addEventListener('resize', update);
-    viewport.addEventListener('scroll', update);
-    return () => {
-      viewport.removeEventListener('resize', update);
-      viewport.removeEventListener('scroll', update);
-    };
-  }, []);
-  return inset;
-}
+import useKeyboardInset from '@/hooks/useKeyboardInset';
 
 /**
  * Barra rápida para anotar un movimiento (FT-0013), fija abajo en Inicio y Movimientos. Se
@@ -75,11 +54,10 @@ export default function QuickEntryBar() {
       <form
         onSubmit={submit}
         aria-label="Anotar un movimiento"
-        style={keyboard > 80 ? { bottom: keyboard + 8, right: 12 } : undefined}
+        style={keyboard > 80 ? { bottom: keyboard + 8 } : undefined}
         className={cn(
-          // En el celular deja libre la esquina derecha para el botón flotante de "Más".
-          'fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-2 rounded-full max-md:right-20',
-          'bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 backdrop-blur-xl transition-[box-shadow,background-color] duration-200',
+          'fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-2 rounded-full',
+          'bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 backdrop-blur-xl max-md:bg-surface max-md:shadow-lg transition-[box-shadow,background-color] duration-200',
           'focus-within:ring-brand/50 md:bottom-6 md:left-[calc(76px+2rem)] md:right-8 lg:left-[calc(16rem+2rem)]',
         )}
       >

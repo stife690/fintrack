@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import useSheetMotion from '@/lib/sheetMotion';
 import { Loader2, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
@@ -12,7 +13,6 @@ import { createCategory, deleteCategory, updateCategory } from '@/services/trans
 /** Largo máximo del nombre, igual que en la API. */
 export const NAME_MAX = 30;
 
-const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /**
  * Categoría a la que pasan los movimientos de una propia que se elimina.
@@ -68,6 +68,7 @@ export default function NewCategoryDialog({ open, type, category, onClose, onCre
 }
 
 function Dialog({ type: fixedType, category, onClose, onCreated, onDeleted }) {
+  const sheetMotion = useSheetMotion();
   const titleId = useId();
   const nameId = useId();
   const panelRef = useRef(null);
@@ -178,10 +179,7 @@ function Dialog({ type: fixedType, category, onClose, onCreated, onDeleted }) {
         aria-labelledby={titleId}
         onSubmit={submit}
         noValidate
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24, transition: { duration: 0.18 } }}
-        transition={{ duration: 0.32, ease: EASE_DRAWER }}
+        {...sheetMotion}
         className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl bg-canvas px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 text-ink shadow-2xl ring-1 ring-ink/10 md:rounded-3xl md:px-6 md:pb-6 md:pt-6"
       >
         <div aria-hidden="true" className="mx-auto mb-4 h-1 w-10 rounded-full bg-ink/20 md:hidden" />

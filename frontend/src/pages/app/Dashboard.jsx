@@ -4,6 +4,7 @@ import BalanceCard from '@/components/dashboard/BalanceCard';
 import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import CardsSummary from '@/components/dashboard/CardsSummary';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
+import MobileHome from '@/components/dashboard/MobileHome';
 import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
 import HealthCard from '@/components/dashboard/HealthCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
@@ -18,6 +19,7 @@ import PendingPayments from '@/components/money/PendingPayments';
 import { useAuth } from '@/auth/AuthContext';
 import useAsync from '@/hooks/useAsync';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName } from '@/lib/displayName';
@@ -53,6 +55,7 @@ export default function Dashboard() {
   usePageTitle('Inicio');
   const { user } = useAuth();
   const [hidden, toggleHidden] = useHiddenAmounts();
+  const mobile = useMediaQuery('(width < 48rem)');
   const online = useOnlineStatus();
   const offlineNote = online ? undefined : 'Sin conexión: se actualiza al volver internet.';
   const month = currentMonth();
@@ -140,9 +143,33 @@ export default function Dashboard() {
 
   if (empty && welcomePending) return <Navigate to="/app/bienvenida" replace />;
 
+  if (mobile) {
+    const loadingBalance = online && moneyProfile.loading && !moneyProfile.data;
+    return (
+      <MobileHome
+        balance={loadingBalance ? undefined : (moneyProfile.data?.money ?? totals?.balance ?? null)}
+        totals={totals}
+        budgets={budgets.data}
+        cards={cards.data}
+        recent={recent.data?.data}
+        pending={plan?.pending}
+        recentError={recent.error}
+        names={names}
+        monthLabel={label}
+        empty={empty}
+        welcomePending={welcomePending}
+        setupPending={setupPending}
+        onWelcomeDone={moneyProfile.reload}
+        hidden={hidden}
+        onToggleHidden={toggleHidden}
+      />
+    );
+  }
+
   const balanceCard = (
     <BalanceCard
       periodLabel={periodLabel(selected.period, selected.date)}
+      selected={selected}
       totals={totals}
       note={offlineNote}
       plan={plan}

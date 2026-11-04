@@ -157,6 +157,41 @@ function Row({ budget, name, disabled, onEdit, onDelete }) {
   );
 }
 
+/** Fila del celular: toda es un botón que abre el presupuesto para cambiarlo o eliminarlo. */
+function CompactRow({ budget, name, disabled, onEdit }) {
+  const level = displayLevel(budget.alert);
+  const over = budget.alert.level === 'exceeded_100' && !isAtLimit(budget.alert);
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onEdit(budget)}
+        aria-label={`${name}: ${formatPercent(budget.percentage)}. Ver detalle`}
+        className="block w-full py-4 text-left focus-visible:outline-2 focus-visible:outline-violet disabled:cursor-default"
+      >
+        <span className="flex justify-between text-base">
+          <span className="font-medium">{name}</span>
+          <span className={cn('tabular-nums', level === 'none' ? 'text-ink/70' : cn('font-semibold', LEVEL_STYLES[level].text))}>
+            {Math.round(budget.percentage)} %
+          </span>
+        </span>
+        <span className="mt-2 block h-2 rounded-full bg-ink/10">
+          <span
+            className={cn('block h-full rounded-full', LEVEL_STYLES[level].bar)}
+            style={{ width: `${Math.min(budget.percentage, 100)}%` }}
+          />
+        </span>
+        <span className="mt-2 block text-sm tabular-nums text-ink/70">
+          {over
+            ? `Te pasaste por ${formatMoney(budget.consumed - budget.amount)} de ${formatMoney(budget.amount)}`
+            : `Quedan ${formatMoney(Math.max(0, budget.amount - budget.consumed))} de ${formatMoney(budget.amount)}`}
+        </span>
+      </button>
+    </li>
+  );
+}
+
 /**
  * Lista de presupuestos del mes, cada uno con su barra de consumo.
  * @param {object} props
@@ -165,8 +200,19 @@ function Row({ budget, name, disabled, onEdit, onDelete }) {
  * @param {boolean} [props.disabled] Desactiva editar y eliminar (p. ej. sin conexión).
  * @param {(b: import('@/services/budgetService').Budget) => void} props.onEdit
  * @param {(b: import('@/services/budgetService').Budget) => Promise<void>} props.onDelete
+ * @param {boolean} [props.compact] Filas del celular; eliminar se hace al abrir el presupuesto.
  */
-export default function BudgetList({ budgets, categoryNames, disabled = false, onEdit, onDelete }) {
+export default function BudgetList({ budgets, categoryNames, disabled = false, onEdit, onDelete, compact = false }) {
+  if (compact) {
+    return (
+      <ul className="divide-y divide-ink/10">
+        {budgets.map((b) => (
+          <CompactRow key={b.id} budget={b} name={categoryNames[b.category] ?? b.category} disabled={disabled} onEdit={onEdit} />
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <ul className="divide-y divide-ink/10">
       {budgets.map((b) => (

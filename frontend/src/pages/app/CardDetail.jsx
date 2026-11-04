@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CircleDollarSign, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import BankSyncForm from '@/components/cards/BankSyncForm';
 import CardForm from '@/components/cards/CardForm';
 import CreditCardArt from '@/components/cards/CreditCardArt';
 import PayCardForm from '@/components/cards/PayCardForm';
-import { paymentText, shortDate } from '@/components/cards/cardFormat';
+import { dueText, paymentText, shortDate } from '@/components/cards/cardFormat';
+import { NETWORK_LABELS } from '@/lib/cardStyles';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import CircleActions from '@/components/common/CircleActions';
 import ConfirmButton from '@/components/common/ConfirmButton';
 import Sheet from '@/components/common/Sheet';
 import { MASK } from '@/components/dashboard/BalanceCard';
@@ -67,11 +70,56 @@ function MovementRow({ m, money, online, onDeletePayment }) {
 
 /**
  * Contenido del detalle, sin red ni hojas (se puede probar con `renderToStaticMarkup`).
- * @param {{ card: object, movements: object[], online: boolean, hidden: boolean, onAction: (a: 'pay'|'sync'|'edit') => void, onDelete: () => Promise<void>, onDeletePayment: (paymentId: string) => Promise<void> }} props
+ * @param {{ card: object, movements: object[], online: boolean, hidden: boolean, onAction: (a: 'pay'|'sync'|'edit') => void, onDelete: () => Promise<void>, onDeletePayment: (paymentId: string) => Promise<void>, actions?: import('react').ReactNode }} props
+ *   `actions`: los círculos del celular; con ellos, la vista es la compacta del diseño.
  */
-export function CardDetailView({ card, movements, online, hidden, onAction, onDelete, onDeletePayment }) {
+export function CardDetailView({ card, movements, online, hidden, onAction, onDelete, onDeletePayment, actions }) {
   const money = (n) => (hidden ? MASK : formatMoney(n));
   const pct = card.limit > 0 ? Math.min(100, Math.round((card.used / card.limit) * 100)) : 0;
+  if (actions) {
+    return (
+      <>
+        <p className="text-[15px] text-ink/70">{NETWORK_LABELS[card.network] ?? card.name} ••{card.last4} · Lo que debes</p>
+        <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{money(card.used)}</p>
+        <p className="mt-2 text-[15px] font-medium text-caution">{dueText(card)}</p>
+        {card.statementTotal != null && (
+          <p className="mt-1 text-sm tabular-nums text-ink/70">
+            Total del extracto {money(card.statementTotal)}
+            {card.statementDueDate && ` · vence el ${shortDate(card.statementDueDate)}`}
+          </p>
+        )}
+        <div role="progressbar" aria-label={`Uso de ${card.name}`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} className="mt-4 h-2 overflow-hidden rounded-full bg-ink/10">
+          <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="mt-2 text-sm tabular-nums text-ink/70">
+          Disponible {money(card.available)} de {money(card.limit)}
+        </p>
+        {!online && <p className="mt-2 text-sm text-ink/60">Necesitas conexión</p>}
+        <div className="mt-5">{actions}</div>
+        <h2 className="mb-1 mt-6 text-lg font-semibold tracking-tight">Compras y pagos</h2>
+        {movements.length === 0 ? (
+          <p className="text-ink/60">Aún no hay movimientos.</p>
+        ) : (
+          <ul aria-label="Historial de la tarjeta" className="divide-y divide-ink/10 rounded-2xl border border-ink/10 bg-surface px-3.5">
+            {movements.map((m) => (
+              <MovementRow key={`${m.kind}-${m.id}`} m={m} money={money} online={online} onDeletePayment={onDeletePayment} />
+            ))}
+          </ul>
+        )}
+        <div className="mt-6">
+          <ConfirmButton
+            label="Eliminar tarjeta"
+            question="¿Eliminar esta tarjeta? Las compras se quedan en tu historial."
+            confirmLabel="Sí, eliminar"
+            icon={Trash2}
+            disabled={!online}
+            onConfirm={onDelete}
+          />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="flex justify-center">
@@ -92,13 +140,13 @@ export function CardDetailView({ card, movements, online, hidden, onAction, onDe
           </p>
         )}
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button size="lg" disabled={!online} onClick={() => onAction('pay')}>
+          <Button size="lg" disabled={!online} onClick={() => onAction('pay')} className="max-md:hidden">
             Ya pagué
           </Button>
-          <Button size="lg" variant="outline" disabled={!online} onClick={() => onAction('sync')}>
+          <Button size="lg" variant="outline" disabled={!online} onClick={() => onAction('sync')} className="max-md:hidden">
             Actualizar con el banco
           </Button>
-          <Button variant="ghost" className="min-h-11 justify-start" disabled={!online} onClick={() => onAction('edit')}>
+          <Button variant="ghost" className="min-h-11 justify-start max-md:hidden" disabled={!online} onClick={() => onAction('edit')}>
             <Pencil aria-hidden="true" /> Editar
           </Button>
           <ConfirmButton
@@ -128,6 +176,7 @@ export function CardDetailView({ card, movements, online, hidden, onAction, onDe
 
 /** Página privada `/app/tarjetas/:id`: uso, pagos, ajuste con el banco e historial. */
 export default function CardDetail() {
+  const mobile = useMediaQuery('(width < 48rem)');
   const { id } = useParams();
   const navigate = useNavigate();
   const online = useOnlineStatus();
@@ -175,17 +224,32 @@ export default function CardDetail() {
 
   return (
     <>
-      <Link to="/app/tarjetas" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-ink/70">
+      {/* En el celular ya está el botón de volver arriba. */}
+      <Link to="/app/tarjetas" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-ink/70 max-md:hidden">
         <ArrowLeft className="size-4" aria-hidden="true" /> Tarjetas
       </Link>
       {notice && <p role="status" className="mb-3 rounded-xl bg-positive/10 p-3 text-sm">{notice}</p>}
       {error && <p role="alert" className="mb-3 text-sm text-negative">{error}</p>}
+      {/* En el celular, las acciones en círculos como en el diseño; desde tablet, los botones de la tarjeta. */}
       <CardDetailView
         card={card}
         movements={movements}
         online={online}
         hidden={hidden}
         onAction={setSheet}
+        actions={
+          mobile ? (
+            <CircleActions
+              label="Acciones de la tarjeta"
+              actions={[
+                { to: `/app/anotar?tarjeta=${id}`, label: 'Anotar', icon: Plus, primary: true },
+                { onClick: () => setSheet('pay'), label: 'Abonar', icon: CircleDollarSign, disabled: !online },
+                { onClick: () => setSheet('sync'), label: 'Actualizar saldo', icon: RefreshCw, disabled: !online },
+                { onClick: () => setSheet('edit'), label: 'Editar', icon: Pencil, disabled: !online },
+              ]}
+            />
+          ) : undefined
+        }
         onDelete={async () => {
           await deleteCard(id);
           navigate('/app/tarjetas');

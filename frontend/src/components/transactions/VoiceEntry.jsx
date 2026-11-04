@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import useSheetMotion from '@/lib/sheetMotion';
 import { Check, Keyboard, Loader2, Lock, Mic, MicOff, RotateCcw, Sparkles, WifiOff, X } from 'lucide-react';
 import BudgetAlert from '@/components/transactions/BudgetAlert';
 import { formatMoney, formatRelativeDay } from '@/components/transactions/format';
@@ -53,8 +54,6 @@ const PROBLEMS = {
   },
 };
 
-/** Curva tipo iOS para hojas y ventanas: arranca rápido y frena suave. */
-const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /**
  * Registro por voz (FT-0013). En celular es una hoja que sube desde abajo; desde tablet, una
@@ -98,6 +97,7 @@ export default function VoiceEntry({ open, onClose, onEdit, onSaved, names = {},
 }
 
 function VoiceDialog({ onClose, onEdit, onSaved, names, text, autoStart }) {
+  const sheetMotion = useSheetMotion();
   const titleId = useId();
   const panelRef = useRef(null);
   const speech = useSpeechRecognition();
@@ -231,10 +231,7 @@ function VoiceDialog({ onClose, onEdit, onSaved, names, text, autoStart }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24, transition: { duration: 0.18 } }}
-        transition={{ duration: 0.32, ease: EASE_DRAWER }}
+        {...sheetMotion}
         className="relative w-full max-w-md rounded-t-3xl bg-canvas px-6 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-3 text-center text-ink shadow-2xl ring-1 ring-ink/10 md:rounded-3xl md:pb-7 md:pt-7"
       >
         <div aria-hidden="true" className="mx-auto mb-6 h-1 w-10 rounded-full bg-ink/20 md:hidden" />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2, LogOut, Wallet } from 'lucide-react';
+import { Crown, Download, Lightbulb, Loader2, LogOut, UserPlus } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
@@ -12,7 +12,20 @@ import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
+import useAsync from '@/hooks/useAsync';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import usePageTitle from '@/hooks/usePageTitle';
+import { getDisplayName, getInitial } from '@/lib/displayName';
+import Sheet from '@/components/common/Sheet';
+import { getShortcutToken } from '@/services/pendingPaymentService';
+
+/** Lo que se abre desde Cuenta porque no se usa todos los días. */
+export const LINKS = [
+  { to: '/app/transacciones/exportar', label: 'Exportar reportes', detail: 'Excel, PDF o CSV', icon: Download },
+  { to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus },
+  { to: '/app/planes', label: 'Planes', detail: 'Beta: aún no se cobra', icon: Crown },
+  { to: '/app/lo-que-viene', label: 'Lo que viene', detail: 'Vota y pide funciones', icon: Lightbulb },
+];
 
 /** Bloque con título de una sección de ajustes. */
 function Section({ id, title, description, children }) {
@@ -40,12 +53,99 @@ function Group({ label, children }) {
 }
 
 /**
- * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), acceso a Mi plata, preferencias
+ * Página privada `/app/cuenta`, por grupos: perfil (nombre editable), preferencias
  * (tema de la app y categorías propias), alertas (REQ-029 y REQ-030), cierre de sesión y eliminar la
  * cuenta (FT-0017).
  */
+const ROW = 'flex min-h-[52px] w-full items-center justify-between gap-3 text-left text-[15px] font-medium transition-opacity active:opacity-60 focus-visible:outline-2 focus-visible:outline-violet';
+
+/** Grupo de filas del perfil en el celular. */
+function RowGroup({ label, children }) {
+  return (
+    <section aria-label={label} className="mt-6">
+      <h2 className="mb-2 text-sm font-medium text-ink/70">{label}</h2>
+      <div className="divide-y divide-ink/10 rounded-2xl border border-ink/10 bg-surface px-3.5">{children}</div>
+    </section>
+  );
+}
+
+/** Perfil en el celular: una lista corta; cada ajuste se abre en su propia hoja. */
+function MobileAccount({ onSignOut, leaving }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(null);
+  // La fila de Apple Pay solo sale si la función está activa para el usuario (FT-0047).
+  const shortcut = useAsync(getShortcutToken, []);
+  const row = (key, label) => (
+    <button type="button" className={ROW} onClick={() => setOpen(key)}>
+      {label}
+    </button>
+  );
+  const close = () => setOpen(null);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen('perfil')} className="flex items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-violet">
+        <span aria-hidden="true" className="grid size-14 place-items-center rounded-full bg-brand-soft text-[22px] font-semibold text-brand">
+          {getInitial(user)}
+        </span>
+        <h1 className="text-[28px] font-semibold tracking-tight">{getDisplayName(user) || 'Tu cuenta'}</h1>
+      </button>
+
+      <RowGroup label="Preferencias">
+        {row('alertas', 'Notificaciones')}
+        <Link to={LINKS[0].to} className={ROW}>
+          {LINKS[0].label}
+        </Link>
+        {row('categorias', 'Mis categorías')}
+        {row('apariencia', 'Apariencia')}
+        {row('whatsapp', 'Anotar por WhatsApp')}
+        {shortcut.data?.enabled && row('applepay', 'Pagos con Apple Pay')}
+      </RowGroup>
+
+      <RowGroup label="FinTrack">
+        {LINKS.slice(1).map(({ to, label }) => (
+          <Link key={to} to={to} className={ROW}>
+            {label}
+          </Link>
+        ))}
+      </RowGroup>
+
+      <RowGroup label="Sesión">
+        <button type="button" className={ROW} onClick={onSignOut} disabled={leaving}>
+          {leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
+        </button>
+        <button type="button" className={`${ROW} text-negative`} onClick={() => setOpen('eliminar')}>
+          Eliminar cuenta
+        </button>
+      </RowGroup>
+
+      <Sheet open={open === 'perfil'} title="Tu perfil" onClose={close}>
+        <ProfileCard />
+      </Sheet>
+      <Sheet open={open === 'alertas'} title="Notificaciones" onClose={close}>
+        <NotificationSettings />
+      </Sheet>
+      <Sheet open={open === 'categorias'} title="Mis categorías" onClose={close}>
+        <CustomCategories />
+      </Sheet>
+      <Sheet open={open === 'apariencia'} title="Apariencia" onClose={close}>
+        <ThemeSelector />
+      </Sheet>
+      <Sheet open={open === 'whatsapp'} title="Anotar por WhatsApp" onClose={close}>
+        <WhatsappLink />
+      </Sheet>
+      <Sheet open={open === 'applepay'} title="Pagos con Apple Pay" onClose={close}>
+        <ShortcutLink />
+      </Sheet>
+      <Sheet open={open === 'eliminar'} title="Eliminar cuenta" onClose={close}>
+        <DeleteAccount />
+      </Sheet>
+    </>
+  );
+}
+
 export default function Account() {
   usePageTitle('Cuenta');
+  const mobile = useMediaQuery('(width < 48rem)');
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
@@ -56,26 +156,14 @@ export default function Account() {
     navigate('/login', { replace: true });
   };
 
+  if (mobile) return <MobileAccount onSignOut={handleSignOut} leaving={leaving} />;
+
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Cuenta" />
 
       <div className="flex flex-col gap-8">
         <ProfileCard />
-        <Panel className="p-0 md:p-0">
-          <Link
-            to="/app/mi-plata"
-            className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
-          >
-            <Wallet className="size-5 shrink-0 text-brand" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">Mi plata</span>
-              <span className="block text-sm text-ink/60">Cómo recibes la plata y qué pagas cada mes</span>
-            </span>
-            <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
-          </Link>
-        </Panel>
-
         <Group label="Preferencias">
           <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">
             <ThemeSelector />
