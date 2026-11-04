@@ -99,8 +99,12 @@ const ID = '11111111-1111-4111-8111-111111111111';
 function buildService({ current = null } = {}) {
   const saved = [];
   const asked = [];
+  const removedAttachments = [];
   const service = createTransactionService({
     listCategories: async () => CATALOG,
+    removeAttachments: async (userId, id) => {
+      removedAttachments.push([userId, id]);
+    },
     resolveCategory: async (input) => {
       asked.push(input);
       return input.category
@@ -124,7 +128,7 @@ function buildService({ current = null } = {}) {
       softDeleteTransaction: async () => current !== null,
     },
   });
-  return { service, saved, asked };
+  return { service, saved, asked, removedAttachments };
 }
 
 test('create sin categoría la pide a la IA y guarda origen "ia"', async () => {
@@ -199,8 +203,11 @@ test('update con categoría explícita la valida contra el tipo resultante', asy
 });
 
 test('remove responde 404 si no existe y no devuelve nada si se borra', async () => {
-  await assert.rejects(buildService().service.remove('u1', ID), { statusCode: 404 });
+  const missing = buildService();
+  await assert.rejects(missing.service.remove('u1', ID), { statusCode: 404 });
   await assert.rejects(buildService().service.remove('u1', 'no-uuid'), { statusCode: 404 });
+  assert.deepEqual(missing.removedAttachments, [], 'sin borrar el movimiento no toca sus soportes');
   const ok = buildService({ current: { id: ID } });
   assert.equal(await ok.service.remove('u1', ID), undefined);
+  assert.deepEqual(ok.removedAttachments, [['u1', ID]], 'borra sus soportes (FT-0044)');
 });

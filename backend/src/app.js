@@ -71,6 +71,8 @@ export function createApp() {
   const aiRateLimit = createAiRateLimit();
   app.post('/api/v1/transactions', aiRateLimit);
   app.put('/api/v1/transactions/:id', aiRateLimit);
+  // Cada soporte gasta almacenamiento: también lleva límite de peticiones (FT-0044).
+  app.post('/api/v1/transactions/:id/attachments', aiRateLimit);
   // Un lote vacío solo trae los cambios del servidor (copia local del cliente): no usa la IA.
   app.post('/api/v1/sync/batch', (req, res, next) =>
     req.body?.operations?.length ? aiRateLimit(req, res, next) : next(),

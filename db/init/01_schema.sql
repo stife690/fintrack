@@ -90,6 +90,20 @@ CREATE INDEX idx_transacciones_usuario_cat_fecha
 CREATE INDEX idx_transacciones_usuario_updated
   ON transacciones(usuario_id, updated_at);
 
+-- Soportes de pago (FT-0044): foto o PDF de un movimiento. El archivo vive en el disco (desarrollo)
+-- o en el espacio privado de Supabase (producción), en `ruta`; aquí solo de quién es y de qué movimiento.
+CREATE TABLE transaccion_soportes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  transaccion_id UUID NOT NULL REFERENCES transacciones(id) ON DELETE CASCADE,
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  nombre VARCHAR(120) NOT NULL,
+  tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('image/jpeg','image/png','image/webp','application/pdf')),
+  tamano INTEGER NOT NULL CHECK (tamano > 0),
+  ruta VARCHAR(200) UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_transaccion_soportes_transaccion ON transaccion_soportes(transaccion_id, created_at);
+
 CREATE TABLE presupuestos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,

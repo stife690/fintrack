@@ -19,3 +19,6 @@ graphify-out/
 
 # Reportes de Lighthouse (se generan con npm run lighthouse)
 lighthouse-reports/
+
+# Soportes de pago guardados en el disco en desarrollo (FT-0044)
+backend/uploads/
