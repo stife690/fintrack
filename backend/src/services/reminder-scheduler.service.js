@@ -92,7 +92,7 @@ export function checkReminderDue({ time, timezone, now, windowMinutes = 5 }) {
  *
  * @param {object} [deps]
  * @param {typeof listReminderCandidates} [deps.listCandidates]
- * @param {(userId: string, payload: object) => Promise<unknown>} [deps.sendToUser]
+ * @param {(userId: string, payload: object, options?: { inbox?: boolean }) => Promise<unknown>} [deps.sendToUser]
  * @param {() => Date} [deps.now]
  * @param {{ info: (message: string) => void, error: (message: string) => void }} [deps.log]
  * @param {typeof listCardReminderUsers} [deps.listCardUsers]
@@ -191,7 +191,8 @@ export function createReminderScheduler(deps = {}) {
             );
             continue;
           }
-          await sendToUser(user.id, REMINDER_PAYLOAD);
+          // No va a la bandeja: un "¿ya registraste?" diario la llenaría sin decir nada nuevo.
+          await sendToUser(user.id, REMINDER_PAYLOAD, { inbox: false });
           sent += 1;
         } catch (err) {
           log.error(`Error enviando el recordatorio al usuario ${user.id}: ${err.message}`);

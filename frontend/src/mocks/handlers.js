@@ -28,6 +28,8 @@ const MOCK_VAPID_PUBLIC_KEY =
 const pushEndpoints = new Map();
 /** id del usuario → configuración del recordatorio diario */
 const reminders = new Map();
+/** Bandeja de avisos por usuario (FT-0045); arranca con un ejemplo para ver la campana. */
+const inboxes = new Map();
 
 addUser('demo@fintrack.com', 'demo1234');
 
@@ -817,6 +819,30 @@ export const handlers = [
     const user = authUser(request);
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     whatsappLinked = false;
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get(`${API_V1}/notifications`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    if (!inboxes.has(user.id)) {
+      inboxes.set(user.id, [
+        {
+          id: crypto.randomUUID(),
+          title: 'Presupuesto de Alimentación',
+          body: 'Ya llevas el 85 % de lo que pusiste para este mes.',
+          url: '/app/presupuestos',
+          read: false,
+          createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+        },
+      ]);
+    }
+    const items = inboxes.get(user.id);
+    return HttpResponse.json({ items, unread: items.filter((n) => !n.read).length });
+  }),
+  http.post(`${API_V1}/notifications/read`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    for (const item of inboxes.get(user.id) ?? []) item.read = true;
     return new HttpResponse(null, { status: 204 });
   }),
 ];

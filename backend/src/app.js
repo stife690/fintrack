@@ -19,6 +19,7 @@ import vacasRoutes from './routes/vacas.routes.js';
 import negociosRoutes from './routes/negocios.routes.js';
 import ideasRoutes from './routes/ideas.routes.js';
 import moneyProfileRoutes from './routes/money-profile.routes.js';
+import notificationsRoutes from './routes/notifications.routes.js';
 import { linkRouter, webhookRouter } from './routes/whatsapp.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
@@ -109,6 +110,7 @@ export function createApp() {
   app.use('/api/v1/businesses', negociosRoutes);
   app.use('/api/v1/ideas', ideasRoutes);
   app.use('/api/v1/money-profile', moneyProfileRoutes);
+  app.use('/api/v1/notifications', notificationsRoutes);
   app.use('/api/v1/whatsapp/link', linkRouter);
   app.use(notFound);
   app.use(errorHandler);
