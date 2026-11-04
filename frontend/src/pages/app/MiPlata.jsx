@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import useAsync from '@/hooks/useAsync';
 import useCategoryNames from '@/hooks/useCategoryNames';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
 import { planHeadline } from '@/lib/moneyPlan';
@@ -374,9 +375,8 @@ export default function MiPlata() {
   const online = useOnlineStatus();
   const profile = useAsync(getMoneyProfile, []);
   const data = profile.data;
-  // shortcut: se decide al abrir la pantalla (girar una tablet no lo cambia); así el computador no
-  // pide datos que no muestra. Si hace falta, cambiar por un hook que escuche `matchMedia`.
-  const [mobile] = useState(() => window.matchMedia('(width < 48rem)').matches);
+  // Lo de arriba solo se ve en el celular: así el computador no pide datos que no muestra.
+  const mobile = useMediaQuery('(width < 48rem)');
   const [hidden] = useHiddenAmounts();
   const moneyPlan = useAsync(() => (mobile ? getMoneyPlan() : Promise.resolve(null)), [online, data, mobile]);
   // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.

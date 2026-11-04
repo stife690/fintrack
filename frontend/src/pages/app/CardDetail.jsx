@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CircleDollarSign, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import BankSyncForm from '@/components/cards/BankSyncForm';
 import CardForm from '@/components/cards/CardForm';
 import CreditCardArt from '@/components/cards/CreditCardArt';
 import PayCardForm from '@/components/cards/PayCardForm';
 import { paymentText, shortDate } from '@/components/cards/cardFormat';
+import CircleActions from '@/components/common/CircleActions';
 import ConfirmButton from '@/components/common/ConfirmButton';
 import Sheet from '@/components/common/Sheet';
 import { MASK } from '@/components/dashboard/BalanceCard';
@@ -92,13 +93,13 @@ export function CardDetailView({ card, movements, online, hidden, onAction, onDe
           </p>
         )}
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button size="lg" disabled={!online} onClick={() => onAction('pay')}>
+          <Button size="lg" disabled={!online} onClick={() => onAction('pay')} className="max-md:hidden">
             Ya pagué
           </Button>
-          <Button size="lg" variant="outline" disabled={!online} onClick={() => onAction('sync')}>
+          <Button size="lg" variant="outline" disabled={!online} onClick={() => onAction('sync')} className="max-md:hidden">
             Actualizar con el banco
           </Button>
-          <Button variant="ghost" className="min-h-11 justify-start" disabled={!online} onClick={() => onAction('edit')}>
+          <Button variant="ghost" className="min-h-11 justify-start max-md:hidden" disabled={!online} onClick={() => onAction('edit')}>
             <Pencil aria-hidden="true" /> Editar
           </Button>
           <ConfirmButton
@@ -181,6 +182,17 @@ export default function CardDetail() {
       </Link>
       {notice && <p role="status" className="mb-3 rounded-xl bg-positive/10 p-3 text-sm">{notice}</p>}
       {error && <p role="alert" className="mb-3 text-sm text-negative">{error}</p>}
+      {/* En el celular, las acciones en círculos como en el diseño; desde tablet, los botones de la tarjeta. */}
+      <CircleActions
+        label="Acciones de la tarjeta"
+        className="mb-4 md:hidden"
+        actions={[
+          { to: `/app/anotar?tarjeta=${id}`, label: 'Anotar', icon: Plus, primary: true },
+          { onClick: () => setSheet('pay'), label: 'Abonar', icon: CircleDollarSign, disabled: !online },
+          { onClick: () => setSheet('sync'), label: 'Actualizar saldo', icon: RefreshCw, disabled: !online },
+          { onClick: () => setSheet('edit'), label: 'Editar', icon: Pencil, disabled: !online },
+        ]}
+      />
       <CardDetailView
         card={card}
         movements={movements}

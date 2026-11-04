@@ -32,6 +32,11 @@ describe('toTransaction', () => {
     expect(toTransaction({ ...base, type: 'ingreso', card: 'c1' }).values).toMatchObject({ card: null, installments: null });
   });
 
+  it('con tarjeta lleva las cuotas elegidas y rechaza más de 48', () => {
+    expect(toTransaction({ ...base, card: 'c1', installments: '6' }).values).toMatchObject({ card: 'c1', installments: 6 });
+    expect(toTransaction({ ...base, card: 'c1', installments: '60' }).error).toBe('De 1 a 48 cuotas');
+  });
+
   it('sin descripción devuelve el mismo error que el formulario', () => {
     expect(toTransaction({ ...base, description: '  ' }).error).toBe('Escribe una descripción');
   });

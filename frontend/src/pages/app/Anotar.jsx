@@ -28,7 +28,7 @@ const CASH = 'cash';
 /** Categorías que se ven sin tocar "Ver todas". */
 const VISIBLE_CATEGORIES = 5;
 
-const empty = () => ({ type: 'gasto', amount: '', description: '', category: AI, date: today(), card: CASH });
+const empty = (card = CASH) => ({ type: 'gasto', amount: '', description: '', category: AI, date: today(), card, installments: '1' });
 
 /**
  * Suma una tecla del teclado al monto (solo dígitos, sin ceros a la izquierda) o borra la última.
@@ -46,7 +46,7 @@ export function pressKey(amount, key) {
  * Lo anotado, listo para guardar como lo haría el formulario de Movimientos (mismas reglas).
  * @returns {{ values?: object, error?: string }}
  */
-export function toTransaction({ type, amount, description, category, date, card }) {
+export function toTransaction({ type, amount, description, category, date, card, installments = '1' }) {
   const parsed = transactionSchema.safeParse({
     type,
     amount,
@@ -54,7 +54,7 @@ export function toTransaction({ type, amount, description, category, date, card 
     date,
     category: category === AI ? '' : category,
     card: card === CASH ? null : card,
-    installments: '1',
+    installments: String(installments).trim(),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   return { values: { ...parsed.data, category: parsed.data.category || null } };
@@ -82,7 +82,9 @@ export default function Anotar() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const step = params.get('paso') ?? '1';
-  const [form, setForm] = useState(empty);
+  // Desde el detalle de una tarjeta (`?tarjeta=id`) llega con esa tarjeta elegida.
+  const [startCard] = useState(() => params.get('tarjeta') ?? CASH);
+  const [form, setForm] = useState(() => empty(startCard));
   const [result, setResult] = useState(null); // lo que devolvió `saveNewTransaction`
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -95,7 +97,7 @@ export default function Anotar() {
   const cards = useAsync(listCards, []);
 
   const set = (changes) => setForm((f) => ({ ...f, ...changes }));
-  const go = (next) => setParams({ paso: next });
+  const go = (next) => setParams(startCard === CASH ? { paso: next } : { paso: next, tarjeta: startCard });
 
   // Al recargar en un paso sin datos, con "Anotar otro" o al volver atrás después de guardar, se
   // empieza de nuevo: así un mismo movimiento no se guarda dos veces.
@@ -107,7 +109,7 @@ export default function Anotar() {
     const lost = step !== '1' && form.amount === '';
     if (lost || shownDone.current || step === 'listo') {
       shownDone.current = false;
-      setForm(empty());
+      setForm(empty(startCard));
       setResult(null);
       setAllCategories(false);
       if (step !== '1') setParams({}, { replace: true });
@@ -232,7 +234,7 @@ export default function Anotar() {
               { value: 'ingreso', label: 'Ingreso' },
             ]}
             value={form.type}
-            onChange={(type) => set({ type, category: AI, card: CASH })}
+            onChange={(type) => set({ type, category: AI, card: type === 'gasto' ? startCard : CASH })}
           />
           <h2 ref={heading} tabIndex={-1} className="mt-7 text-[26px] font-semibold tracking-tight outline-none">{expense ? '¿Cuánto gastaste?' : '¿Cuánto te entró?'}</h2>
           <p aria-live="polite" className={cn('mt-3 text-5xl font-semibold tracking-tight tabular-nums', !amount && 'text-ink/30')}>
@@ -365,6 +367,26 @@ export default function Anotar() {
               onChange={(card) => set({ card })}
             />
           )}
+          {expense && form.card !== CASH && (
+            <div className="mt-5 space-y-1.5">
+              <Label htmlFor="anotar-cuotas">Cuotas</Label>
+              <Input
+                id="anotar-cuotas"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={48}
+                step={1}
+                value={form.installments}
+                onChange={(event) => set({ installments: event.target.value })}
+                aria-describedby="anotar-cuotas-ayuda"
+                className="w-28"
+              />
+              <p id="anotar-cuotas-ayuda" className="text-sm text-ink/60">
+                De 1 a 48. A más de una cuota el banco suele cobrar intereses.
+              </p>
+            </div>
+          )}
 
           {error && (
             <p role="alert" className="mt-4 text-sm text-negative">
@@ -389,7 +411,7 @@ export default function Anotar() {
           set({
             type: draft.type,
             // Si cambió de gasto a ingreso (o al revés), la categoría y la tarjeta elegidas ya no aplican.
-            ...(draft.type !== form.type && { category: AI, card: CASH }),
+            ...(draft.type !== form.type && { category: AI, card: draft.type === 'gasto' ? startCard : CASH }),
             amount: draft.amount ? String(Math.round(draft.amount)) : form.amount,
             description: draft.description ?? '',
             date: draft.date ?? form.date,

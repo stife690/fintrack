@@ -233,6 +233,8 @@ function Shell() {
   const { pending, rejected, conflicts, conflictsLost, syncing } = useOfflineSync();
   const { pathname } = useLocation();
   const quickEntry = QUICK_ENTRY_PATHS.includes(pathname);
+  // En Consejos la caja del asistente queda fija abajo en el celular: también deja espacio.
+  const bottomBar = quickEntry || pathname === '/app/insights';
   useSyncProfile();
 
   return (
@@ -263,7 +265,8 @@ function Shell() {
           id="contenido"
           className={cn(
             'flex-1 px-4 pt-2 md:px-8 md:pt-8',
-            quickEntry ? 'pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-28' : 'pb-[calc(2rem+env(safe-area-inset-bottom))] md:pb-12',
+            bottomBar ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(2rem+env(safe-area-inset-bottom))]',
+            quickEntry ? 'md:pb-28' : 'md:pb-12',
           )}
         >
           <div className="mx-auto w-full max-w-6xl">
