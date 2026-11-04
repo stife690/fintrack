@@ -11,6 +11,7 @@ import MoneyInvite from '@/components/money/MoneyInvite';
 import MoneySetupLink from '@/components/money/MoneySetupLink';
 import MovementRow from '@/components/transactions/MovementRow';
 import { formatMoney } from '@/components/transactions/format';
+import useFreshIds from '@/hooks/useFreshIds';
 import { displayLevel } from '@/lib/budgetLevel';
 import { getDisplayName, getInitial } from '@/lib/displayName';
 import { pickHomeNotice } from '@/lib/homeNotice';
@@ -27,13 +28,13 @@ const Skeleton = ({ className }) => (
   <span className={cn('inline-block animate-pulse rounded-md bg-current opacity-20', className)} />
 );
 
-/** Ingresos o gastos del mes, sobre la franja morada. Lleva a "Cómo va el mes". */
-function Total({ label, value, money, positive = false }) {
+/** Ingresos o gastos del mes, sobre la franja morada. Lleva a su detalle. */
+function Total({ label, value, money, to, positive = false }) {
   const Icon = positive ? ArrowDownLeft : ArrowUpRight;
   return (
     <Link
-      to="/app/mes"
-      className="min-w-0 rounded-2xl border border-ink/10 bg-surface p-3.5 focus-visible:outline-2 focus-visible:outline-violet"
+      to={to}
+      className="min-w-0 rounded-2xl border border-ink/10 bg-surface p-3.5 transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-violet motion-safe:active:scale-[0.98]"
     >
       <span className="flex items-center gap-1.5 text-sm text-ink/70">
         <Icon className={cn('size-4', positive ? 'text-positive' : 'text-negative')} strokeWidth={2.25} aria-hidden="true" />
@@ -42,7 +43,7 @@ function Total({ label, value, money, positive = false }) {
       <span className="mt-1.5 block truncate text-lg font-semibold tabular-nums">
         {value === undefined ? <Skeleton className="h-[1em] w-24" /> : money(value)}
       </span>
-      <span className="sr-only">, ver cómo va el mes</span>
+      <span className="sr-only">, ver el detalle</span>
     </Link>
   );
 }
@@ -101,6 +102,7 @@ export default function MobileHome({
 }) {
   const { user } = useAuth();
   const { unread } = useNotifications();
+  const fresh = useFreshIds(recent);
   const money = (value) => (hidden ? MASK : formatMoney(value));
   const name = getDisplayName(user);
   const notice = pickHomeNotice({ cards, budgets, pending, names, money });
@@ -117,21 +119,34 @@ export default function MobileHome({
           <div className="flex items-center justify-between">
             <Link
               to="/app/cuenta"
-              aria-label={unread === 0 ? 'Tu cuenta' : `Tu cuenta, ${unread} ${unread === 1 ? 'aviso' : 'avisos'} sin leer`}
+              aria-label="Tu cuenta"
               className="relative grid size-11 place-items-center rounded-full bg-white/20 font-semibold focus-visible:outline-2 focus-visible:outline-white"
             >
               <span aria-hidden="true">{getInitial(user)}</span>
-              {unread > 0 && <span aria-hidden="true" className="absolute right-0 top-0 size-2.5 rounded-full bg-white" />}
             </Link>
-            <button
-              type="button"
-              onClick={onToggleHidden}
-              aria-pressed={hidden}
-              aria-label={hidden ? 'Mostrar montos' : 'Ocultar montos'}
-              className="grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
-            >
-              {hidden ? <EyeOff className="size-[22px]" aria-hidden="true" /> : <Eye className="size-[22px]" aria-hidden="true" />}
-            </button>
+            <div className="flex items-center gap-1">
+              <Link
+                to="/app/notificaciones"
+                aria-label={unread === 0 ? 'Notificaciones' : `Notificaciones, ${unread} sin leer`}
+                className="relative grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+              >
+                <Bell className="size-[22px]" aria-hidden="true" />
+                {unread > 0 && (
+                  <span aria-hidden="true" className="absolute right-1 top-1 grid min-w-[18px] place-items-center rounded-full bg-white px-1 text-[11px] font-bold leading-[18px] text-brand">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </Link>
+              <button
+                type="button"
+                onClick={onToggleHidden}
+                aria-pressed={hidden}
+                aria-label={hidden ? 'Mostrar montos' : 'Ocultar montos'}
+                className="grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+              >
+                {hidden ? <EyeOff className="size-[22px]" aria-hidden="true" /> : <Eye className="size-[22px]" aria-hidden="true" />}
+              </button>
+            </div>
           </div>
 
           <p className="mt-4">{name ? `Hola, ${name}` : 'Hola'}</p>
@@ -149,8 +164,8 @@ export default function MobileHome({
       </div>
 
       <div className="relative -mt-10 grid grid-cols-2 gap-3">
-        <Total label="Ingresos" value={totals?.income} money={money} positive />
-        <Total label="Gastos" value={totals?.expense} money={money} />
+        <Total label="Ingresos" to="/app/ingresos" value={totals?.income} money={money} positive />
+        <Total label="Gastos" to="/app/gastos" value={totals?.expense} money={money} />
       </div>
       <p className="mt-2 text-[13px] text-ink/70 first-letter:uppercase">De {monthLabel}</p>
 
@@ -200,7 +215,7 @@ export default function MobileHome({
               ) : (
                 <ul className="divide-y divide-ink/10">
                   {recent.slice(0, RECENT).map((transaction) => (
-                    <MovementRow key={transaction.id} transaction={transaction} names={names} hidden={hidden} withDay />
+                    <MovementRow key={transaction.id} transaction={transaction} names={names} hidden={hidden} withDay fresh={fresh.has(transaction.id)} />
                   ))}
                 </ul>
               )}
@@ -230,7 +245,7 @@ export default function MobileHome({
                         aria-valuenow={Math.min(budget.percentage, 100)}
                         className="mt-1.5 h-1.5 rounded-full bg-ink/10"
                       >
-                        <div className={cn('h-full rounded-full', BAR[level])} style={{ width: `${Math.min(budget.percentage, 100)}%` }} />
+                        <div className={cn('h-full origin-left rounded-full motion-safe:animate-bar-in motion-safe:transition-[width] motion-safe:duration-500', BAR[level])} style={{ width: `${Math.min(budget.percentage, 100)}%` }} />
                       </div>
                     </div>
                   );

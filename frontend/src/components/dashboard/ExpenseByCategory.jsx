@@ -68,7 +68,7 @@ export default function ExpenseByCategory({ expense, names, hidden, className, p
                     <span className="shrink-0 font-semibold tabular-nums">{hidden ? MASK : formatMoney(r.total)}</span>
                   </div>
                   <div className="mt-1.5 h-2 rounded-full bg-ink/10" aria-hidden="true">
-                    <div className="h-full rounded-full bg-brand" style={{ width: `${Math.max(r.percentage, 2)}%` }} />
+                    <div className="h-full origin-left rounded-full bg-brand motion-safe:animate-bar-in" style={{ width: `${Math.max(r.percentage, 2)}%` }} />
                   </div>
                 </li>
               ))}
@@ -115,7 +115,7 @@ export default function ExpenseByCategory({ expense, names, hidden, className, p
               </div>
               <div className="mt-1.5 h-2 rounded-full bg-ink/6" aria-hidden="true">
                 <div
-                  className="h-full rounded-full bg-brand"
+                  className="h-full origin-left rounded-full bg-brand motion-safe:animate-bar-in"
                   style={{ width: `${max === 0 ? 0 : Math.max((r.total / max) * 100, 2)}%` }}
                 />
               </div>

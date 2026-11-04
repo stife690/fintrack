@@ -1,7 +1,8 @@
-import { useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Sparkles, Trash2 } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
+import Sheet from '@/components/common/Sheet';
 import { MASK } from '@/components/dashboard/BalanceCard';
 import MoneyInput from '@/components/common/MoneyInput';
 import PageHeader from '@/components/layout/PageHeader';
@@ -19,8 +20,6 @@ import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import useMediaQuery from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
-import { planHeadline } from '@/lib/moneyPlan';
-import { cn } from '@/lib/utils';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { balanceProposal, incomeSummary, readCommitmentForm, toProfileData } from '@/lib/moneyProfile';
 import {
@@ -32,7 +31,7 @@ import {
   updateMoneyProfile,
 } from '@/services/moneyProfileService';
 
-const EMPTY_COMMITMENT = { id: null, name: '', amount: '', dayOfMonth: '' };
+export const EMPTY_COMMITMENT = { id: null, name: '', amount: '', dayOfMonth: '' };
 
 /** Encabezado de una sección, con su botón a la derecha. */
 function SectionTitle({ id, title, action }) {
@@ -60,7 +59,7 @@ function FormError({ message }) {
  * Cómo le entra la plata al usuario: una línea, y al tocar Cambiar (o Configurar, si aún no lo dijo), las opciones.
  * @param {{ profile: import('@/services/moneyProfileService').MoneyProfile, onSave: (changes: object) => Promise<void> }} props
  */
-function IncomeSection({ profile, onSave }) {
+export function IncomeSection({ profile, onSave, title = 'Cómo recibes la plata' }) {
   const [income, setIncome] = useState(null); // `null`: no se está editando
   const [error, setError] = useState('');
 
@@ -85,7 +84,7 @@ function IncomeSection({ profile, onSave }) {
     <Panel aria-labelledby="mi-plata-ingreso">
       <SectionTitle
         id="mi-plata-ingreso"
-        title="Cómo recibes la plata"
+        title={title}
         action={
           !income && (
             <Button variant="ghost" size="sm" onClick={edit}>
@@ -183,20 +182,10 @@ function BalanceSection({ profile, onSave }) {
   );
 }
 
-/**
- * Ventana para agregar o editar un pago. Usa `<dialog>`: el navegador mantiene el foco adentro y
- * la tecla Escape la cierra.
- * @param {{ form: typeof EMPTY_COMMITMENT, onClose: () => void, onSaved: () => void }} props
- */
-function CommitmentDialog({ form: initial, onClose, onSaved }) {
-  const dialog = useRef(null);
+function CommitmentForm({ initial, onClose, onSaved, onDelete }) {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    dialog.current.showModal();
-  }, []);
 
   const change = (changes) => setForm((current) => ({ ...current, ...changes }));
 
@@ -220,16 +209,7 @@ function CommitmentDialog({ form: initial, onClose, onSaved }) {
   };
 
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby="pago-titulo"
-      onClose={onClose}
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl bg-surface p-5 text-ink backdrop:bg-black/50"
-    >
       <form onSubmit={save} className="space-y-4">
-        <h2 id="pago-titulo" className="text-lg font-semibold tracking-tight">
-          {form.id ? 'Editar pago' : 'Nuevo pago'}
-        </h2>
         <div className="space-y-2">
           <Label htmlFor="commitment-name">Nombre</Label>
           <Input
@@ -272,8 +252,25 @@ function CommitmentDialog({ form: initial, onClose, onSaved }) {
             Cancelar
           </Button>
         </div>
+        {form.id && onDelete && (
+          <Button type="button" variant="ghost" className="w-full text-negative" onClick={onDelete}>
+            <Trash2 aria-hidden="true" />
+            Eliminar pago
+          </Button>
+        )}
       </form>
-    </dialog>
+  );
+}
+
+/**
+ * Ventana para agregar o editar un pago. Se usa siempre montada: `form` en `null` la cierra.
+ * @param {{ form: object|null, onClose: () => void, onSaved: () => void, onDelete?: () => void }} props
+ */
+export function CommitmentDialog({ form, onClose, onSaved, onDelete }) {
+  return (
+    <Sheet open={Boolean(form)} title={form?.id ? 'Editar pago' : 'Nuevo pago'} onClose={onClose}>
+      {form && <CommitmentForm key={form.id ?? 'nuevo'} initial={form} onClose={onClose} onSaved={onSaved} onDelete={onDelete} />}
+    </Sheet>
   );
 }
 
@@ -333,37 +330,65 @@ function PaymentsSection({ commitments, onChanged }) {
         </ul>
       )}
       <FormError message={error} />
-      {form && (
-        <CommitmentDialog
-          form={form}
-          onClose={() => setForm(null)}
-          onSaved={() => {
-            setForm(null);
-            onChanged();
-          }}
-        />
-      )}
+      <CommitmentDialog
+        form={form}
+        onClose={() => setForm(null)}
+        onSaved={() => {
+          setForm(null);
+          onChanged();
+        }}
+      />
     </Panel>
   );
 }
 
 /**
- * Saldo de Mi plata en el celular: cuánta plata hay y lo primero que hay que saber (lo que se puede
- * gastar hoy, o lo que falta para los pagos).
- * @param {{ plan: object, hidden: boolean }} props Plan con `ready: true`; `hidden` oculta los montos.
+ * Saldo de Mi plata en el celular: cuánta plata hay y cuánto falta para el sueldo o para los pagos.
+ * @param {{ plan: object, hidden: boolean, noFixedDate?: boolean }} props Plan con `ready: true`; `hidden` oculta los montos.
  */
-function PlanHero({ plan, hidden }) {
+function PlanHero({ plan, hidden, noFixedDate }) {
   const money = (value) => (hidden ? MASK : formatMoney(value));
-  const { label, value, note, warning } = planHeadline(plan, money);
   return (
     <div>
-      <p className="text-[15px] text-ink/60">Saldo disponible</p>
+      <p className="text-[15px] text-ink/70">Saldo disponible</p>
       <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">{money(plan.money)}</p>
-      <p className={cn('mt-2 text-[15px]', warning && 'text-negative')}>
-        {label} <strong className="font-semibold tabular-nums">{value}</strong>
-      </p>
-      <p className="mt-0.5 text-sm text-ink/60">{note}</p>
+      <PlanLine plan={plan} money={money} noFixedDate={noFixedDate} />
     </div>
+  );
+}
+
+/**
+ * Debajo del saldo: si le falta plata para sus pagos, eso primero; si se sabe cuándo le pagan, cuánto
+ * falta; si no, un consejo sencillo.
+ * @param {{ plan: object|null, money?: (value: number) => string, noFixedDate?: boolean }} props
+ */
+function PlanLine({ plan, money, noFixedDate = false }) {
+  if (plan?.shortfall > 0) {
+    return (
+      <p className="mt-2 text-[15px] text-negative">
+        Te faltan <strong className="font-semibold tabular-nums">{money(plan.shortfall)}</strong> para tus pagos
+      </p>
+    );
+  }
+  if (plan?.mode === 'daily') {
+    if (plan.days <= 0) return <p className="mt-2 text-[15px]">Hoy te pagan</p>;
+    return <p className="mt-2 text-[15px]">Faltan {plan.days === 1 ? '1 día' : `${plan.days} días`} para tu sueldo</p>;
+  }
+  return (
+    <p className="mt-2 flex items-start gap-2 text-[15px]">
+      <Sparkles className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+      {noFixedDate ? (
+        <span>Consejo: anota cada ingreso apenas te llegue para que tu saldo siempre esté al día.</span>
+      ) : (
+        <span>
+          Consejo:{' '}
+          <Link to="/app/mi-plata/pagos" className="underline underline-offset-2">
+            agrega el día en que te pagan
+          </Link>{' '}
+          para saber cuánto te debe durar la plata.
+        </span>
+      )}
+    </p>
   );
 }
 
@@ -376,9 +401,6 @@ export default function MiPlata() {
   const online = useOnlineStatus();
   const profile = useAsync(getMoneyProfile, []);
   const data = profile.data;
-  const [params, setParams] = useSearchParams();
-  // En el celular, cómo recibe la plata y sus pagos van aparte, para que Mi plata sea saldo y movimientos.
-  const settings = params.get('ver') === 'pagos';
   // Lo de arriba solo se ve en el celular: así el computador no pide datos que no muestra.
   const mobile = useMediaQuery('(width < 48rem)');
   const [hidden] = useHiddenAmounts();
@@ -386,8 +408,6 @@ export default function MiPlata() {
   // Sin conexión el plan estaría viejo: no se muestra un monto que quizá ya no es cierto.
   const plan = online && moneyPlan.data?.ready ? moneyPlan.data : null;
   const { names } = useCategoryNames();
-  const [fixing, setFixing] = useState(false);
-  const balanceRef = useRef(null);
   const { reload: reloadPlan } = moneyPlan;
 
   // "Ya lo pagué" y lo anotado desde aquí cambian el saldo.
@@ -408,16 +428,10 @@ export default function MiPlata() {
     profile.reload();
   };
 
-  const fixBalance = () => {
-    setFixing(true);
-    setParams({ ver: 'pagos' });
-    requestAnimationFrame(() => balanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-  };
-
   const actions = [
     { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
-    { onClick: fixBalance, label: 'Corregir saldo', icon: Pencil },
-    { onClick: () => setParams({ ver: 'pagos' }), label: 'Pagos del mes', icon: ReceiptText },
+    { to: '/app/mi-plata/corregir', label: 'Corregir saldo', icon: Pencil },
+    { to: '/app/mi-plata/pagos', label: 'Pagos del mes', icon: ReceiptText },
     { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
   ];
 
@@ -428,10 +442,10 @@ export default function MiPlata() {
       </div>
 
       {/* En el celular, Mi plata es donde se ve la plata: saldo, acciones, pagos y movimientos (como en el diseño). */}
-      {mobile && !settings && (
+      {mobile && (
       <div className="flex flex-col gap-5 md:hidden">
         {plan ? (
-          <PlanHero plan={plan} hidden={hidden} />
+          <PlanHero plan={plan} hidden={hidden} noFixedDate={data?.incomeType === 'sin_fecha'} />
         ) : (
           typeof data?.money === 'number' && (
             <div>
@@ -439,6 +453,7 @@ export default function MiPlata() {
               <p className="mt-1 text-[42px] font-semibold leading-tight tracking-tight tabular-nums">
                 {hidden ? '$ ••••••' : formatMoney(data.money)}
               </p>
+              <PlanLine plan={null} noFixedDate={data.incomeType === 'sin_fecha'} />
             </div>
           )
         )}
@@ -447,9 +462,8 @@ export default function MiPlata() {
         <MovementList names={names} hidden={hidden} />
       </div>
       )}
-      {mobile && settings && <h1 className="mb-5 text-[28px] font-semibold tracking-tight md:hidden">Pagos del mes</h1>}
 
-      {(!mobile || settings) && profile.error && !data && (
+      {!mobile && profile.error && !data && (
         <p role="alert" className="text-sm text-negative">
           {profile.error}{' '}
           <button type="button" className="underline" onClick={profile.reload}>
@@ -457,14 +471,10 @@ export default function MiPlata() {
           </button>
         </p>
       )}
-      {(!mobile || settings) && data && (
+      {!mobile && data && (
         <div className="flex flex-col gap-5">
           <IncomeSection profile={data} onSave={save} />
-          {(data.money === null || fixing) && (
-            <div ref={balanceRef}>
-              <BalanceSection profile={data} onSave={async (changes) => (await save(changes), setFixing(false))} />
-            </div>
-          )}
+          {data.money === null && <BalanceSection profile={data} onSave={save} />}
           <div id="pagos" className="scroll-mt-4">
             <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
           </div>

@@ -14,7 +14,7 @@ const badgeText = (count) => (count > 9 ? '9+' : String(count));
  * la lista. Abrirla los marca como leídos. Los datos vienen de `NotificationsProvider`.
  * @param {{ className?: string, label?: boolean, labelClassName?: string }} props `label`: muestra "Avisos" al lado.
  */
-export default function NotificationBell({ className, label = false, labelClassName, asRow = false }) {
+export default function NotificationBell({ className, label = false, labelClassName }) {
   const { items, unread, status, markRead, clearHighlights } = useNotifications();
   const [open, setOpen] = useState(false);
 
@@ -30,16 +30,6 @@ export default function NotificationBell({ className, label = false, labelClassN
 
   return (
     <>
-      {asRow ? (
-        <button type="button" onClick={openInbox} className={className}>
-          Notificaciones
-          {unread > 0 && (
-            <span className="rounded-full bg-brand px-2 py-0.5 text-[13px] font-semibold text-white">
-              {unread === 1 ? '1 nueva' : `${badgeText(unread)} nuevas`}
-            </span>
-          )}
-        </button>
-      ) : (
       <button
         type="button"
         onClick={openInbox}
@@ -62,7 +52,6 @@ export default function NotificationBell({ className, label = false, labelClassN
         </span>
         {label && <span className={cn('text-[15px] font-medium', labelClassName)}>Avisos</span>}
       </button>
-      )}
 
       <Sheet open={open} title="Avisos" onClose={close}>
         {status === 'loading' && <Loader2 className="mx-auto animate-spin text-ink/40" aria-label="Cargando avisos" />}

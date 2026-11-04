@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useDragControls } from 'framer-motion';
+import useSheetMotion from '@/lib/sheetMotion';
 import { X } from 'lucide-react';
 import { lockScroll } from '@/lib/scrollLock';
 
-const EASE_DRAWER = [0.32, 0.72, 0, 1];
 
 /** Al soltar la ventana se cierra si bajó esto (px) o iba así de rápido (px/s). */
 const CLOSE_OFFSET = 100;
@@ -45,6 +45,7 @@ function Panel({ title, description, onClose, children }) {
   const titleId = useId();
   const panelRef = useRef(null);
   const dragControls = useDragControls();
+  const sheetMotion = useSheetMotion();
   // Se guarda al montar, antes de mover el foco dentro de la ventana.
   const [opener] = useState(() => document.activeElement);
   const onCloseRef = useRef(onClose);
@@ -109,10 +110,7 @@ function Panel({ title, description, onClose, children }) {
         onDragEnd={(_event, { offset, velocity }) => {
           if (offset.y > CLOSE_OFFSET || velocity.y > CLOSE_VELOCITY) onClose();
         }}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24, transition: { duration: 0.18 } }}
-        transition={{ duration: 0.32, ease: EASE_DRAWER }}
+        {...sheetMotion}
         className="relative max-h-[92dvh] w-full min-w-0 max-w-md overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-3xl bg-canvas px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 text-ink shadow-2xl ring-1 ring-ink/10 focus:outline-none md:rounded-3xl md:px-6 md:pb-6 md:pt-6"
       >
         <div

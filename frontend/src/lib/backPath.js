@@ -10,7 +10,7 @@ const PARENTS = {
 };
 
 /** Secciones con pantallas de detalle (`/app/tarjetas/12`, `/app/vacas/unirse/ABC`). */
-const WITH_DETAIL = ['/app/tarjetas', '/app/vacas', '/app/negocios'];
+const WITH_DETAIL = ['/app/tarjetas', '/app/vacas', '/app/negocios', '/app/presupuestos', '/app/mi-plata'];
 
 /**
  * ¿Hay una pantalla anterior dentro de la app? El enrutador guarda la posición en el historial; un

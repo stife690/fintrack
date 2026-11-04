@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Plus, Target, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Loader2, Plus, Target } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
-import ConfirmButton from '@/components/common/ConfirmButton';
 import Sheet from '@/components/common/Sheet';
 import { BudgetAlert } from '@/components/dashboard/BudgetOverview';
 import BudgetForm from '@/components/budgets/BudgetForm';
@@ -26,6 +26,7 @@ export default function Budgets() {
   const online = useOnlineStatus();
   const mobile = useMediaQuery('(width < 48rem)');
   const [formOpen, setFormOpen] = useState(false);
+  const navigate = useNavigate();
   const [month, setMonth] = useState(currentMonth);
   const [categories, setCategories] = useState([]);
   const [budgets, setBudgets] = useState([]);
@@ -167,21 +168,6 @@ export default function Budgets() {
               }}
               onCancel={closeForm}
             />
-            {editing && (
-              <div className="mt-3 text-center">
-                <ConfirmButton
-                  label="Eliminar presupuesto"
-                  question="¿Eliminar este presupuesto?"
-                  confirmLabel="Sí, eliminar"
-                  icon={Trash2}
-                  disabled={!online}
-                  onConfirm={async () => {
-                    await handleDelete(editing);
-                    closeForm();
-                  }}
-                />
-              </div>
-            )}
           </Sheet>
         ) : (
           <Panel aria-labelledby="form-title" className="h-fit scroll-mt-4 lg:sticky lg:top-8">
@@ -241,7 +227,7 @@ export default function Budgets() {
                 budgets={budgets}
                 categoryNames={categoryNames}
                 disabled={!online}
-                onEdit={(b) => (setEditing(b), setNotice(''), showForm())}
+                onEdit={(b) => (mobile ? navigate(`/app/presupuestos/${encodeURIComponent(b.category)}?mes=${month}`) : (setEditing(b), setNotice(''), showForm()))}
                 onDelete={handleDelete}
                 compact={mobile}
               />

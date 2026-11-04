@@ -26,7 +26,7 @@ function Total({ label, value, hidden, positive = false, selected }) {
   const Icon = positive ? ArrowDownLeft : ArrowUpRight;
   return (
     <Link
-      to="/app/mes"
+      to={positive ? '/app/ingresos' : '/app/gastos'}
       state={{ selected }}
       className="min-w-0 flex-1 rounded-2xl border border-ink/10 bg-surface p-4 shadow-[0_8px_24px_-12px_rgb(22_20_31/0.25)] transition-colors hover:border-ink/20 focus-visible:outline-2 focus-visible:outline-violet"
     >
@@ -45,7 +45,7 @@ function Total({ label, value, hidden, positive = false, selected }) {
       <p className="mt-1.5 truncate text-base font-semibold sm:text-xl">
         <Amount value={value} hidden={hidden} />
       </p>
-      <span className="sr-only">, ver cómo va el mes</span>
+      <span className="sr-only">, ver el detalle</span>
     </Link>
   );
 }
