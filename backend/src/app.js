@@ -21,6 +21,7 @@ import ideasRoutes from './routes/ideas.routes.js';
 import moneyProfileRoutes from './routes/money-profile.routes.js';
 import notificationsRoutes from './routes/notifications.routes.js';
 import debtsRoutes from './routes/debts.routes.js';
+import pendingPaymentsRoutes, { shortcutsRouter } from './routes/pending-payments.routes.js';
 import { linkRouter, webhookRouter } from './routes/whatsapp.routes.js';
 import { createAiRateLimit, createAuthRateLimit } from './middlewares/rate-limit.middleware.js';
 import { notFound } from './middlewares/not-found.middleware.js';
@@ -94,6 +95,9 @@ export function createApp() {
   app.post('/api/v1/businesses/:id/invitations', aiRateLimit);
   // Limita cuántos códigos para conectar WhatsApp se pueden pedir.
   app.post('/api/v1/whatsapp/link', aiRateLimit);
+  // El Atajo del iPhone entra con su propio token: también lleva límite (FT-0047).
+  app.post('/api/v1/shortcuts/payments', aiRateLimit);
+  app.post('/api/v1/pending-payments/:id/confirm', aiRateLimit);
   app.use('/api/v1/sync', syncRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
@@ -113,6 +117,8 @@ export function createApp() {
   app.use('/api/v1/money-profile', moneyProfileRoutes);
   app.use('/api/v1/notifications', notificationsRoutes);
   app.use('/api/v1/debts', debtsRoutes);
+  app.use('/api/v1/pending-payments', pendingPaymentsRoutes);
+  app.use('/api/v1/shortcuts', shortcutsRouter);
   app.use('/api/v1/whatsapp/link', linkRouter);
   app.use(notFound);
   app.use(errorHandler);

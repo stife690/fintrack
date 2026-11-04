@@ -32,6 +32,42 @@ const reminders = new Map();
 const inboxes = new Map();
 /** Cuentas por cobrar y por pagar (FT-0046) por usuario. */
 const debtsByUser = new Map();
+/** Pagos de Apple Pay por confirmar (FT-0047) y token del Atajo, por usuario. */
+const pendingByUser = new Map();
+const shortcutTokens = new Map();
+
+/** Pagos de ejemplo para ver "Por confirmar" en local; el segundo parece repetido. */
+function pendingFor(userId) {
+  if (!pendingByUser.has(userId)) {
+    const today = new Date().toLocaleDateString('en-CA');
+    const now = new Date().toISOString();
+    pendingByUser.set(userId, [
+      {
+        id: crypto.randomUUID(),
+        merchant: 'Éxito Calle 80',
+        amount: 45900,
+        date: today,
+        card: 'Visa Bancolombia',
+        status: 'pending',
+        transactionId: null,
+        possibleDuplicate: false,
+        createdAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        merchant: 'Juan Valdez',
+        amount: 12500,
+        date: today,
+        card: 'Visa Bancolombia',
+        status: 'pending',
+        transactionId: null,
+        possibleDuplicate: true,
+        createdAt: now,
+      },
+    ]);
+  }
+  return pendingByUser.get(userId);
+}
 
 addUser('demo@fintrack.com', 'demo1234');
 
@@ -915,5 +951,69 @@ export const handlers = [
     debt.settledAt = new Date().toISOString();
     debt.transactionId = createTransaction ? crypto.randomUUID() : null;
     return HttpResponse.json({ debt, transaction: createTransaction ? { id: debt.transactionId } : null });
+  }),
+
+  http.get(`${API_V1}/pending-payments/token`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ enabled: true, token: shortcutTokens.get(user.id) ?? null });
+  }),
+
+  http.post(`${API_V1}/pending-payments/token`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const saved = { createdAt: new Date().toISOString(), lastUsedAt: null };
+    shortcutTokens.set(user.id, saved);
+    return HttpResponse.json({ token: `ftk_${crypto.randomUUID().replaceAll('-', '')}`, ...saved }, { status: 201 });
+  }),
+
+  http.delete(`${API_V1}/pending-payments/token`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    shortcutTokens.delete(user.id);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/pending-payments`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    return HttpResponse.json({ items: pendingFor(user.id).filter((p) => p.status === 'pending') });
+  }),
+
+  http.post(`${API_V1}/pending-payments/:id/confirm`, async ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const payment = pendingFor(user.id).find((p) => p.id === params.id);
+    if (!payment) return error(404, 'NOT_FOUND', 'Pago no encontrado');
+    if (payment.status !== 'pending') return error(409, 'ALREADY_RESOLVED', 'Este pago ya se confirmó o se descartó');
+    const body = (await request.json().catch(() => ({}))) ?? {};
+    await delay(400);
+    const description = body.description ?? payment.merchant;
+    const now = new Date().toISOString();
+    const transaction = {
+      id: crypto.randomUUID(),
+      userId: user.id,
+      amount: payment.amount,
+      description,
+      type: 'gasto',
+      date: payment.date,
+      ...resolve(body.category, description, 'gasto'),
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    };
+    transactions.set(user.id, [transaction, ...(transactions.get(user.id) ?? [])]);
+    Object.assign(payment, { status: 'confirmed', transactionId: transaction.id });
+    return HttpResponse.json({ payment, transaction });
+  }),
+
+  http.post(`${API_V1}/pending-payments/:id/discard`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const payment = pendingFor(user.id).find((p) => p.id === params.id);
+    if (!payment) return error(404, 'NOT_FOUND', 'Pago no encontrado');
+    if (payment.status !== 'pending') return error(409, 'ALREADY_RESOLVED', 'Este pago ya se confirmó o se descartó');
+    payment.status = 'discarded';
+    return HttpResponse.json(payment);
   }),
 ];

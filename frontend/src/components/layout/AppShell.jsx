@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } fr
 import {
   CreditCard,
   HandCoins,
+  Inbox,
   ArrowLeftRight,
   Briefcase,
   CalendarDays,
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
       { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },
       { to: '/app/cuentas', label: 'Cuentas', icon: HandCoins },
+      { to: '/app/por-confirmar', label: 'Por confirmar', icon: Inbox },
       { to: '/app/calendario', label: 'Calendario', icon: CalendarDays },
       { to: '/app/renta', label: 'Renta y DIAN', icon: Landmark },
     ],

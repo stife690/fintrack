@@ -40,6 +40,16 @@ const attachmentsAllowedEmails = (process.env.ATTACHMENTS_ALLOWED_EMAILS || '')
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+/**
+ * Correos que pueden mandar pagos desde Atajos del iPhone (FT-0047), separados por coma; `*` es para
+ * todos. Igual que los soportes: fuera de producción, vacío es para todos; en producción no se abre a
+ * todos hasta publicar los términos y la política de privacidad.
+ */
+const shortcutsAllowedEmails = (process.env.SHORTCUTS_ALLOWED_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Modelo económico por defecto de cada proveedor (se puede cambiar con `AI_MODEL`). */
 const DEFAULT_MODELS = {
   gemini: 'gemini-flash-lite-latest',
@@ -108,6 +118,7 @@ if (nodeEnv === 'production' && !process.env.JWT_SECRET) {
  * @property {string[]} whatsappAllowedEmails Correos que pueden conectar el bot (`WHATSAPP_ALLOWED_EMAILS`).
  * @property {number} whatsappDailyMax Mensajes al bot por usuario y día (`WHATSAPP_DAILY_MAX`, por defecto 100).
  * @property {string[]} attachmentsAllowedEmails Quién puede adjuntar soportes (`ATTACHMENTS_ALLOWED_EMAILS`; `*` para todos).
+ * @property {string[]} shortcutsAllowedEmails Quién puede mandar pagos desde Atajos del iPhone (`SHORTCUTS_ALLOWED_EMAILS`; `*` para todos).
  * @property {string|undefined} supabaseUrl URL del proyecto de Supabase para guardar los soportes (`SUPABASE_URL`).
  * @property {string|undefined} supabaseServiceKey Clave `service_role` de Supabase; solo vive en el backend (`SUPABASE_SERVICE_KEY`).
  * @property {string} attachmentsBucket Espacio privado de Supabase para los soportes (`ATTACHMENTS_BUCKET`, por defecto `soportes`).
@@ -154,6 +165,7 @@ export const env = {
   whatsappAllowedEmails,
   whatsappDailyMax: Number(process.env.WHATSAPP_DAILY_MAX) || 100,
   attachmentsAllowedEmails,
+  shortcutsAllowedEmails,
   supabaseUrl: process.env.SUPABASE_URL?.trim().replace(/\/$/, '') || undefined,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY?.trim() || undefined,
   attachmentsBucket: process.env.ATTACHMENTS_BUCKET?.trim() || 'soportes',

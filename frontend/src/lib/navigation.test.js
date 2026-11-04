@@ -20,6 +20,7 @@ const INSIDE_SCREENS = {
   '/app/calendario': 'Mi plata',
   '/app/renta': 'Consejos',
   '/app/negocios': 'selector de En grupo',
+  '/app/por-confirmar': 'aviso de la campana y Perfil → Pagos con Apple Pay',
 };
 
 describe('navegación en celular', () => {

@@ -67,6 +67,8 @@ tags:
     description: Centro de notificaciones dentro de la app (FT-0045)
   - name: Debts
     description: Cuentas personales por cobrar y por pagar (FT-0046)
+  - name: PendingPayments
+    description: Pagos con Apple Pay que llegan desde Atajos del iPhone y esperan confirmación (FT-0047)
   - name: Reports
     description: Exportación de reportes (F12 — REQ-031 a REQ-033)
   - name: Voice
@@ -1909,6 +1911,172 @@ paths:
         "409": { description: "ALREADY_SETTLED: ya estaba saldada" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /pending-payments/token:
+    get:
+      tags: [PendingPayments]
+      summary: Estado del token del Atajo
+      description: >
+        Dice si la función está activa para el usuario (en producción, solo los correos de
+        `SHORTCUTS_ALLOWED_EMAILS`) y si ya tiene token. El token nunca se vuelve a mostrar.
+      responses:
+        "200":
+          description: Estado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, token]
+                properties:
+                  enabled: { type: boolean }
+                  token:
+                    type: object
+                    nullable: true
+                    required: [createdAt, lastUsedAt]
+                    properties:
+                      createdAt: { type: string, format: date-time }
+                      lastUsedAt: { type: string, format: date-time, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [PendingPayments]
+      summary: Crea un token nuevo para el Atajo
+      description: >
+        Devuelve el token una sola vez (`ftk_...`); en la base solo queda su hash SHA-256. Crear
+        otro deja sin efecto el anterior.
+      responses:
+        "201":
+          description: Token creado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, createdAt, lastUsedAt]
+                properties:
+                  token: { type: string, example: ftk_3q2x }
+                  createdAt: { type: string, format: date-time }
+                  lastUsedAt: { type: string, format: date-time, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: "FEATURE_DISABLED: la función no está activa para este usuario" }
+    delete:
+      tags: [PendingPayments]
+      summary: Revoca el token del Atajo
+      responses:
+        "204": { description: Revocado (o no había) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /pending-payments:
+    get:
+      tags: [PendingPayments]
+      summary: Pagos que esperan confirmación
+      description: >
+        Del más nuevo al más viejo. `possibleDuplicate` es true si ya hay un gasto con el mismo
+        monto entre un día antes y uno después.
+      responses:
+        "200":
+          description: Pagos pendientes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PendingPayment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /pending-payments/{id}/confirm:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [PendingPayments]
+      summary: Confirma el pago y crea el gasto
+      description: >
+        Crea el gasto con el monto y la fecha del pago, en la misma transacción SQL que lo marca
+        como confirmado. Sin `category` la elige la IA; sin `description` se usa el comercio.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category: { type: string, description: Clave de una categoría de gasto }
+                description: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "200":
+          description: Pago confirmado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [payment, transaction]
+                properties:
+                  payment: { $ref: "#/components/schemas/PendingPayment" }
+                  transaction: { $ref: "#/components/schemas/Transaction" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "ALREADY_RESOLVED: ya se confirmó o se descartó" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /pending-payments/{id}/discard:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [PendingPayments]
+      summary: Descarta el pago (no se anota)
+      responses:
+        "200":
+          description: Pago descartado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PendingPayment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "ALREADY_RESOLVED: ya se confirmó o se descartó" }
+
+  /shortcuts/payments:
+    post:
+      tags: [PendingPayments]
+      summary: Entrada del Atajo del iPhone
+      description: >
+        La llama la automatización de Atajos al pagar con Wallet. Usa el token personal del
+        Atajo, no la sesión de la app. El pago queda en "Por confirmar" y llega un aviso. Si el
+        mismo pago llega otra vez (mismo `id`, o mismo comercio, monto y minuto) responde 200 con
+        el que ya estaba. Máximo 200 pagos sin revisar.
+      security:
+        - shortcutToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [merchant, amount]
+              properties:
+                merchant: { type: string, minLength: 1, maxLength: 80 }
+                amount:
+                  description: Número, o texto como "$12.500" o "COP 12.500,50"
+                  oneOf: [{ type: number }, { type: string }]
+                date: { type: string, description: "AAAA-MM-DD o fecha y hora ISO 8601; por defecto hoy" }
+                card: { type: string, maxLength: 40, description: Nombre de la tarjeta en Wallet }
+                id: { type: string, maxLength: 100, description: "Id del pago, si el Atajo lo tiene" }
+      responses:
+        "201":
+          description: Pago recibido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShortcutPaymentResult" }
+        "200":
+          description: Ya había llegado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShortcutPaymentResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { description: "UNAUTHORIZED: token del Atajo inválido o revocado" }
+        "403": { description: "FEATURE_DISABLED: la función no está activa para este usuario" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { description: "RATE_LIMITED o TOO_MANY_PENDING" }
+
   /push/vapid-public-key:
     get:
       tags: [Push]
@@ -2130,6 +2298,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Access token de 15 minutos.
+    shortcutToken:
+      type: http
+      scheme: bearer
+      description: Token personal del Atajo del iPhone (`ftk_...`); solo sirve para POST /shortcuts/payments.
 
   parameters:
     Id:
@@ -2258,6 +2430,9 @@ components:
                 - PAYLOAD_TOO_LARGE
                 - UNSUPPORTED_MEDIA_TYPE
                 - ALREADY_SETTLED
+                - ALREADY_RESOLVED
+                - FEATURE_DISABLED
+                - TOO_MANY_PENDING
             message: { type: string }
             details:
               type: array
@@ -2471,6 +2646,25 @@ components:
         transactionId: { type: string, format: uuid, nullable: true, description: Movimiento creado al saldarla }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    PendingPayment:
+      type: object
+      required: [id, merchant, amount, date, card, status, transactionId, possibleDuplicate, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        merchant: { type: string }
+        amount: { type: number }
+        date: { type: string, format: date }
+        card: { type: string, nullable: true }
+        status: { type: string, enum: [pending, confirmed, discarded] }
+        transactionId: { type: string, format: uuid, nullable: true }
+        possibleDuplicate: { type: boolean, description: Ya hay un gasto con el mismo monto entre un día antes y uno después }
+        createdAt: { type: string, format: date-time }
+    ShortcutPaymentResult:
+      type: object
+      required: [payment, duplicate]
+      properties:
+        payment: { $ref: "#/components/schemas/PendingPayment" }
+        duplicate: { type: boolean }
 
     Transaction:
       type: object

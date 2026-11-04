@@ -4,6 +4,7 @@ import { Crown, Download, Lightbulb, Loader2, LogOut, UserPlus } from 'lucide-re
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
+import ShortcutLink from '@/components/account/ShortcutLink';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
 import PageHeader from '@/components/layout/PageHeader';
@@ -11,10 +12,12 @@ import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
+import useAsync from '@/hooks/useAsync';
 import useMediaQuery from '@/hooks/useMediaQuery';
 import usePageTitle from '@/hooks/usePageTitle';
 import { getDisplayName, getInitial } from '@/lib/displayName';
 import Sheet from '@/components/common/Sheet';
+import { getShortcutToken } from '@/services/pendingPaymentService';
 
 /** Lo que se abre desde Cuenta porque no se usa todos los días. */
 export const LINKS = [
@@ -70,6 +73,8 @@ function RowGroup({ label, children }) {
 function MobileAccount({ onSignOut, leaving }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(null);
+  // La fila de Apple Pay solo sale si la función está activa para el usuario (FT-0047).
+  const shortcut = useAsync(getShortcutToken, []);
   const row = (key, label) => (
     <button type="button" className={ROW} onClick={() => setOpen(key)}>
       {label}
@@ -93,6 +98,7 @@ function MobileAccount({ onSignOut, leaving }) {
         {row('categorias', 'Mis categorías')}
         {row('apariencia', 'Apariencia')}
         {row('whatsapp', 'Anotar por WhatsApp')}
+        {shortcut.data?.enabled && row('applepay', 'Pagos con Apple Pay')}
       </RowGroup>
 
       <RowGroup label="FinTrack">
@@ -126,6 +132,9 @@ function MobileAccount({ onSignOut, leaving }) {
       </Sheet>
       <Sheet open={open === 'whatsapp'} title="Anotar por WhatsApp" onClose={close}>
         <WhatsappLink />
+      </Sheet>
+      <Sheet open={open === 'applepay'} title="Pagos con Apple Pay" onClose={close}>
+        <ShortcutLink />
       </Sheet>
       <Sheet open={open === 'eliminar'} title="Eliminar cuenta" onClose={close}>
         <DeleteAccount />
@@ -161,6 +170,7 @@ export default function Account() {
           </Section>
           <CustomCategories />
           <WhatsappLink />
+          <ShortcutLink />
         </Group>
 
         <Group label="Alertas">

@@ -39,6 +39,7 @@ const Vacas = lazy(() => import('@/pages/app/Vacas'));
 const Cards = lazy(() => import('@/pages/app/Cards'));
 const CardDetail = lazy(() => import('@/pages/app/CardDetail'));
 const Debts = lazy(() => import('@/pages/app/Debts'));
+const PendingPayments = lazy(() => import('@/pages/app/PendingPayments'));
 const VacaDetail = lazy(() => import('@/pages/app/VacaDetail'));
 const VacaJoin = lazy(() => import('@/pages/app/VacaJoin'));
 const Negocios = lazy(() => import('@/pages/app/Negocios'));
@@ -128,6 +129,7 @@ export default function App() {
                 <Route path="/app/tarjetas" element={<Cards />} />
                 <Route path="/app/tarjetas/:id" element={<CardDetail />} />
                 <Route path="/app/cuentas" element={<Debts />} />
+                <Route path="/app/por-confirmar" element={<PendingPayments />} />
                 <Route path="/app/vacas" element={<Vacas />} />
                 <Route path="/app/vacas/unirse/:code" element={<VacaJoin />} />
                 <Route path="/app/vacas/:id" element={<VacaDetail />} />
