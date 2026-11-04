@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronRight, Landmark, Loader2, Sparkles } from 'lucide-react';
 import AssistantChat from '@/components/insights/AssistantChat';
 import InsightCard from '@/components/insights/InsightCard';
 import MonthAnalytics from '@/components/insights/MonthAnalytics';
@@ -107,6 +108,20 @@ export default function Insights() {
 
         <AssistantChat className="xl:sticky xl:top-6" />
       </div>
+
+      <Panel className="mt-6 p-0 md:hidden">
+        <Link
+          to="/app/renta"
+          className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
+        >
+          <Landmark className="size-5 shrink-0 text-brand" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Renta y DIAN</span>
+            <span className="block text-sm text-ink/60">Averigua si te toca declarar y cuándo</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
+        </Link>
+      </Panel>
     </>
   );
 }

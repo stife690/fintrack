@@ -169,6 +169,10 @@ export default function Dashboard() {
           {setupPending && <MoneySetupLink />}
           {empty ? (
             <>
+              {/* En el celular son la única forma de llegar a las secciones; desde tablet está el menú lateral. */}
+              <div className="md:hidden">
+                <QuickActions />
+              </div>
               {plan?.pending.length > 0 && <PendingPayments pending={plan.pending} />}
               <DashboardEmpty />
             </>

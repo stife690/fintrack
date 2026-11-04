@@ -1,65 +1,33 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Loader2 } from 'lucide-react';
 import Sheet from '@/components/common/Sheet';
-import useOnlineStatus from '@/hooks/useOnlineStatus';
+import { useNotifications } from '@/components/layout/NotificationsProvider';
 import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
-import { getNotifications, markNotificationsRead } from '@/services/notificationService';
-
-/** Cada cuánto se revisa si llegó algo nuevo mientras la app está abierta. */
-const REFRESH_MS = 60_000;
 
 /** `9+` cuando son muchos: el número exacto no cabe ni aporta. */
 const badgeText = (count) => (count > 9 ? '9+' : String(count));
 
 /**
  * Campana del centro de notificaciones (FT-0045): muestra cuántos avisos no ha leído y, al tocarla,
- * la lista. Abrirla los marca como leídos. Se actualiza al abrir la app, al volver a la pestaña y
- * cada minuto; sin conexión no pregunta.
- * @param {{ className?: string, label?: boolean }} props `label`: muestra "Avisos" al lado (menú lateral).
+ * la lista. Abrirla los marca como leídos. Los datos vienen de `NotificationsProvider`.
+ * @param {{ className?: string, label?: boolean, labelClassName?: string }} props `label`: muestra "Avisos" al lado.
  */
-export default function NotificationBell({ className, label = false }) {
-  const online = useOnlineStatus();
-  const [data, setData] = useState({ items: [], unread: 0 });
-  const [status, setStatus] = useState('loading'); // loading | ready | error
+export default function NotificationBell({ className, label = false, labelClassName }) {
+  const { items, unread, status, markRead, clearHighlights } = useNotifications();
   const [open, setOpen] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setData(await getNotifications());
-      setStatus('ready');
-    } catch {
-      setStatus((s) => (s === 'ready' ? s : 'error'));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!online) return undefined;
-    load();
-    const timer = setInterval(() => document.visibilityState === 'visible' && load(), REFRESH_MS);
-    const onVisible = () => document.visibilityState === 'visible' && load();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [online, load]);
 
   const openInbox = () => {
     setOpen(true);
-    if (data.unread > 0) {
-      // Se marcan en el servidor; en pantalla siguen resaltados hasta cerrar, para ver cuáles eran nuevos.
-      markNotificationsRead().catch(() => {});
-    }
+    markRead();
   };
 
   const close = () => {
     setOpen(false);
-    setData((d) => ({ unread: 0, items: d.items.map((n) => ({ ...n, read: true })) }));
+    clearHighlights();
   };
 
-  const unread = data.unread;
   return (
     <>
       <button
@@ -82,7 +50,7 @@ export default function NotificationBell({ className, label = false }) {
             </span>
           )}
         </span>
-        {label && <span className="text-[15px] font-medium max-lg:sr-only">Avisos</span>}
+        {label && <span className={cn('text-[15px] font-medium', labelClassName)}>Avisos</span>}
       </button>
 
       <Sheet open={open} title="Avisos" onClose={close}>
@@ -92,14 +60,14 @@ export default function NotificationBell({ className, label = false }) {
             No pudimos cargar tus avisos. Revisa tu conexión.
           </p>
         )}
-        {status === 'ready' && data.items.length === 0 && (
+        {status === 'ready' && items.length === 0 && (
           <p className="text-sm text-ink/60">
             Aún no tienes avisos. Aquí verás lo de tus vacas, negocios, tarjetas y presupuestos.
           </p>
         )}
-        {status === 'ready' && data.items.length > 0 && (
+        {status === 'ready' && items.length > 0 && (
           <ul className="-mx-2 flex flex-col gap-1">
-            {data.items.map((n) => {
+            {items.map((n) => {
               const content = (
                 <>
                   <span className="flex items-start justify-between gap-3">
