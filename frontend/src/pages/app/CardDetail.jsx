@@ -175,7 +175,8 @@ export default function CardDetail() {
 
   return (
     <>
-      <Link to="/app/tarjetas" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-ink/70">
+      {/* En el celular ya está el botón de volver arriba. */}
+      <Link to="/app/tarjetas" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-ink/70 max-md:hidden">
         <ArrowLeft className="size-4" aria-hidden="true" /> Tarjetas
       </Link>
       {notice && <p role="status" className="mb-3 rounded-xl bg-positive/10 p-3 text-sm">{notice}</p>}
