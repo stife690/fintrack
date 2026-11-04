@@ -391,6 +391,32 @@ export const MIGRATIONS = [
          ON cuentas_personales(usuario_id, saldada_at, fecha_limite)`,
     ],
   },
+  {
+    // Ver db/patches/018_rls.sql: RLS en todas las tablas para que la API REST de Supabase no
+    // exponga nada; el backend, dueño de las tablas, no se ve afectado. Debe ir de último para
+    // cubrir también las tablas de los parches anteriores.
+    id: '018_rls',
+    statements: [
+      `DO $$
+DECLARE
+  t record;
+  superusuario boolean;
+BEGIN
+  SELECT rolsuper INTO superusuario FROM pg_roles WHERE rolname = current_user;
+  FOR t IN
+    SELECT c.relname, pg_get_userbyid(c.relowner) AS dueno
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity
+  LOOP
+    IF superusuario OR t.dueno = current_user THEN
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.relname);
+    ELSE
+      RAISE WARNING 'RLS: no se activó en % (su dueño es %, no %)', t.relname, t.dueno, current_user;
+    END IF;
+  END LOOP;
+END $$;`,
+    ],
+  },
 ];
 
 /**

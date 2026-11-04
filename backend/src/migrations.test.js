@@ -52,6 +52,26 @@ test('el parche 014 crea tarjetas y es idempotente', options, async () => {
   assert.equal(tablas.length, 3);
 });
 
+test(
+  'el parche 018 deja RLS activo en todas las tablas y el backend sigue leyendo',
+  options,
+  async () => {
+    await runMigrations();
+    const { rows: sinRls } = await pool.query(
+      `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity`,
+    );
+    assert.deepEqual(
+      sinRls.map((r) => r.relname),
+      [],
+      'tablas sin RLS',
+    );
+    // El backend es el dueño de las tablas: sin FORCE, RLS no lo frena.
+    const { rows: count } = await pool.query('SELECT count(*)::int AS n FROM categorias');
+    assert.ok(count[0].n > 0);
+  },
+);
+
 test('runMigrations no hace nada si la base no tiene el esquema', async () => {
   const fakeDb = {
     queries: [],
