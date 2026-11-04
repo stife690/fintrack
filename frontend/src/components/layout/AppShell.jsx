@@ -233,6 +233,16 @@ function Shell() {
         Saltar al contenido
       </a>
 
+      {/*
+        iOS 26 difumina el borde superior de las apps instaladas, salvo que encuentre ahí una caja fija de
+        un solo color. Debe poder recibir toques: iOS la busca tocando ese punto, no sirve con pointer-events-none.
+      */}
+      <div
+        aria-hidden="true"
+        data-status-edge
+        className={cn('fixed inset-x-0 top-0 z-40 h-[max(env(safe-area-inset-top),0.75rem)] md:hidden', pathname === '/app' ? 'bg-violet' : 'bg-canvas')}
+      />
+
       <Sidebar user={user} />
 
       <div className="flex min-w-0 flex-1 flex-col">
