@@ -109,8 +109,8 @@ function readCommon(body, details) {
   }
   if (body.name !== undefined) {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (name.length >= 1 && name.length <= 60) out.name = name;
-    else details.push({ field: 'name', problem: 'Debe tener entre 1 y 60 caracteres' });
+    if (name.length >= 1 && name.length <= 40) out.name = name;
+    else details.push({ field: 'name', problem: 'Debe tener entre 1 y 40 caracteres' });
   }
   return out;
 }

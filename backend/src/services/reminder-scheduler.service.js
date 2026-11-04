@@ -141,6 +141,7 @@ export function createReminderScheduler(deps = {}) {
           if (
             card.daysToPayment !== CARD_REMINDER_DAYS ||
             card.paidThisCycle ||
+            !(card.statementTotal ?? card.used) ||
             card.reminderSentFor === card.nextPaymentDate
           ) {
             continue;

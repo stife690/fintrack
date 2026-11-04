@@ -60,6 +60,12 @@ test('con la tarjeta pagada o a otra distancia no envía nada', async () => {
   }
 });
 
+test('sin nada que pagar no envía "Debes $0"', async () => {
+  const { scheduler, sent } = setup({ used: 0, statementTotal: null });
+  await scheduler.tick();
+  assert.equal(sent.length, 0);
+});
+
 test('fuera de la hora del usuario no envía nada', async () => {
   const { scheduler, sent } = setup();
   const late = createReminderScheduler({

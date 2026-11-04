@@ -860,7 +860,7 @@ paths:
               required: [amount]
               properties:
                 amount: { $ref: "#/components/schemas/Amount" }
-                date: { type: string, format: date, description: "AAAA-MM-DD; hoy por defecto." }
+                date: { type: string, format: date, description: "AAAA-MM-DD; hoy por defecto. Una fecha futura (en la zona del usuario) da 422 en `date`." }
       responses:
         "201":
           description: Pago registrado y tarjeta recalculada
@@ -933,7 +933,7 @@ paths:
       - { $ref: "#/components/parameters/Id" }
     get:
       tags: [Cards]
-      summary: Compras, pagos y ajustes negativos desde la última base, del más nuevo al más viejo
+      summary: Compras desde la última base, gastos de cargos del banco, todos los pagos y ajustes negativos, del más nuevo al más viejo
       responses:
         "200":
           description: Movimientos
@@ -1977,7 +1977,7 @@ components:
         available: { type: number, minimum: 0, description: "Solo al crear; 0 ≤ available ≤ limit." }
         paymentDay: { type: integer, minimum: 1, maximum: 31 }
         cutoffDay: { type: integer, minimum: 1, maximum: 31, nullable: true }
-        name: { type: string, maxLength: 60 }
+        name: { type: string, maxLength: 40, description: "Si no se da (o se editan dígitos o nivel de una tarjeta con el nombre por defecto), se usa \"Amex Blue ••1234\"." }
     Card:
       type: object
       properties:
@@ -1991,11 +1991,13 @@ components:
         available: { type: number }
         paymentDay: { type: integer }
         cutoffDay: { type: integer, nullable: true }
-        statementTotal: { type: number, nullable: true }
-        statementDueDate: { type: string, format: date, nullable: true }
-        nextPaymentDate: { type: string, format: date }
-        daysToPayment: { type: integer }
-        paidThisCycle: { type: boolean }
+        statementTotal: { type: number, nullable: true, description: "null cuando el extracto ya venció (su fecha límite es anterior a nextPaymentDate) o lo pagado desde que se dio lo cubre." }
+        statementDueDate: { type: string, format: date, nullable: true, description: "null en los mismos casos que statementTotal." }
+        nextPaymentDate: { type: string, format: date, description: "Primer vencimiento sin \"Ya pagué\"; si ya pasó, el pago está atrasado." }
+        daysToPayment: { type: integer, description: "Negativo si el pago está atrasado." }
+        paidThisCycle: { type: boolean, description: "El vencimiento de este mes (y los anteriores) ya tienen pago; cuenta todos los pagos, también los anteriores a una actualización con el banco." }
+        paidDueDate: { type: string, format: date, nullable: true, description: "Vencimiento del último ciclo pagado (el calendario lo muestra pagado en esa fecha)." }
+        paidAmount: { type: number, description: "Suma de los pagos de ese ciclo; 0 si no hay." }
         reminderSentFor: { type: string, format: date, nullable: true, description: Fecha de pago ya avisada por push }
     Amount:
       type: number

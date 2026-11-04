@@ -17,6 +17,7 @@ import { pool } from '../config/db.js';
  * @property {string|null} statementDueDate Fecha límite del extracto AAAA-MM-DD.
  * @property {string|null} reminderSentFor Fecha de pago ya avisada AAAA-MM-DD.
  * @property {Date} createdAt Fecha de creación.
+ * @property {string} createdOn Día de creación AAAA-MM-DD en la zona del usuario.
  * @property {Date} updatedAt Fecha de última modificación.
  */
 
@@ -26,7 +27,9 @@ const COLUMNS = `id, usuario_id AS "userId", nombre AS name, franquicia AS netwo
   total_extracto::float8 AS "statementTotal",
   to_char(fecha_limite_extracto, 'YYYY-MM-DD') AS "statementDueDate",
   to_char(recordatorio_enviado_para, 'YYYY-MM-DD') AS "reminderSentFor",
-  created_at AS "createdAt", updated_at AS "updatedAt"`;
+  created_at AS "createdAt", updated_at AS "updatedAt",
+  to_char(created_at AT TIME ZONE (SELECT u.timezone FROM usuarios u WHERE u.id = tarjetas.usuario_id),
+    'YYYY-MM-DD') AS "createdOn"`;
 
 /** Campo de `CardRecord` editable con `updateCard` → columna. */
 const UPDATABLE = {
@@ -185,17 +188,21 @@ export async function purchasesSince(cardId, userId) {
 }
 
 /**
- * Pagos no borrados registrados después de la base.
+ * Todos los pagos no borrados. `afterBase` usa la misma regla que `purchasesSince`: solo esos
+ * bajan lo usado; el estado del ciclo (pagado o atrasado) mira todos.
  * @param {string} cardId
  * @param {string} userId
- * @returns {Promise<Array<{ id: string, date: string, amount: number }>>}
+ * @returns {Promise<Array<{ id: string, date: string, amount: number, afterBase: boolean }>>}
  */
-export async function paymentsSince(cardId, userId) {
+export async function listPayments(cardId, userId) {
   const { rows } = await pool.query(
-    `SELECT p.id, to_char(p.fecha, 'YYYY-MM-DD') AS date, p.monto::float8 AS amount
+    `SELECT p.id, to_char(p.fecha, 'YYYY-MM-DD') AS date, p.monto::float8 AS amount,
+            (p.created_at > k.base_at AND p.fecha >= (k.base_at AT TIME ZONE u.timezone)::date)
+              AS "afterBase"
      FROM tarjetas k
+     JOIN usuarios u ON u.id = k.usuario_id
      JOIN pagos_tarjeta p ON p.tarjeta_id = k.id AND p.usuario_id = k.usuario_id
-     WHERE k.id = $1 AND k.usuario_id = $2 AND p.deleted_at IS NULL AND p.created_at > k.base_at
+     WHERE k.id = $1 AND k.usuario_id = $2 AND p.deleted_at IS NULL
      ORDER BY p.fecha DESC, p.created_at DESC`,
     [cardId, userId],
   );
@@ -250,8 +257,9 @@ export async function insertAdjustment(data, client = pool) {
 }
 
 /**
- * Movimientos de la tarjeta: compras y pagos desde la base, y los ajustes negativos (pocos, se
- * devuelven todos). De la fecha más nueva a la más vieja.
+ * Movimientos de la tarjeta: compras desde la base y los gastos "Cargos del banco" (ligados a un
+ * ajuste), todos los pagos (para poder deshacer el del ciclo aunque una sincronización lo haya
+ * dejado antes de la base) y los ajustes negativos. De la fecha más nueva a la más vieja.
  * @param {string} cardId
  * @param {string} userId
  * @returns {Promise<Array<{ kind: 'purchase'|'payment'|'adjustment', id: string, date: string, amount: number, description?: string, installments?: number|null }>>}
@@ -265,12 +273,13 @@ export async function listMovements(cardId, userId) {
        JOIN usuarios u ON u.id = k.usuario_id
        JOIN transacciones t ON t.tarjeta_id = k.id AND t.usuario_id = k.usuario_id
        WHERE k.id = $1 AND k.usuario_id = $2 AND t.tipo = 'gasto' AND t.deleted_at IS NULL
-         AND t.created_at > k.base_at AND t.fecha >= (k.base_at AT TIME ZONE u.timezone)::date
+         AND ((t.created_at > k.base_at AND t.fecha >= (k.base_at AT TIME ZONE u.timezone)::date)
+           OR t.id IN (SELECT a.transaccion_id FROM ajustes_tarjeta a WHERE a.tarjeta_id = k.id))
        UNION ALL
        SELECT 'payment', p.id, to_char(p.fecha, 'YYYY-MM-DD'), p.monto::float8, NULL, NULL, p.created_at
        FROM tarjetas k
        JOIN pagos_tarjeta p ON p.tarjeta_id = k.id AND p.usuario_id = k.usuario_id
-       WHERE k.id = $1 AND k.usuario_id = $2 AND p.deleted_at IS NULL AND p.created_at > k.base_at
+       WHERE k.id = $1 AND k.usuario_id = $2 AND p.deleted_at IS NULL
        UNION ALL
        SELECT 'adjustment', a.id, to_char(a.created_at AT TIME ZONE u.timezone, 'YYYY-MM-DD'),
               a.diferencia::float8, NULL, NULL, a.created_at

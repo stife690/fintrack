@@ -151,23 +151,48 @@ test('sin historial de gasto solo se avisa el negativo', () => {
   assert.equal(riskOf(140000, 20000), 'ok');
 });
 
-test('la tarjeta aparece con su próximo pago: pendiente, atrasada o pagada', () => {
-  const card = { id: 'c1', name: 'Amex 1234', nextPaymentDate: '2026-11-20', amount: 400000, paidThisCycle: false };
-  const find = (cards, m = '2026-11') =>
-    buildPaymentCalendar({ ...base, month: m, cards }).events.find((e) => e.kind === 'card');
-  const e = find([card]);
+// Forma que arma getCalendar desde cards.service: nextPaymentDate es siempre el primer pago sin hacer.
+const CARD = {
+  id: 'c1',
+  name: 'Amex 1234',
+  nextPaymentDate: '2026-11-20',
+  amount: 400000,
+  paidDueDate: null,
+  paidAmount: 0,
+};
+const findCard = (cards, m = '2026-11') =>
+  buildPaymentCalendar({ ...base, month: m, cards }).events.filter((e) => e.kind === 'card');
+
+test('la tarjeta aparece con su próximo pago: pendiente o atrasada', () => {
+  const [e] = findCard([CARD]);
   assert.deepEqual([e.date, e.amount, e.status, e.name], ['2026-11-20', 400000, 'pendiente', 'Amex 1234']);
-  assert.equal(find([{ ...card, paidThisCycle: true }]).status, 'pagado');
-  assert.equal(find([{ ...card, nextPaymentDate: '2026-11-01' }]).status, 'atrasado');
-  assert.equal(find([card], '2026-12'), undefined);
+  assert.equal(findCard([{ ...CARD, nextPaymentDate: '2026-11-01' }])[0].status, 'atrasado');
+  assert.deepEqual(findCard([CARD], '2026-12'), []);
+});
+
+test('una tarjeta pagada sale "pagado" en la fecha del ciclo pagado con lo que se pagó', () => {
+  // Pagó el ciclo del 20 nov: el próximo pago ya es el 20 dic.
+  const paid = { ...CARD, nextPaymentDate: '2026-12-20', amount: 16000, paidDueDate: '2026-11-20', paidAmount: 616000 };
+  const cal = buildPaymentCalendar({ ...base, cards: [paid] });
+  const [e] = cal.events.filter((x) => x.kind === 'card');
+  assert.deepEqual([e.date, e.status, e.amount], ['2026-11-20', 'pagado', 616000]);
+  assert.equal(cal.totals.paid, 616000);
+  const [dec] = findCard([paid], '2026-12');
+  assert.deepEqual([dec.date, dec.status, dec.amount], ['2026-12-20', 'pendiente', 16000]);
+});
+
+test('una tarjeta sin deuda no sale como pendiente de $0', () => {
+  const zero = { ...CARD, amount: 0 };
+  assert.deepEqual(findCard([zero]), []);
+  assert.equal(buildPaymentCalendar({ ...base, cards: [zero] }).totals.pending, 1062900);
 });
 
 test('el pago de tarjeta pendiente se descuenta antes de los pagos que vienen después', () => {
-  const card = { id: 'c1', name: 'Amex 1234', nextPaymentDate: '2026-11-07', amount: 400000, paidThisCycle: false };
+  const card = { ...CARD, nextPaymentDate: '2026-11-07' };
   const events = byName(buildPaymentCalendar({ ...base, cards: [card] }));
   assert.equal(events['Amex 1234'].balanceAfter, 511000); // 1.000.000 - 89.000 (Internet, día 5) - 400.000
   assert.equal(events['Amex 1234'].risk, 'ok');
   assert.equal(events.Netflix.balanceAfter, 477100);
-  const paid = byName(buildPaymentCalendar({ ...base, cards: [{ ...card, paidThisCycle: true }] }));
-  assert.equal(paid.Netflix.balanceAfter, 877100);
+  const paid = { ...card, nextPaymentDate: '2026-12-07', paidDueDate: '2026-11-07', paidAmount: 400000 };
+  assert.equal(byName(buildPaymentCalendar({ ...base, cards: [paid] })).Netflix.balanceAfter, 877100);
 });

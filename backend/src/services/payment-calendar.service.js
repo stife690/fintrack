@@ -65,7 +65,9 @@ export function riskOf(balanceAfter, pace) {
  * @param {Array<{ description: string }>} data.currentExpenses Gastos (no ingresos) del mes actual.
  * @param {Array<{ description: string }>} data.monthExpenses Gastos (no ingresos) del mes que se muestra.
  * @param {Array<{ id: string, name: string, deadline: string|null, myRemaining: number }>} data.vacas
- * @param {Array<{ id: string, name: string, nextPaymentDate: string, amount: number, paidThisCycle: boolean }>} [data.cards] Tarjetas con su próximo pago.
+ * @param {Array<{ id: string, name: string, nextPaymentDate: string, amount: number, paidDueDate: string|null, paidAmount: number }>} [data.cards]
+ *   Tarjetas con su primer pago sin hacer (`nextPaymentDate`, puede estar atrasado) y el último
+ *   ciclo pagado con lo que se pagó en él.
  * @param {{ ready: boolean, money?: number, pace?: number|null, nextPay?: string }} data.plan Lo de `getPlan`.
  * @returns {{ month: string, today: string, money: number|null, projectedUntil: string|null, events: CalendarEvent[], totals: { pending: number, paid: number } }}
  */
@@ -95,7 +97,7 @@ export function buildPaymentCalendar({
       .map((v) => ({ key: `vaca:${v.id}`, date: v.deadline, amount: v.myRemaining })),
     // Pagar la tarjeta baja la plata en mano.
     ...cards
-      .filter((c) => !c.paidThisCycle && c.amount > 0 && c.nextPaymentDate < end)
+      .filter((c) => c.amount > 0 && c.nextPaymentDate < end)
       .map((c) => ({ key: `card:${c.id}`, date: c.nextPaymentDate, amount: c.amount })),
   ]
     // Lo atrasado se paga hoy, antes que lo demás.
@@ -148,16 +150,19 @@ export function buildPaymentCalendar({
     });
   }
   for (const c of cards) {
-    if (!c.nextPaymentDate?.startsWith(month)) continue;
-    events.push({
-      date: c.nextPaymentDate,
-      kind: 'card',
-      id: c.id,
-      name: c.name,
-      amount: c.amount,
-      status: c.paidThisCycle ? 'pagado' : c.nextPaymentDate < today ? 'atrasado' : 'pendiente',
-      ...projected(`card:${c.id}`),
-    });
+    const card = { kind: 'card', id: c.id, name: c.name };
+    if (c.paidDueDate?.startsWith(month)) {
+      events.push({ ...card, date: c.paidDueDate, amount: c.paidAmount, status: 'pagado', balanceAfter: null, risk: null });
+    }
+    if (c.nextPaymentDate.startsWith(month) && c.amount > 0) {
+      events.push({
+        ...card,
+        date: c.nextPaymentDate,
+        amount: c.amount,
+        status: c.nextPaymentDate < today ? 'atrasado' : 'pendiente',
+        ...projected(`card:${c.id}`),
+      });
+    }
   }
   if (fixed) {
     for (const day of new Set(profile.payDays.map((d) => Math.min(d, daysInMonth(month))))) {
@@ -241,7 +246,8 @@ export function createPaymentCalendarService(deps = {}) {
         name: c.name,
         nextPaymentDate: c.nextPaymentDate,
         amount: c.statementTotal ?? c.used,
-        paidThisCycle: c.paidThisCycle,
+        paidDueDate: c.paidDueDate,
+        paidAmount: c.paidAmount,
       })),
       plan,
     });

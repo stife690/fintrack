@@ -20,6 +20,9 @@ const LABELS = {
   blue: 'Blue',
 };
 
+// Nombre por defecto: "Amex Blue ••1234".
+const defaultName = ({ network, tier, last4 }) => `${LABELS[network]} ${LABELS[tier]} ••${last4}`;
+
 const notFound = () => new AppError(404, 'NOT_FOUND', 'Tarjeta no encontrada');
 
 /**
@@ -41,7 +44,7 @@ async function todayOf(userId) {
 async function present(card, today) {
   const [purchases, payments] = await Promise.all([
     repo.purchasesSince(card.id, card.userId),
-    repo.paymentsSince(card.id, card.userId),
+    repo.listPayments(card.id, card.userId),
   ]);
   const state = cardState({ card, purchases, payments, today });
   return {
@@ -55,11 +58,13 @@ async function present(card, today) {
     available: state.available,
     paymentDay: card.paymentDay,
     cutoffDay: card.cutoffDay,
-    statementTotal: card.statementTotal,
-    statementDueDate: card.statementDueDate,
+    statementTotal: state.statementTotal,
+    statementDueDate: state.statementDueDate,
     nextPaymentDate: state.nextPaymentDate,
     daysToPayment: state.daysToPayment,
     paidThisCycle: state.paidThisCycle,
+    paidDueDate: state.paidDueDate,
+    paidAmount: state.paidAmount,
     reminderSentFor: card.reminderSentFor,
   };
 }
@@ -123,7 +128,7 @@ export async function create(userId, input) {
     repo.insertCard({
       ...data,
       userId,
-      name: data.name ?? `${LABELS[data.network]} ${LABELS[data.tier]} ••${data.last4}`,
+      name: data.name ?? defaultName(data),
       debtBase: Math.round((data.limit - available) * 100) / 100,
     }),
   );
@@ -151,6 +156,10 @@ export async function update(userId, id, changes) {
     }
   }
   if (details.length > 0) throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', details);
+  // Un nombre que sigue siendo el de por defecto se rehace con los datos nuevos.
+  if (changes.name === undefined && card.name === defaultName(card)) {
+    changes = { ...changes, name: defaultName({ ...card, ...changes }) };
+  }
   const updated = await guardDuplicate(() => repo.updateCard(id, userId, changes));
   if (!updated) throw notFound();
   return present(updated, today);
@@ -176,6 +185,11 @@ export async function remove(userId, id) {
 export async function pay(userId, id, input) {
   const card = await owned(id, userId);
   const today = await todayOf(userId);
+  if (input.date > today) {
+    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+      { field: 'date', problem: 'No puede ser una fecha futura' },
+    ]);
+  }
   const payment = await repo.insertPayment({
     userId,
     cardId: id,

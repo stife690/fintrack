@@ -32,25 +32,64 @@ export function dueDates(paymentDay, today) {
 }
 
 /**
- * @param {{ card: { limit: number, debtBase: number, paymentDay: number }, purchases: number,
- *   payments: Array<{ date: string, amount: number }>, today: string }} input
- * @returns {{ used: number, available: number, nextPaymentDate: string, daysToPayment: number, paidThisCycle: boolean }}
+ * El vencimiento del mes siguiente a `due` (respeta el día 31 = último día).
+ * @param {string} due AAAA-MM-DD
+ * @param {number} paymentDay
+ * @returns {string}
+ */
+const nextDue = (due, paymentDay) => dateInMonth(shiftMonth(due.slice(0, 7), 1), paymentDay);
+
+/**
+ * Estado de la tarjeta. Tres cosas separadas:
+ * - Montos: lo usado solo cuenta los pagos posteriores a la base (`afterBase`).
+ * - Ciclo: con TODOS los pagos, sin importar la base. Cada pago paga el primer vencimiento desde la
+ *   creación cuya ventana (vencimiento anterior, vencimiento] ya abrió y que siga sin pagar o que lo
+ *   cubra a tiempo; así un pago tardío salda el mes atrasado y no el siguiente.
+ * - Extracto: se ignora cuando su fecha límite es anterior al próximo pago o lo pagado desde la base
+ *   (la base se fija al darlo) ya lo cubre.
+ * @param {{ card: { limit: number, debtBase: number, paymentDay: number, createdOn: string,
+ *   statementTotal?: number|null, statementDueDate?: string|null }, purchases: number,
+ *   payments: Array<{ date: string, amount: number, afterBase: boolean }>, today: string }} input
+ * @returns {{ used: number, available: number, nextPaymentDate: string, daysToPayment: number,
+ *   paidThisCycle: boolean, paidDueDate: string|null, paidAmount: number,
+ *   statementTotal: number|null, statementDueDate: string|null }}
  */
 export function cardState({ card, purchases, payments, today }) {
-  const paid = payments.reduce((acc, p) => acc + p.amount, 0);
-  const used = Math.max(0, cents(card.debtBase + purchases - paid));
-  const { previous, next } = dueDates(card.paymentDay, today);
-  const paidThisCycle = payments.some((p) => p.date > previous);
-  const nextPaymentDate = paidThisCycle
-    ? dateInMonth(shiftMonth(next.slice(0, 7), 1), card.paymentDay)
-    : next;
-  const daysToPayment = Math.round((Date.parse(nextPaymentDate) - Date.parse(today)) / 86_400_000);
+  const sum = (list) => cents(list.reduce((acc, p) => acc + p.amount, 0));
+  const paidSinceBase = sum(payments.filter((p) => p.afterBase));
+  const used = Math.max(0, cents(card.debtBase + purchases - paidSinceBase));
+
+  const { next } = dueDates(card.paymentDay, today);
+  const cycles = [];
+  const first = dueDates(card.paymentDay, card.createdOn).next;
+  for (let due = first; due <= next; due = nextDue(due, card.paymentDay)) {
+    cycles.push({
+      opens: dateInMonth(shiftMonth(due.slice(0, 7), -1), card.paymentDay),
+      due,
+      paid: [],
+    });
+  }
+  for (const p of [...payments].sort((a, b) => a.date.localeCompare(b.date))) {
+    const c = cycles.find((x) => p.date > x.opens && (p.date <= x.due || x.paid.length === 0));
+    c?.paid.push(p);
+  }
+  const nextPaymentDate =
+    cycles.find((c) => c.paid.length === 0)?.due ?? nextDue(next, card.paymentDay);
+  const lastPaid = cycles.findLast((c) => c.paid.length > 0);
+
+  const statementGone =
+    (Boolean(card.statementDueDate) && card.statementDueDate < nextPaymentDate) ||
+    (typeof card.statementTotal === 'number' && paidSinceBase >= card.statementTotal);
   return {
     used,
     available: cents(card.limit - used),
     nextPaymentDate,
-    daysToPayment,
-    paidThisCycle,
+    daysToPayment: Math.round((Date.parse(nextPaymentDate) - Date.parse(today)) / 86_400_000),
+    paidThisCycle: nextPaymentDate > next,
+    paidDueDate: lastPaid?.due ?? null,
+    paidAmount: lastPaid ? sum(lastPaid.paid) : 0,
+    statementTotal: statementGone ? null : (card.statementTotal ?? null),
+    statementDueDate: statementGone ? null : (card.statementDueDate ?? null),
   };
 }
 
