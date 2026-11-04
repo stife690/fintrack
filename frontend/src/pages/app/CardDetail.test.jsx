@@ -37,9 +37,18 @@ describe('CardDetail', () => {
     expect(render({ hidden: true })).not.toContain('616');
   });
 
+  it('pago atrasado: lo dice con la fecha', () => {
+    expect(render({ card: { ...card, daysToPayment: -3 } })).toContain('Pago atrasado desde el 15 nov');
+  });
+
+  it('cada pago se puede eliminar; compras y ajustes no', () => {
+    expect(render().match(/Eliminar pago/g)).toHaveLength(1);
+  });
+
   it('sin conexión: acciones deshabilitadas y aviso', () => {
     const html = render({ online: false });
     expect(html).toMatch(/<button[^>]*disabled[^>]*>(<svg.*?<\/svg>)? ?Ya pagué/);
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>(<svg.*?<\/svg>)? ?Eliminar pago/);
     expect(html).toContain('Necesitas conexión');
   });
 });

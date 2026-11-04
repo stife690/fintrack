@@ -34,6 +34,10 @@ describe('CardsSummary', () => {
     expect(render([{ ...two[0], daysToPayment: 0 }])).toContain('próximo pago hoy');
   });
 
+  it('con un pago atrasado lo dice en vez de los días', () => {
+    expect(render([{ ...two[0], daysToPayment: -2 }, two[1]])).toContain('tienes un pago atrasado');
+  });
+
   it('con todas pagadas lo indica', () => {
     expect(render([{ ...two[0], paidThisCycle: true }])).toContain('todas pagadas este mes');
   });

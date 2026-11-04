@@ -6,21 +6,25 @@ import FormField from '@/components/auth/FormField';
 import MoneyInput from '@/components/common/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { syncPreview } from '@/components/cards/cardFormat';
+import { formatMoney } from '@/components/transactions/format';
+import { MASK } from '@/components/dashboard/BalanceCard';
 import { bankSyncSchema } from '@/lib/validation/card';
 
 const FIELDS = ['available', 'statementTotal', 'statementDueDate'];
 
 /**
  * Formulario "Actualizar con el banco": se copian las cifras de la app del banco.
- * @param {{ disabled?: boolean, onSubmit: (v: { available: number, statementTotal?: number, statementDueDate?: string }) => Promise<void>, onCancel?: () => void }} props
+ * @param {{ card: { limit: number, used: number }, hidden?: boolean, disabled?: boolean, onSubmit: (v: { available: number, statementTotal?: number, statementDueDate?: string }) => Promise<void>, onCancel?: () => void }} props
  */
-export default function BankSyncForm({ disabled = false, onSubmit, onCancel }) {
+export default function BankSyncForm({ card, hidden = false, disabled = false, onSubmit, onCancel }) {
   const [serverError, setServerError] = useState('');
   const {
     control,
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(bankSyncSchema), defaultValues: { available: '', statementTotal: '', statementDueDate: '' } });
 
@@ -38,6 +42,8 @@ export default function BankSyncForm({ disabled = false, onSubmit, onCancel }) {
       setServerError(err.message);
     }
   });
+
+  const preview = syncPreview(card, watch('available'), hidden ? () => MASK : formatMoney);
 
   const money = (name, id, label) => (
     <Controller
@@ -58,6 +64,11 @@ export default function BankSyncForm({ disabled = false, onSubmit, onCancel }) {
         tarjeta (intereses, cuota de manejo u otros cargos).
       </p>
       {money('available', 'sync-available', 'Cupo disponible')}
+      {preview && (
+        <p role="status" className="text-sm font-medium">
+          {preview}
+        </p>
+      )}
       {money('statementTotal', 'sync-total', 'Total a pagar del extracto (opcional)')}
       <FormField id="sync-due" label="Fecha límite (opcional)" error={errors.statementDueDate?.message}>
         <Input type="date" disabled={disabled} {...register('statementDueDate')} />

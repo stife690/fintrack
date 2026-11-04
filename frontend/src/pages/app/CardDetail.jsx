@@ -15,12 +15,12 @@ import { Button } from '@/components/ui/button';
 import useHiddenAmounts from '@/hooks/useHiddenAmounts';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import usePageTitle from '@/hooks/usePageTitle';
-import { deleteCard, getCard, getCardMovements, payCard, syncCardWithBank, updateCard } from '@/services/cardService';
+import { deleteCard, deleteCardPayment, getCard, getCardMovements, payCard, syncCardWithBank, updateCard } from '@/services/cardService';
 
 const INTEREST_NOTE = 'Los intereses los calcula tu banco a la fecha de corte.';
 
-/** Una fila del historial: compra, pago o ajuste con el banco. */
-function MovementRow({ m, money }) {
+/** Una fila del historial: compra, pago (que se puede eliminar) o ajuste con el banco. */
+function MovementRow({ m, money, online, onDeletePayment }) {
   const isAdjustment = m.kind === 'adjustment';
   const title =
     m.kind === 'purchase'
@@ -44,10 +44,22 @@ function MovementRow({ m, money }) {
         {m.installments > 1 && <p className="text-xs text-ink/60">* {INTEREST_NOTE}</p>}
       </div>
       {!isAdjustment && (
-        <p className={`shrink-0 tabular-nums ${m.kind === 'payment' ? 'text-positive' : ''}`}>
-          {m.kind === 'payment' ? '−' : ''}
-          {money(m.amount)}
-        </p>
+        <div className="flex shrink-0 flex-col items-end">
+          <p className={`tabular-nums ${m.kind === 'payment' ? 'text-positive' : ''}`}>
+            {m.kind === 'payment' ? '−' : ''}
+            {money(m.amount)}
+          </p>
+          {m.kind === 'payment' && (
+            <ConfirmButton
+              label="Eliminar pago"
+              question="¿Eliminar este pago? Lo usado vuelve a subir."
+              confirmLabel="Sí, eliminar"
+              icon={Trash2}
+              disabled={!online}
+              onConfirm={() => onDeletePayment(m.id)}
+            />
+          )}
+        </div>
       )}
     </li>
   );
@@ -55,9 +67,9 @@ function MovementRow({ m, money }) {
 
 /**
  * Contenido del detalle, sin red ni hojas (se puede probar con `renderToStaticMarkup`).
- * @param {{ card: object, movements: object[], online: boolean, hidden: boolean, onAction: (a: 'pay'|'sync'|'edit') => void, onDelete: () => Promise<void> }} props
+ * @param {{ card: object, movements: object[], online: boolean, hidden: boolean, onAction: (a: 'pay'|'sync'|'edit') => void, onDelete: () => Promise<void>, onDeletePayment: (paymentId: string) => Promise<void> }} props
  */
-export function CardDetailView({ card, movements, online, hidden, onAction, onDelete }) {
+export function CardDetailView({ card, movements, online, hidden, onAction, onDelete, onDeletePayment }) {
   const money = (n) => (hidden ? MASK : formatMoney(n));
   const pct = card.limit > 0 ? Math.min(100, Math.round((card.used / card.limit) * 100)) : 0;
   return (
@@ -106,7 +118,7 @@ export function CardDetailView({ card, movements, online, hidden, onAction, onDe
       ) : (
         <ul aria-label="Historial de la tarjeta" className="divide-y divide-ink/10">
           {movements.map((m) => (
-            <MovementRow key={`${m.kind}-${m.id}`} m={m} money={money} />
+            <MovementRow key={`${m.kind}-${m.id}`} m={m} money={money} online={online} onDeletePayment={onDeletePayment} />
           ))}
         </ul>
       )}
@@ -178,6 +190,11 @@ export default function CardDetail() {
           await deleteCard(id);
           navigate('/app/tarjetas');
         }}
+        onDeletePayment={async (paymentId) => {
+          await deleteCardPayment(id, paymentId);
+          setNotice('Pago eliminado.');
+          await load();
+        }}
       />
       <Sheet open={sheet === 'pay'} title="Ya pagué" onClose={close}>
         <PayCardForm
@@ -188,6 +205,8 @@ export default function CardDetail() {
       </Sheet>
       <Sheet open={sheet === 'sync'} title="Actualizar con el banco" onClose={close}>
         <BankSyncForm
+          card={card}
+          hidden={hidden}
           disabled={!online}
           onSubmit={(v) =>
             apply(

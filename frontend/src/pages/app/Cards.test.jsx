@@ -19,6 +19,10 @@ describe('Cards', () => {
     expect(html).toContain('href="/app/tarjetas/7"');
   });
 
+  it('un pago vencido sin "Ya pagué" dice desde cuándo está atrasado', () => {
+    expect(render({ cards: [{ ...card, daysToPayment: -1 }] })).toContain('Pago atrasado desde el 15 nov');
+  });
+
   it('oculta los montos con el ojo cerrado', () => {
     expect(render({ cards: [card], hidden: true })).not.toContain('616');
   });

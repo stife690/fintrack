@@ -15,10 +15,13 @@ export default function CardsSummary({ cards, hidden }) {
   if (!cards?.length) return null;
   const owed = cards.reduce((sum, card) => sum + card.used, 0);
   const pending = cards.filter((card) => !card.paidThisCycle);
+  const soonest = Math.min(...pending.map((card) => card.daysToPayment));
   const tail =
-    pending.length > 0
-      ? `próximo pago ${when(Math.min(...pending.map((card) => card.daysToPayment)))}`
-      : 'todas pagadas este mes';
+    pending.length === 0
+      ? 'todas pagadas este mes'
+      : soonest < 0
+        ? 'tienes un pago atrasado'
+        : `próximo pago ${when(soonest)}`;
 
   return (
     <Link

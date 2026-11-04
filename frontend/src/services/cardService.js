@@ -28,6 +28,10 @@ export const deleteCard = (id) => apiRequest(`/cards/${id}`, { method: 'DELETE' 
 export const payCard = (id, { amount, date }) =>
   apiRequest(`/cards/${id}/payments`, { method: 'POST', body: { amount, date } });
 
+/** Borra un pago (deshace "Ya pagué"). */
+export const deleteCardPayment = (id, paymentId) =>
+  apiRequest(`/cards/${id}/payments/${paymentId}`, { method: 'DELETE' });
+
 /** Ajusta con el banco. @returns {Promise<{ card: object, chargeTransaction: object|null }>} */
 export const syncCardWithBank = (id, data) =>
   apiRequest(`/cards/${id}/sync-with-bank`, { method: 'POST', body: data });
