@@ -12,6 +12,10 @@ const percent = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 /** Cuántos presupuestos se muestran en el inicio; el resto, en la pantalla de presupuestos. */
 const VISIBLE = 4;
 
+/** Si algún presupuesto llegó al 80 %, se acabó o se pasó: cuándo `BudgetAlert` muestra algo. */
+export const hasBudgetAlert = (budgets) =>
+  budgets.some((b) => isAtLimit(b.alert) || displayLevel(b.alert) === 'exceeded_100' || b.alert.level === 'warning_80');
+
 /**
  * Aviso destacado cuando algún presupuesto llegó al 80 %, se acabó o se pasó (RN-04).
  * @param {{ budgets: import('@/services/budgetService').Budget[], names: Record<string, string> }} props
@@ -20,7 +24,7 @@ export function BudgetAlert({ budgets, names }) {
   const atLimit = budgets.filter((b) => isAtLimit(b.alert));
   const exceeded = budgets.filter((b) => displayLevel(b.alert) === 'exceeded_100');
   const warning = budgets.filter((b) => b.alert.level === 'warning_80');
-  if (exceeded.length === 0 && atLimit.length === 0 && warning.length === 0) return null;
+  if (!hasBudgetAlert(budgets)) return null;
 
   const name = (b) => names[b.category] ?? b.category;
   let message;

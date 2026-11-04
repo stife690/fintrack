@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeftRight, CreditCard, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
+import { CreditCard, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACTIONS = [
@@ -8,10 +8,9 @@ const ACTIONS = [
   { to: '/app/presupuestos', label: 'Presupuesto', icon: Target, tone: 'bg-brand-soft text-brand' },
 ];
 
-/** Círculos del celular: desde aquí se llega a cada sección, ya que no hay menú. */
+/** Círculos del celular: desde aquí se llega a cada sección, ya que no hay menú. Los movimientos, con "Ver todos". */
 export const CIRCLES = [
   { to: '/app/transacciones?nuevo=gasto', label: 'Anotar', icon: Plus, primary: true },
-  { to: '/app/transacciones', label: 'Movimientos', icon: ArrowLeftRight },
   { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
   { to: '/app/insights', label: 'Consejos', icon: Sparkles },
   { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },
