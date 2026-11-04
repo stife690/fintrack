@@ -65,6 +65,8 @@ tags:
     description: Notificaciones push y recordatorio diario (F11 — REQ-029, REQ-030)
   - name: Notifications
     description: Centro de notificaciones dentro de la app (FT-0045)
+  - name: Debts
+    description: Cuentas personales por cobrar y por pagar (FT-0046)
   - name: Reports
     description: Exportación de reportes (F12 — REQ-031 a REQ-033)
   - name: Voice
@@ -1777,6 +1779,136 @@ paths:
         "204": { description: Listo }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /debts:
+    get:
+      tags: [Debts]
+      summary: Cuentas por cobrar y por pagar del usuario
+      description: >
+        Lista para recordar quién me debe y a quién le debo (FT-0046). No suma ni resta de Mi plata.
+        Primero van las pendientes (por fecha límite; las sin fecha al final) y luego las saldadas.
+        `totals` suma solo lo pendiente. Un día antes de la fecha límite llega un aviso a la campana
+        (y por push si está activo), a la hora del primer recordatorio del usuario o a las 09:00.
+      responses:
+        "200":
+          description: Cuentas y totales pendientes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, totals]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Debt" }
+                  totals:
+                    type: object
+                    required: [receivable, payable]
+                    properties:
+                      receivable: { type: number, description: Lo que me deben }
+                      payable: { type: number, description: Lo que debo }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Debts]
+      summary: Crea una cuenta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, person, amount]
+              properties:
+                kind: { type: string, enum: [receivable, payable], description: "receivable: me deben; payable: debo" }
+                person: { type: string, minLength: 1, maxLength: 60 }
+                amount: { type: number, minimum: 0.01, maximum: 9999999999.99 }
+                dueDate: { type: string, format: date, nullable: true }
+                note: { type: string, maxLength: 200, nullable: true }
+      responses:
+        "201":
+          description: Cuenta creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /debts/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [Debts]
+      summary: Edita una cuenta pendiente
+      description: Todos los campos son opcionales; `kind` no se cambia. Cambiar `dueDate` vuelve a activar el aviso.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                person: { type: string, minLength: 1, maxLength: 60 }
+                amount: { type: number, minimum: 0.01, maximum: 9999999999.99 }
+                dueDate: { type: string, format: date, nullable: true }
+                note: { type: string, maxLength: 200, nullable: true }
+      responses:
+        "200":
+          description: Cuenta editada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "ALREADY_SETTLED: una cuenta saldada ya no se edita" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Debts]
+      summary: Borra la cuenta
+      description: No borra el movimiento que se haya creado al saldarla.
+      responses:
+        "204": { description: Borrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /debts/{id}/settle:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Debts]
+      summary: Salda la cuenta y, si se pide, crea el movimiento
+      description: >
+        Con `createTransaction` (por defecto true) crea en la misma transacción SQL un ingreso
+        "{persona} me pagó" en Otros ingresos, o un gasto "Le pagué a {persona}" en Otros. Una cuenta
+        solo se salda una vez.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                createTransaction: { type: boolean, default: true }
+                date: { type: string, format: date, description: "Fecha del movimiento; por defecto hoy. No puede ser futura." }
+      responses:
+        "200":
+          description: Cuenta saldada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [debt, transaction]
+                properties:
+                  debt: { $ref: "#/components/schemas/Debt" }
+                  transaction:
+                    type: object
+                    nullable: true
+                    description: El movimiento creado, o null si no se pidió
+                    allOf: [{ $ref: "#/components/schemas/Transaction" }]
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: "ALREADY_SETTLED: ya estaba saldada" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /push/vapid-public-key:
     get:
       tags: [Push]
@@ -2125,6 +2257,7 @@ components:
                 - TRANSCRIPTION_UNAVAILABLE
                 - PAYLOAD_TOO_LARGE
                 - UNSUPPORTED_MEDIA_TYPE
+                - ALREADY_SETTLED
             message: { type: string }
             details:
               type: array
@@ -2324,6 +2457,21 @@ components:
     CategoryColor:
       type: string
       enum: [orange, sky, amber, rose, teal, fuchsia, indigo, emerald]
+    Debt:
+      type: object
+      required: [id, kind, person, amount, dueDate, note, settledAt, transactionId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [receivable, payable] }
+        person: { type: string }
+        amount: { type: number }
+        dueDate: { type: string, format: date, nullable: true }
+        note: { type: string, nullable: true }
+        settledAt: { type: string, format: date-time, nullable: true }
+        transactionId: { type: string, format: uuid, nullable: true, description: Movimiento creado al saldarla }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
     Transaction:
       type: object
       required: [id, userId, amount, description, type, category, source, date, createdAt, updatedAt, deletedAt]

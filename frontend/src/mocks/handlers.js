@@ -30,6 +30,8 @@ const pushEndpoints = new Map();
 const reminders = new Map();
 /** Bandeja de avisos por usuario (FT-0045); arranca con un ejemplo para ver la campana. */
 const inboxes = new Map();
+/** Cuentas por cobrar y por pagar (FT-0046) por usuario. */
+const debtsByUser = new Map();
 
 addUser('demo@fintrack.com', 'demo1234');
 
@@ -844,5 +846,74 @@ export const handlers = [
     if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
     for (const item of inboxes.get(user.id) ?? []) item.read = true;
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_V1}/debts`, ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const items = debtsByUser.get(user.id) ?? [];
+    const totals = { receivable: 0, payable: 0 };
+    for (const d of items) if (!d.settledAt) totals[d.kind] += d.amount;
+    const sorted = [...items].sort(
+      (a, b) =>
+        Boolean(a.settledAt) - Boolean(b.settledAt) ||
+        (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'),
+    );
+    return HttpResponse.json({ items: sorted, totals });
+  }),
+
+  http.post(`${API_V1}/debts`, async ({ request }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const body = await request.json();
+    if (!['receivable', 'payable'].includes(body.kind) || !body.person?.trim() || !(body.amount > 0)) {
+      return error(422, 'VALIDATION_ERROR', 'Datos inválidos');
+    }
+    const now = new Date().toISOString();
+    const debt = {
+      id: crypto.randomUUID(),
+      kind: body.kind,
+      person: body.person.trim(),
+      amount: body.amount,
+      dueDate: body.dueDate ?? null,
+      note: body.note ?? null,
+      settledAt: null,
+      transactionId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    debtsByUser.set(user.id, [...(debtsByUser.get(user.id) ?? []), debt]);
+    return HttpResponse.json(debt, { status: 201 });
+  }),
+
+  http.put(`${API_V1}/debts/:id`, async ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const debt = (debtsByUser.get(user.id) ?? []).find((d) => d.id === params.id);
+    if (!debt) return error(404, 'NOT_FOUND', 'Cuenta no encontrada');
+    if (debt.settledAt) return error(409, 'ALREADY_SETTLED', 'Esta cuenta ya está saldada');
+    Object.assign(debt, await request.json(), { updatedAt: new Date().toISOString() });
+    return HttpResponse.json(debt);
+  }),
+
+  http.delete(`${API_V1}/debts/:id`, ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const items = debtsByUser.get(user.id) ?? [];
+    if (!items.some((d) => d.id === params.id)) return error(404, 'NOT_FOUND', 'Cuenta no encontrada');
+    debtsByUser.set(user.id, items.filter((d) => d.id !== params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${API_V1}/debts/:id/settle`, async ({ request, params }) => {
+    const user = authUser(request);
+    if (!user) return error(401, 'UNAUTHORIZED', 'Token inválido o ausente');
+    const debt = (debtsByUser.get(user.id) ?? []).find((d) => d.id === params.id);
+    if (!debt) return error(404, 'NOT_FOUND', 'Cuenta no encontrada');
+    if (debt.settledAt) return error(409, 'ALREADY_SETTLED', 'Esta cuenta ya está saldada');
+    const { createTransaction = true } = (await request.json().catch(() => ({}))) ?? {};
+    debt.settledAt = new Date().toISOString();
+    debt.transactionId = createTransaction ? crypto.randomUUID() : null;
+    return HttpResponse.json({ debt, transaction: createTransaction ? { id: debt.transactionId } : null });
   }),
 ];

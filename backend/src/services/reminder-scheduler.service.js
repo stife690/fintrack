@@ -3,6 +3,7 @@ import {
   listReminderCandidates,
 } from '../repositories/reminders.repository.js';
 import { updateCard } from '../repositories/cards.repository.js';
+import { listDebtsDueTomorrow, markReminded } from '../repositories/debts.repository.js';
 import { pushService } from './push.service.js';
 import * as cardsService from './cards.service.js';
 import { money } from './whatsapp.service.js';
@@ -34,6 +35,22 @@ export function cardReminderPayload(card) {
     title: 'Pago de tarjeta',
     body: `Tu ${card.name} se paga el ${date}. Debes ${money(card.statementTotal ?? card.used)}.`,
     url: `/app/tarjetas/${card.id}`,
+  };
+}
+
+/**
+ * Aviso de una cuenta personal que vence mañana (FT-0046).
+ * @param {{ kind: 'receivable'|'payable', person: string, amount: number }} debt
+ * @returns {{ title: string, body: string, url: string }}
+ */
+export function debtReminderPayload({ kind, person, amount }) {
+  return {
+    title: kind === 'receivable' ? 'Te deben' : 'Tienes que pagar',
+    body:
+      kind === 'receivable'
+        ? `Mañana ${person} te debe pagar ${money(amount)}.`
+        : `Mañana vence lo que le debes a ${person}: ${money(amount)}.`,
+    url: '/app/cuentas',
   };
 }
 
@@ -98,6 +115,8 @@ export function checkReminderDue({ time, timezone, now, windowMinutes = 5 }) {
  * @param {typeof listCardReminderUsers} [deps.listCardUsers]
  * @param {typeof cardsService.list} [deps.listUserCards]
  * @param {(cardId: string, userId: string, date: string) => Promise<unknown>} [deps.markCardReminded]
+ * @param {typeof listDebtsDueTomorrow} [deps.listDueDebts]
+ * @param {(debtId: string) => Promise<unknown>} [deps.markDebtReminded]
  * @param {number} [deps.intervalMs] Cada cuánto revisa (por defecto 1 minuto).
  * @param {number} [deps.windowMinutes] Minutos de tolerancia tras la hora configurada.
  * @returns {{ tick: () => Promise<{ sent: number, skipped: number }>, start: () => void, stop: () => void }}
@@ -110,6 +129,8 @@ export function createReminderScheduler(deps = {}) {
   const markCardReminded =
     deps.markCardReminded ??
     ((id, userId, date) => updateCard(id, userId, { reminderSentFor: date }));
+  const listDueDebts = deps.listDueDebts ?? listDebtsDueTomorrow;
+  const markDebtReminded = deps.markDebtReminded ?? markReminded;
   const now = deps.now ?? (() => new Date());
   const log = deps.log ?? console;
   const intervalMs = deps.intervalMs ?? MINUTE_MS;
@@ -158,6 +179,33 @@ export function createReminderScheduler(deps = {}) {
   }
 
   /**
+   * Avisa un día antes de la fecha límite de las cuentas por cobrar y por pagar, a la hora del
+   * primer recordatorio del usuario, una sola vez por cuenta (FT-0046).
+   * @param {Date} moment
+   * @returns {Promise<number>} Avisos enviados.
+   */
+  async function debtTick(moment) {
+    let sent = 0;
+    for (const debt of await listDueDebts()) {
+      try {
+        const { due } = checkReminderDue({
+          time: debt.time,
+          timezone: debt.timezone,
+          now: moment,
+          windowMinutes,
+        });
+        if (!due) continue;
+        await markDebtReminded(debt.id);
+        await sendToUser(debt.userId, debtReminderPayload(debt));
+        sent += 1;
+      } catch (err) {
+        log.error(`Error avisando la cuenta ${debt.id} al usuario ${debt.userId}: ${err.message}`);
+      }
+    }
+    return sent;
+  }
+
+  /**
    * Revisa los recordatorios pendientes ahora mismo.
    * @returns {Promise<{ sent: number, skipped: number }>}
    */
@@ -200,6 +248,7 @@ export function createReminderScheduler(deps = {}) {
       }
     }
     sent += await cardTick(moment);
+    sent += await debtTick(moment);
     return { sent, skipped };
   }
 
