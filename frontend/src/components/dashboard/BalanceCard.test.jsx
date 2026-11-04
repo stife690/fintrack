@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import BalanceCard from '@/components/dashboard/BalanceCard';
 
 const render = (totals, hidden = false) =>
   renderToStaticMarkup(
-    <BalanceCard periodLabel="noviembre" totals={totals} hidden={hidden} onToggleHidden={() => {}} />,
+    <MemoryRouter>
+      <BalanceCard periodLabel="noviembre" totals={totals} hidden={hidden} onToggleHidden={() => {}} />
+    </MemoryRouter>,
   );
+
+describe('BalanceCard: enlace', () => {
+  it('el título lleva a Mi plata', () => {
+    expect(render({ income: 1, expense: 0, savings: 0, balance: 1 })).toContain('href="/app/mi-plata"');
+  });
+});
 
 describe('BalanceCard: el ahorro se resta aparte', () => {
   it('con ahorro, dice cuánto se apartó y no lo suma a los gastos', () => {

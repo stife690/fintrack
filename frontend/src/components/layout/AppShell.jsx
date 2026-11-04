@@ -1,15 +1,15 @@
-import { Suspense, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Suspense, useEffect } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   HandCoins,
   ArrowLeftRight,
   Briefcase,
   CalendarDays,
+  ChevronLeft,
   Crown,
   House,
   Landmark,
-  LayoutGrid,
   Lightbulb,
   Loader2,
   PiggyBank,
@@ -19,13 +19,14 @@ import {
   Wallet,
 } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
-import MoreSheet, { isMorePath } from '@/components/layout/MoreSheet';
 import NotificationBell from '@/components/layout/NotificationBell';
+import { NotificationsProvider, useNotifications } from '@/components/layout/NotificationsProvider';
 import SyncStatus from '@/components/layout/SyncStatus';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
 import { useAuth } from '@/auth/AuthContext';
 import useOfflineSync from '@/hooks/useOfflineSync';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
+import { backPath, canGoBack } from '@/lib/backPath';
 import { getDisplayName, getInitial } from '@/lib/displayName';
 import { cn } from '@/lib/utils';
 import { getProfile } from '@/services/userService';
@@ -34,7 +35,7 @@ import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 /**
  * Secciones de la zona privada, por grupos: las finanzas propias, lo que se maneja con otras
  * personas y la app. `end` evita que "Inicio" quede activo en las subrutas. Cuenta va aparte (el usuario,
- * abajo en el menú lateral, y el avatar arriba en el celular).
+ * abajo en el menú lateral). En el celular no hay menú: se llega desde el inicio y desde Cuenta.
  */
 const NAV_GROUPS = [
   {
@@ -68,9 +69,6 @@ const NAV_GROUPS = [
   },
 ];
 
-/** Barra del celular: lo de todos los días; lo demás queda en "Más". */
-const [HOME, MOVEMENTS, , INSIGHTS] = NAV_GROUPS[0].items;
-
 /** Círculo con la inicial del usuario. */
 function Avatar({ user, className }) {
   return (
@@ -101,7 +99,7 @@ function Sidebar({ user }) {
         <LogoMark />
         <span className="max-lg:sr-only">FinTrack</span>
       </Link>
-      <NotificationBell label className="mt-4 w-full pr-3 max-lg:justify-center max-lg:pr-0" />
+      <NotificationBell label labelClassName="max-lg:sr-only" className="mt-4 w-full pr-3 max-lg:justify-center max-lg:pr-0" />
 
       <nav aria-label="Principal" className="mt-8 flex flex-col gap-6">
         {NAV_GROUPS.map((group, index) => (
@@ -153,69 +151,49 @@ function Sidebar({ user }) {
   );
 }
 
-/** Botón de la barra inferior hacia una sección. */
-function BottomLink({ to, label, short, icon: Icon, end }) {
-  return (
-    <li className="min-w-0">
-      <NavLink
-        to={to}
-        end={end}
-        aria-label={short ? label : undefined}
-        className={({ isActive }) => cn(BOTTOM_ITEM, isActive ? 'text-brand' : 'text-ink/60 hover:text-ink')}
-      >
-        <Icon className="size-[22px] shrink-0" aria-hidden="true" />
-        {/* En pantallas muy angostas (320 px) los nombres largos no caben: se acortan. */}
-        <span className={cn('max-w-full truncate', short && 'max-[359px]:hidden')} aria-hidden={short ? true : undefined}>
-          {label}
-        </span>
-        {short && (
-          <span className="hidden max-[359px]:inline" aria-hidden="true">
-            {short}
-          </span>
-        )}
-      </NavLink>
-    </li>
-  );
-}
-
-const BOTTOM_ITEM =
-  'flex min-h-14 w-full flex-col items-center justify-center gap-1 px-0.5 text-[11px] font-medium transition-colors';
-
 /**
- * Barra inferior para celular, por encima del indicador de inicio de iPhone (safe area): Inicio,
- * Movimientos y Consejos. El botón flotante abre el resto. El color se prolonga por debajo con
- * `after`: en iPhone, `bottom-0` puede quedar por encima del borde real y dejar una franja.
+ * Encabezado del celular. En el inicio, la marca y el avatar, con un punto si hay avisos sin leer (la
+ * lista está en Cuenta). En las demás pantallas, el botón para volver: atrás en el historial o, si la
+ * pantalla se abrió directo (un enlace, un aviso), a la pantalla de la que cuelga.
  */
-function BottomNav() {
+function MobileHeader({ user }) {
   const { pathname } = useLocation();
-  const [moreOpen, setMoreOpen] = useState(false);
+  const navigate = useNavigate();
+  const { unread } = useNotifications();
+  const parent = backPath(pathname);
+
+  if (parent) {
+    return (
+      <header className="flex items-center px-2 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
+        <button
+          type="button"
+          aria-label="Volver"
+          onClick={() => (canGoBack(window.history.state) ? navigate(-1) : navigate(parent, { replace: true }))}
+          className="grid size-11 place-items-center rounded-full transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
+        >
+          <ChevronLeft className="size-6" aria-hidden="true" />
+        </button>
+      </header>
+    );
+  }
+
   return (
-    <>
-      <nav
-        aria-label="Principal"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-surface pb-[env(safe-area-inset-bottom)] after:absolute after:inset-x-0 after:top-full after:h-24 after:bg-surface md:hidden"
+    <header className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
+      <Link to="/app" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <LogoMark className="size-7" />
+        FinTrack
+      </Link>
+      <Link
+        to="/app/cuenta"
+        aria-label={unread === 0 ? 'Tu cuenta' : `Tu cuenta, ${unread} ${unread === 1 ? 'aviso' : 'avisos'} sin leer`}
+        className="relative grid size-11 place-items-center"
       >
-        <ul className="mx-auto grid max-w-md grid-cols-3">
-          <BottomLink {...HOME} />
-          {/* `end`: Exportar cuelga de Movimientos pero se abre desde "Más". */}
-          <BottomLink {...MOVEMENTS} end />
-          <BottomLink {...INSIGHTS} />
-        </ul>
-      </nav>
-      <button
-        type="button"
-        onClick={() => setMoreOpen(true)}
-        aria-label="Más"
-        aria-haspopup="dialog"
-        className={cn(
-          'fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-3 z-40 grid size-14 place-items-center rounded-full bg-brand text-white shadow-lg transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet motion-safe:active:scale-95 md:hidden',
-          isMorePath(pathname) && 'ring-2 ring-brand/40 ring-offset-2 ring-offset-canvas',
+        <Avatar user={user} />
+        {unread > 0 && (
+          <span aria-hidden="true" className="absolute right-0.5 top-0.5 size-3 rounded-full bg-brand ring-2 ring-canvas" />
         )}
-      >
-        <LayoutGrid className="size-6" aria-hidden="true" />
-      </button>
-      <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
-    </>
+      </Link>
+    </header>
   );
 }
 
@@ -273,18 +251,7 @@ function Shell() {
       <Sidebar user={user} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
-          <Link to="/app" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <LogoMark className="size-7" />
-            FinTrack
-          </Link>
-          <div className="flex items-center gap-1">
-            <NotificationBell />
-            <Link to="/app/cuenta" aria-label="Tu cuenta">
-              <Avatar user={user} />
-            </Link>
-          </div>
-        </header>
+        <MobileHeader user={user} />
 
         <SyncStatus
           online={online}
@@ -295,12 +262,12 @@ function Shell() {
           syncing={syncing}
         />
 
-        {/* Abajo van la barra y el botón flotante del celular; desde tablet, la barra rápida: que no tapen el final. */}
+        {/* Abajo va la barra rápida donde se puede anotar: que no tape el final. */}
         <main
           id="contenido"
           className={cn(
-            'flex-1 px-4 pb-[calc(10rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pt-8',
-            quickEntry ? 'md:pb-28' : 'md:pb-12',
+            'flex-1 px-4 pt-2 md:px-8 md:pt-8',
+            quickEntry ? 'pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-28' : 'pb-[calc(2rem+env(safe-area-inset-bottom))] md:pb-12',
           )}
         >
           <div className="mx-auto w-full max-w-6xl">
@@ -311,20 +278,21 @@ function Shell() {
         </main>
       </div>
 
-      <BottomNav />
       {quickEntry && <QuickEntryBar />}
     </div>
   );
 }
 
 /**
- * Marco de la zona privada: menú (lateral en tablet y computador, inferior en celular),
+ * Marco de la zona privada: menú lateral en tablet y computador, botón de volver en celular,
  * aviso de conexión y el tema claro u oscuro elegido en Cuenta.
  */
 export default function AppShell() {
   return (
     <ThemeProvider>
-      <Shell />
+      <NotificationsProvider>
+        <Shell />
+      </NotificationsProvider>
     </ThemeProvider>
   );
 }

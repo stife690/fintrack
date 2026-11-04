@@ -75,11 +75,10 @@ export default function QuickEntryBar() {
       <form
         onSubmit={submit}
         aria-label="Anotar un movimiento"
-        style={keyboard > 80 ? { bottom: keyboard + 8, right: 12 } : undefined}
+        style={keyboard > 80 ? { bottom: keyboard + 8 } : undefined}
         className={cn(
-          // En el celular deja libre la esquina derecha para el botón flotante de "Más".
-          'fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-2 rounded-full max-md:right-20',
-          'bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 backdrop-blur-xl transition-[box-shadow,background-color] duration-200',
+          'fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-2 rounded-full',
+          'bg-surface-muted py-1.5 pl-4 pr-1.5 ring-1 ring-ink/10 backdrop-blur-xl max-md:bg-surface max-md:shadow-lg transition-[box-shadow,background-color] duration-200',
           'focus-within:ring-brand/50 md:bottom-6 md:left-[calc(76px+2rem)] md:right-8 lg:left-[calc(16rem+2rem)]',
         )}
       >

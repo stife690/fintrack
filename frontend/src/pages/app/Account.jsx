@@ -1,17 +1,26 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2, LogOut, Wallet } from 'lucide-react';
+import { ChevronRight, Crown, Download, Lightbulb, Loader2, LogOut, UserPlus, Wallet } from 'lucide-react';
 import CustomCategories from '@/components/account/CustomCategories';
 import DeleteAccount from '@/components/account/DeleteAccount';
 import ProfileCard from '@/components/account/ProfileCard';
 import ThemeSelector from '@/components/account/ThemeSelector';
 import WhatsappLink from '@/components/account/WhatsappLink';
+import NotificationBell from '@/components/layout/NotificationBell';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
 import NotificationSettings from '@/components/notifications/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
 import usePageTitle from '@/hooks/usePageTitle';
+
+/** Lo que se abre desde Cuenta porque no se usa todos los días. */
+export const LINKS = [
+  { to: '/app/transacciones/exportar', label: 'Exportar reportes', detail: 'Excel, PDF o CSV', icon: Download },
+  { to: '/app/invitar', label: 'Invitar amigos', detail: 'Compárteles la app', icon: UserPlus },
+  { to: '/app/planes', label: 'Planes', detail: 'Beta: aún no se cobra', icon: Crown },
+  { to: '/app/lo-que-viene', label: 'Lo que viene', detail: 'Vota y pide funciones', icon: Lightbulb },
+];
 
 /** Bloque con título de una sección de ajustes. */
 function Section({ id, title, description, children }) {
@@ -61,6 +70,10 @@ export default function Account() {
 
       <div className="flex flex-col gap-8">
         <ProfileCard />
+        {/* Desde tablet la campana está en el menú lateral. */}
+        <Panel className="p-1 md:hidden">
+          <NotificationBell label className="w-full pr-3" />
+        </Panel>
         <Panel className="p-0 md:p-0">
           <Link
             to="/app/mi-plata"
@@ -74,6 +87,28 @@ export default function Account() {
             <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
           </Link>
         </Panel>
+
+        {/* Desde tablet están en el menú lateral, y Exportar en Movimientos. */}
+        <div className="md:hidden">
+          <Group label="Más">
+            <Panel className="divide-y divide-ink/10 p-0">
+              {LINKS.map(({ to, label, detail, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="flex items-center gap-3 p-4 transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
+                >
+                  <Icon className="size-5 shrink-0 text-brand" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{label}</span>
+                    <span className="block text-sm text-ink/60">{detail}</span>
+                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
+                </Link>
+              ))}
+            </Panel>
+          </Group>
+        </div>
 
         <Group label="Preferencias">
           <Section id="apariencia" title="Apariencia" description="Elige cómo se ve FinTrack.">

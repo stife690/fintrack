@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CalendarDays, ChevronRight, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import MoneyInput from '@/components/common/MoneyInput';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -371,6 +372,19 @@ export default function MiPlata() {
           <IncomeSection profile={data} onSave={save} />
           {data.money === null && <BalanceSection profile={data} onSave={save} />}
           <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
+          <Panel className="p-0 md:hidden">
+            <Link
+              to="/app/calendario"
+              className="flex items-center gap-3 rounded-2xl p-4 transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-violet"
+            >
+              <CalendarDays className="size-5 shrink-0 text-brand" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Calendario</span>
+                <span className="block text-sm text-ink/60">Cuánto te queda después de cada pago</span>
+              </span>
+              <ChevronRight className="size-5 shrink-0 text-ink/40" aria-hidden="true" />
+            </Link>
+          </Panel>
         </div>
       )}
     </div>
