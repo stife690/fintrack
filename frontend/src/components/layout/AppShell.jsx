@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import MoreSheet, { isMorePath } from '@/components/layout/MoreSheet';
+import NotificationBell from '@/components/layout/NotificationBell';
 import SyncStatus from '@/components/layout/SyncStatus';
 import QuickEntryBar from '@/components/transactions/QuickEntryBar';
 import { useAuth } from '@/auth/AuthContext';
@@ -98,6 +99,7 @@ function Sidebar({ user }) {
         <LogoMark />
         <span className="max-lg:sr-only">FinTrack</span>
       </Link>
+      <NotificationBell label className="mt-4 w-full pr-3 max-lg:justify-center max-lg:pr-0" />
 
       <nav aria-label="Principal" className="mt-8 flex flex-col gap-6">
         {NAV_GROUPS.map((group, index) => (
@@ -274,9 +276,12 @@ function Shell() {
             <LogoMark className="size-7" />
             FinTrack
           </Link>
-          <Link to="/app/cuenta" aria-label="Tu cuenta">
-            <Avatar user={user} />
-          </Link>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <Link to="/app/cuenta" aria-label="Tu cuenta">
+              <Avatar user={user} />
+            </Link>
+          </div>
         </header>
 
         <SyncStatus

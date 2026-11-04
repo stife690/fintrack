@@ -354,6 +354,22 @@ export const MIGRATIONS = [
          ON transaccion_soportes(transaccion_id, created_at)`,
     ],
   },
+  {
+    id: '016_notificaciones',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS notificaciones (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+         titulo VARCHAR(120) NOT NULL,
+         cuerpo VARCHAR(300) NOT NULL,
+         url VARCHAR(200) NULL,
+         leida_at TIMESTAMPTZ NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones(usuario_id, created_at DESC)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_alertas_presupuesto_nivel ON alertas(presupuesto_id, nivel)`,
+    ],
+  },
 ];
 
 /**

@@ -172,7 +172,7 @@ test('sin llaves VAPID el emisor queda desconfigurado', () => {
  * @returns {{ service: ReturnType<typeof createPushService>, store: object }}
  */
 function buildService(overrides = {}) {
-  const store = { saved: [], deleted: [], devices: [SUBSCRIPTION], removedOnSend: [] };
+  const store = { saved: [], deleted: [], devices: [SUBSCRIPTION], removedOnSend: [], inbox: [] };
   const service = createPushService({
     vapidPublicKey: 'clave-vapid',
     sender: overrides.sender ?? {
@@ -195,6 +195,9 @@ function buildService(overrides = {}) {
           : { times: ['08:00', '20:00'], timezone: 'UTC', cardReminders: true },
       saveReminderSettings: async (_id, settings) =>
         overrides.settings === null ? null : settings,
+    },
+    inbox: overrides.inbox ?? {
+      record: async (userId, payload) => store.inbox.push([userId, payload]),
     },
   });
   return { service, store };
@@ -235,11 +238,37 @@ test('sendToUser envía a cada dispositivo y borra los que el navegador dio de b
   assert.deepEqual(await ok.service.sendToUser('u1', { title: 'x' }), { sent: 1, removed: 0 });
 });
 
-test('sendToUser no hace nada si el push no está configurado', async () => {
-  const { service } = buildService({
+test('sendToUser no envía push si no está configurado, pero el aviso queda en la bandeja', async () => {
+  const { service, store } = buildService({
     sender: { isConfigured: false, send: async () => assert.fail() },
   });
-  assert.deepEqual(await service.sendToUser('u1', {}), { sent: 0, removed: 0 });
+  assert.deepEqual(await service.sendToUser('u1', { title: 'Vaca' }), { sent: 0, removed: 0 });
+  assert.deepEqual(store.inbox, [['u1', { title: 'Vaca' }]]);
+});
+
+test('sendToUser: con inbox false no guarda, y si la bandeja falla el push igual sale (FT-0045)', async () => {
+  const quiet = buildService();
+  assert.deepEqual(await quiet.service.sendToUser('u1', { title: 'x' }, { inbox: false }), {
+    sent: 1,
+    removed: 0,
+  });
+  assert.deepEqual(quiet.store.inbox, []);
+
+  const errors = [];
+  const original = console.error;
+  console.error = (text) => errors.push(text);
+  try {
+    const broken = buildService({
+      inbox: { record: async () => Promise.reject(new Error('sin base')) },
+    });
+    assert.deepEqual(await broken.service.sendToUser('u1', { title: 'x' }), {
+      sent: 1,
+      removed: 0,
+    });
+  } finally {
+    console.error = original;
+  }
+  assert.match(errors[0], /bandeja/);
 });
 
 test('reminder-settings: lee y actualiza; con cuenta inexistente responde 401', async () => {

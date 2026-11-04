@@ -63,6 +63,8 @@ tags:
     description: Sincronización offline (F8, F9 — REQ-022 a REQ-025)
   - name: Push
     description: Notificaciones push y recordatorio diario (F11 — REQ-029, REQ-030)
+  - name: Notifications
+    description: Centro de notificaciones dentro de la app (FT-0045)
   - name: Reports
     description: Exportación de reportes (F12 — REQ-031 a REQ-033)
   - name: Voice
@@ -1734,6 +1736,47 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
 
   # ---------------------------------------------------------------- Push
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Avisos recientes y cuántos no ha leído
+      description: >
+        Bandeja de la app (FT-0045). Guarda todo lo que se envía por push (vacas, negocios, pago de
+        tarjetas y presupuestos), aunque el usuario no tenga push activo; el recordatorio diario de
+        registrar gastos no se guarda. Devuelve los 30 más recientes (se conservan hasta 100).
+        Un presupuesto avisa una sola vez al llegar al 80 % y otra al pasarse.
+      responses:
+        "200":
+          description: Avisos, del más reciente al más viejo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unread]
+                properties:
+                  unread: { type: integer, minimum: 0 }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, title, body, url, read, createdAt]
+                      properties:
+                        id: { type: string, format: uuid }
+                        title: { type: string, maxLength: 120 }
+                        body: { type: string, maxLength: 300 }
+                        url: { type: string, nullable: true, description: "Ruta de la app, p. ej. /app/vacas/{id}" }
+                        read: { type: boolean }
+                        createdAt: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /notifications/read:
+    post:
+      tags: [Notifications]
+      summary: Marca todos los avisos como leídos
+      responses:
+        "204": { description: Listo }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /push/vapid-public-key:
     get:
       tags: [Push]

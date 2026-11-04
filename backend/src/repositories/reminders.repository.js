@@ -65,7 +65,8 @@ export async function listReminderCandidates() {
 }
 
 /**
- * Usuarios con tarjetas activas que quieren el aviso de pago y tienen un dispositivo suscrito.
+ * Usuarios con tarjetas activas que quieren el aviso de pago. Sin push igual se avisa: queda en la
+ * bandeja de la app (FT-0045).
  * `time` es su primera hora de recordatorio, o 09:00 si no tiene ninguna.
  * @returns {Promise<{ id: string, timezone: string, time: string }[]>}
  */
@@ -75,8 +76,7 @@ export async function listCardReminderUsers() {
             COALESCE(to_char((SELECT min(t) FROM unnest(u.reminder_times) AS t), 'HH24:MI'), '09:00') AS time
      FROM usuarios u
      WHERE u.recordar_tarjetas
-       AND EXISTS (SELECT 1 FROM tarjetas c WHERE c.usuario_id = u.id AND c.deleted_at IS NULL)
-       AND EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.usuario_id = u.id)`,
+       AND EXISTS (SELECT 1 FROM tarjetas c WHERE c.usuario_id = u.id AND c.deleted_at IS NULL)`,
   );
   return rows;
 }

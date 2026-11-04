@@ -2,6 +2,9 @@ import { AppError } from '../errors/app-error.js';
 import { findCategoryByKey } from '../repositories/categories.repository.js';
 import { findUserById } from '../repositories/users.repository.js';
 import * as repo from '../repositories/budgets.repository.js';
+import { claimBudgetAlert } from '../repositories/notifications.repository.js';
+import { notifications } from './notifications.service.js';
+import { pushService } from './push.service.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -151,5 +154,55 @@ export async function getTransactionAlert(userId, { type, category, date }) {
   const budget = await repo.findBudgetForCategory(userId, category, date.slice(0, 7));
   if (!budget) return null;
 
-  return buildBudgetStatus(budget.amount, budget.consumed).alert;
+  const { alert } = buildBudgetStatus(budget.amount, budget.consumed);
+  if (alert.level !== 'none') {
+    // El movimiento ya quedó guardado: si el aviso falla, solo va al log.
+    await notifyBudget(userId, budget, alert).catch((err) => {
+      console.error(`No se pudo avisar del presupuesto (${err.message})`);
+    });
+  }
+  return alert;
+}
+
+/**
+ * Texto del aviso de un presupuesto que llegó al 80 % o se pasó (FT-0045).
+ * @param {{ categoryName: string, month: string, level: 'warning_80'|'exceeded_100', percentage: number }} data
+ * @returns {{ title: string, body: string, url: string }}
+ */
+export function budgetNotice({ categoryName, month, level, percentage }) {
+  const monthName = new Intl.DateTimeFormat('es-CO', { month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${month}-15T12:00:00Z`),
+  );
+  const used = `${Math.round(percentage)} %`;
+  return {
+    title: `Presupuesto de ${categoryName}`,
+    body:
+      level === 'exceeded_100'
+        ? `Te pasaste: llevas el ${used} de lo que pusiste para ${monthName}.`
+        : `Ya llevas el ${used} de lo que pusiste para ${monthName}.`,
+    url: '/app/presupuestos',
+  };
+}
+
+/**
+ * Avisa la primera vez que el presupuesto llega a cada nivel: la marca en `alertas` evita repetirlo
+ * con cada gasto. Queda en la bandeja y sale por push sin hacer esperar la respuesta.
+ * @param {string} userId
+ * @param {{ id: string, category: string, month: string }} budget
+ * @param {{ level: 'warning_80'|'exceeded_100', percentage: number }} alert
+ * @returns {Promise<void>}
+ */
+async function notifyBudget(userId, budget, alert) {
+  if (!(await claimBudgetAlert(budget.id, alert.level))) return;
+  const category = await findCategoryByKey(budget.category, userId);
+  const payload = budgetNotice({
+    categoryName: category?.name ?? 'esta categoría',
+    month: budget.month,
+    level: alert.level,
+    percentage: alert.percentage,
+  });
+  await notifications.record(userId, payload);
+  pushService.sendToUser(userId, payload, { inbox: false }).catch((err) => {
+    console.error(`No se envió el push del presupuesto (${err.message})`);
+  });
 }

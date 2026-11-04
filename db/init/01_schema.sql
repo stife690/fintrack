@@ -121,6 +121,20 @@ CREATE TABLE alertas (
   notificado_push BOOLEAN NOT NULL DEFAULT false,
   fecha TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Un presupuesto avisa una sola vez por nivel (FT-0045): la fila es la marca.
+CREATE UNIQUE INDEX ux_alertas_presupuesto_nivel ON alertas(presupuesto_id, nivel);
+
+-- Centro de notificaciones (FT-0045): queda todo lo que se envía por push, aunque no haya push activo.
+CREATE TABLE notificaciones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  titulo VARCHAR(120) NOT NULL,
+  cuerpo VARCHAR(300) NOT NULL,
+  url VARCHAR(200) NULL,
+  leida_at TIMESTAMPTZ NULL, -- NULL: aún no la ha visto
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_notificaciones_usuario ON notificaciones(usuario_id, created_at DESC);
 
 CREATE TABLE insights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

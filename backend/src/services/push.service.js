@@ -10,6 +10,7 @@ import {
   findReminderSettings,
   saveReminderSettings,
 } from '../repositories/reminders.repository.js';
+import { notifications } from './notifications.service.js';
 import { createPushSender } from './push-sender.service.js';
 
 /**
@@ -28,11 +29,12 @@ import { createPushSender } from './push-sender.service.js';
  * @param {ReturnType<typeof createPushSender>} [deps.sender]
  * @param {{ upsertSubscription: typeof upsertSubscription, deleteSubscription: typeof deleteSubscription, deleteSubscriptionByEndpoint: typeof deleteSubscriptionByEndpoint, listSubscriptionsByUser: typeof listSubscriptionsByUser }} [deps.subscriptions]
  * @param {{ findReminderSettings: typeof findReminderSettings, saveReminderSettings: typeof saveReminderSettings }} [deps.reminders]
+ * @param {{ record: (userId: string, payload: object) => Promise<void> }} [deps.inbox] Bandeja de avisos (FT-0045).
  * @returns {{
  *   getVapidPublicKey: () => { key: string },
  *   subscribe: (userId: string, subscription: { endpoint: string, keys: object }) => Promise<void>,
  *   unsubscribe: (userId: string, endpoint: string) => Promise<void>,
- *   sendToUser: (userId: string, payload: object) => Promise<{ sent: number, removed: number }>,
+ *   sendToUser: (userId: string, payload: object, options?: { inbox?: boolean }) => Promise<{ sent: number, removed: number }>,
  *   getReminderSettings: (userId: string) => Promise<ReminderSettingsResponse>,
  *   updateReminderSettings: (userId: string, settings: { times: string[], timezone: string, cardReminders?: boolean }) => Promise<ReminderSettingsResponse>
  * }}
@@ -47,6 +49,7 @@ export function createPushService(deps = {}) {
     listSubscriptionsByUser,
   };
   const reminders = deps.reminders ?? { findReminderSettings, saveReminderSettings };
+  const inbox = deps.inbox ?? notifications;
 
   /**
    * @param {{ times: string[], timezone: string, cardReminders: boolean }|null} settings
@@ -83,13 +86,21 @@ export function createPushService(deps = {}) {
     },
 
     /**
-     * Envía una notificación a todos los dispositivos del usuario y borra los que ya no existen.
-     * Sin suscripciones (o sin llaves VAPID) no envía nada.
+     * Guarda el aviso en la bandeja de la app (FT-0045) y lo envía a todos los dispositivos del
+     * usuario, borrando los que ya no existen. Sin suscripciones (o sin llaves VAPID) solo queda en
+     * la bandeja. Si la bandeja falla, el push igual sale.
      * @param {string} userId
-     * @param {object} payload
+     * @param {object} payload `{ title, body, url }`.
+     * @param {{ inbox?: boolean }} [options] `inbox: false` para avisos que no vale la pena guardar
+     *   (el recordatorio diario de registrar gastos).
      * @returns {Promise<{ sent: number, removed: number }>}
      */
-    async sendToUser(userId, payload) {
+    async sendToUser(userId, payload, { inbox: keep = true } = {}) {
+      if (keep) {
+        await inbox.record(userId, payload).catch((err) => {
+          console.error(`No se guardó el aviso en la bandeja (${err.message})`);
+        });
+      }
       if (!sender.isConfigured) return { sent: 0, removed: 0 };
       const devices = await subscriptions.listSubscriptionsByUser(userId);
       let sent = 0;
