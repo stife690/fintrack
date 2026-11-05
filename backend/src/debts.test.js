@@ -15,7 +15,8 @@ const options = {
 };
 
 const TEST_DOMAIN = '@cuentas-test.fintrack.test';
-const TODAY = new Date().toISOString().slice(0, 10);
+// En la zona del usuario de prueba (Bogotá): en UTC ya es mañana desde las 7 p. m.
+const TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
 after(async () => {
   if (!options.skip) {

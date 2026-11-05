@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, LogOut, MoreHorizontal, Pencil, Trash2, UserPlus } from 'lucide-react';
 import ConfirmButton from '@/components/common/ConfirmButton';
 import Sheet from '@/components/common/Sheet';
+import BusinessMonth from '@/components/negocios/BusinessMonth';
 import Panel from '@/components/layout/Panel';
 import NegocioForm from '@/components/negocios/NegocioForm';
 import NegocioInvitePanel from '@/components/negocios/NegocioInvitePanel';
@@ -25,7 +26,7 @@ import {
 } from '@/services/negocioService';
 
 /**
- * Página privada `/app/negocios/:id` (FT-0016): un negocio con sus socios. Los dueños invitan
+ * Página privada `/app/negocios/:id` (FT-0016 y FT-0017): las finanzas del mes del negocio y sus socios. Los dueños invitan
  * (ventana), cambian roles y participaciones desde cada socio y editan el negocio en Opciones;
  * cualquier socio puede salirse. Se vuelve a pedir al regresar a la pestaña, para ver los cambios
  * de los demás socios.
@@ -147,6 +148,15 @@ export default function NegocioDetail() {
       <p role="status" className={cn('text-sm text-positive', notice && 'mb-4')}>
         {notice}
       </p>
+
+      <div className="mb-8">
+        <BusinessMonth
+          businessId={id}
+          myRole={business.role}
+          myId={business.partners.find((p) => p.isMe)?.userId}
+          online={online}
+        />
+      </div>
 
       <Panel aria-labelledby="partners-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
