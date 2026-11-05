@@ -9,7 +9,10 @@ export default function CallToAction() {
   return (
     <section id="empieza" className="scroll-mt-20 bg-violet py-24 text-white md:py-32">
       <Reveal className="container-page flex flex-col items-center text-center">
-        <LogoMark className="size-20 rounded-[1.4rem] ring-4 ring-white/20 [&_rect:first-of-type]:fill-obsidian" />
+        <LogoMark
+          tone="light"
+          className="size-20 rounded-[1.4rem] shadow-[0_18px_40px_-12px_rgba(28,18,72,0.7)] ring-4 ring-white/50"
+        />
         <h2 className="mt-8 max-w-3xl text-balance text-5xl font-semibold leading-[0.98] tracking-[-0.04em] md:text-7xl">
           Empieza a controlar tus gastos hoy.
         </h2>
