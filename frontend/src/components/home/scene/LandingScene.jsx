@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import LogoMark3D from './LogoMark3D';
 import { Calculator, CalendarBlock, CoinStack, Padlock, PiggyBank, TrendArrow, useFinanceMaterials } from './FinanceObjects';
+import { createFpsMeter } from './fps';
 
 const clamp01 = (v) => Math.min(Math.max(v, 0), 1);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -190,10 +191,30 @@ function Floaters({ stageRef, reducedMotion }) {
 }
 
 /**
- * Escena 3D de la landing (se carga aparte, con `lazy`): el logo de FinTrack y las figuras.
- * @param {{ stageRef: React.RefObject<HTMLElement>, active: boolean, reducedMotion: boolean }} props
+ * Mide la fluidez real del equipo durante el primer segundo y medio (después del calentamiento).
+ * Si no llega a los cuadros por segundo mínimos, avisa con `onTooSlow` y el escenario vuelve
+ * al logo plano. Así decide el rendimiento real, no una suposición sobre el celular.
  */
-export default function LandingScene({ stageRef, active, reducedMotion, onReady }) {
+function FpsProbe({ onTooSlow }) {
+  const meter = useMemo(() => createFpsMeter(), []);
+  const done = useRef(false);
+  useFrame((_, delta) => {
+    if (done.current || !onTooSlow) return;
+    const verdict = meter(delta);
+    if (verdict === 'measuring') return;
+    done.current = true;
+    if (verdict === 'slow') onTooSlow();
+  });
+  return null;
+}
+
+/**
+ * Escena 3D de la landing (se carga aparte, con `lazy`): el logo de FinTrack y las figuras.
+ * `onReady` avisa cuando el lienzo está listo; `onTooSlow`, si el equipo no la mueve con fluidez.
+ * @param {{ stageRef: React.RefObject<HTMLElement>, active: boolean, reducedMotion: boolean,
+ *   onReady?: () => void, onTooSlow?: () => void }} props
+ */
+export default function LandingScene({ stageRef, active, reducedMotion, onReady, onTooSlow }) {
   return (
     <Canvas
       className="!absolute inset-0"
@@ -205,6 +226,7 @@ export default function LandingScene({ stageRef, active, reducedMotion, onReady 
       aria-hidden="true"
     >
       <StudioEnvironment />
+      <FpsProbe onTooSlow={onTooSlow} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[4, 6, 6]} intensity={1.6} />
       <pointLight position={[-5, -3, 4]} intensity={40} color="#8b66ff" />
