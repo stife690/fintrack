@@ -1,18 +1,19 @@
 import { MotionConfig } from 'framer-motion';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import Hero from '@/components/home/Hero';
-import Platforms from '@/components/home/Platforms';
-import CoreFeatures from '@/components/home/CoreFeatures';
-import Highlights from '@/components/home/Highlights';
-import MobileApp from '@/components/home/MobileApp';
-import Security from '@/components/home/Security';
+import HeroStage from '@/components/home/HeroStage';
+import Features from '@/components/home/Features';
+import Alerts from '@/components/home/Alerts';
+import AppDevices from '@/components/home/AppDevices';
+import Privacy from '@/components/home/Privacy';
 import Faq from '@/components/home/Faq';
 import CallToAction from '@/components/home/CallToAction';
+import GuidedTour from '@/components/home/tour/GuidedTour';
 import usePageTitle from '@/hooks/usePageTitle';
 
 /**
- * Landing de FinTrack con la línea gráfica de la plantilla Revio.
+ * Landing de FinTrack: escenario 3D (hero, "Qué es" y "Cómo funciona"), funcionalidades,
+ * alertas, app instalable, seguridad, preguntas y cierre.
  * `MotionConfig` desactiva las animaciones si el sistema pide movimiento reducido.
  */
 export default function Home() {
@@ -25,20 +26,20 @@ export default function Home() {
       >
         Saltar al contenido
       </a>
-      <Navbar />
-      {/* Fondo blanco propio: el body es negro (por el rebote del scroll en celular) y las secciones
-          claras no traen fondo, así que sus títulos oscuros quedaban sobre negro. */}
-      <main id="contenido" className="bg-background">
-        <Hero />
-        <Platforms />
-        <CoreFeatures />
-        <Highlights />
-        <MobileApp />
-        <Security />
-        <Faq />
-        <CallToAction />
-      </main>
-      <Footer />
+      <GuidedTour>
+        <Navbar />
+        {/* Fondo blanco propio: el body es negro (por el rebote del scroll en celular). */}
+        <main id="contenido" className="bg-background">
+          <HeroStage />
+          <Features />
+          <Alerts />
+          <AppDevices />
+          <Privacy />
+          <Faq />
+          <CallToAction />
+        </main>
+        <Footer />
+      </GuidedTour>
     </MotionConfig>
   );
 }

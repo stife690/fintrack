@@ -69,11 +69,25 @@ export default function Footer() {
         ))}
       </div>
 
-      {/* Cierre: el nombre de la marca a todo el ancho. */}
+      {/*
+        Cierre: el nombre de la marca a todo el ancho. Es un SVG decorativo (no texto), así no
+        cuenta como texto de bajo contraste; `textLength` lo estira justo al ancho del contenedor.
+      */}
       <div aria-hidden="true" className="container-page relative select-none">
-        <p className="text-[clamp(3rem,27vw,21rem)] font-semibold leading-[0.8] tracking-[-0.06em] text-white/[0.07]">
-          FinTrack
-        </p>
+        <svg viewBox="0 0 1000 230" className="block w-full" focusable="false">
+          <text
+            x="0"
+            y="200"
+            textLength="1000"
+            lengthAdjust="spacingAndGlyphs"
+            fill="rgba(255,255,255,0.07)"
+            fontSize="290"
+            fontWeight="600"
+            letterSpacing="-14"
+          >
+            FinTrack
+          </text>
+        </svg>
       </div>
 
       <div className="container-page relative flex flex-col gap-3 border-t border-white/10 py-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">

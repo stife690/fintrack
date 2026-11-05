@@ -32,8 +32,6 @@
   --color-pink: #f6e2f8;
   --color-mint: #ccfff0;
   --color-success: #2fd6a3;
-  /* Papel térmico de la tirilla de la landing. */
-  --color-paper: #fbfaf7;
 
   /*
    * Tonos de Tailwind que usan las categorías y los avisos, en hex en vez de oklch (el formato de
@@ -85,26 +83,6 @@
   /* Registro por voz (FT-0013): anillos del micrófono y barras de la onda mientras escucha. */
   --animate-voice-ring: voice-ring 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
   --animate-voice-wave: voice-wave 0.9s ease-in-out infinite;
-  /* Tirilla de la landing: el papel sale de la impresora y el sello cae al final. */
-  --animate-paper-feed: paper-feed 2.2s cubic-bezier(0.45, 0, 0.2, 1) both;
-  --animate-stamp: stamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-
-  @keyframes paper-feed {
-    from {
-      transform: translateY(-100%);
-    }
-  }
-
-  @keyframes stamp {
-    from {
-      opacity: 0;
-      transform: rotate(-12deg) scale(1.8);
-    }
-    to {
-      opacity: 1;
-      transform: rotate(-12deg) scale(1);
-    }
-  }
 
   @keyframes voice-ring {
     from {
@@ -313,9 +291,7 @@
     html {
       scroll-behavior: auto;
     }
-    .animate-float,
-    .animate-paper-feed,
-    .animate-stamp {
+    .animate-float {
       animation: none;
     }
   }
