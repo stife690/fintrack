@@ -55,3 +55,17 @@ export function segmentForScroll(scrollY, tops, viewportHeight) {
   }
   return index;
 }
+
+/**
+ * Qué hacer si la persona toca un enlace `#ancla` mientras suena el recorrido: si la voz habla
+ * de esa sección, seguir desde su frase (un poco antes, para que la página baje antes de la voz);
+ * si no (p. ej. `#faq`), `null`: se pausa y el navegador baja normal.
+ * @param {string} hash
+ * @param {{ id: string, start: number }[]} segments
+ * @returns {{ index: number, time: number } | null}
+ */
+export function jumpFor(hash, segments) {
+  const index = segments.findIndex(({ id }) => `#${id}` === hash);
+  if (index <= 0) return null;
+  return { index, time: Math.max(0, segments[index].start - LEAD) };
+}

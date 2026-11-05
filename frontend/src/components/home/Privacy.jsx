@@ -23,7 +23,7 @@ const ITEMS = [
 /** Seguridad: violeta profundo (el mismo de "Qué es"), título a la izquierda y los tres compromisos en lista. */
 export default function Privacy() {
   return (
-    <section id="seguridad" className="scroll-mt-20 bg-[#1c1248] py-24 text-white md:py-32">
+    <section id="seguridad" className="scroll-mt-20 bg-[linear-gradient(to_bottom,#fff,#1c1248_10rem)] pb-24 pt-40 text-white md:pb-32 md:pt-48">
       <div className="container-page grid gap-14 lg:grid-cols-[1fr_1.2fr]">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-orchid">Seguridad</p>

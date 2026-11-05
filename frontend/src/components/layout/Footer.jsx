@@ -38,7 +38,7 @@ export default function Footer() {
   const apiStatus = useApiHealth();
 
   return (
-    <footer className="relative overflow-hidden bg-black text-white">
+    <footer className="relative overflow-hidden bg-[linear-gradient(to_bottom,#6142ff,#000_10rem)] pt-16 text-white">
       <div className="container-page relative grid grid-cols-2 gap-x-6 gap-y-12 py-16 md:grid-cols-[1.5fr_repeat(3,1fr)] md:py-24">
         <div className="col-span-2 max-w-xs space-y-4 md:col-span-1">
           <Logo />

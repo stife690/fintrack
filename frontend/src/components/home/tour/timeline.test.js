@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEAD, scrollAt, segmentAt, segmentForScroll } from './timeline';
+import { LEAD, jumpFor, scrollAt, segmentAt, segmentForScroll } from './timeline';
 
 const SEGMENTS = [
   { start: 0, end: 5 },
@@ -41,5 +41,24 @@ describe('segmentForScroll', () => {
     expect(segmentForScroll(0, TOPS, 1000)).toBe(0);
     expect(segmentForScroll(600, TOPS, 1000)).toBe(1);
     expect(segmentForScroll(1800, TOPS, 1000)).toBe(2);
+  });
+});
+
+describe('jumpFor', () => {
+  const NAMED = [
+    { id: 'inicio', start: 0 },
+    { id: 'funcionalidades', start: 26.82 },
+    { id: 'seguridad', start: 43.69 },
+  ];
+
+  it('un enlace a una sección del recorrido salta a su frase, un poco antes para que la página baje', () => {
+    expect(jumpFor('#seguridad', NAMED)).toEqual({ index: 2, time: 43.69 - LEAD });
+    expect(jumpFor('#funcionalidades', NAMED)).toEqual({ index: 1, time: 26.82 - LEAD });
+  });
+
+  it('una sección de la que la voz no habla (o el inicio) no salta: se pausa', () => {
+    expect(jumpFor('#faq', NAMED)).toBeNull();
+    expect(jumpFor('#contenido', NAMED)).toBeNull();
+    expect(jumpFor('#inicio', NAMED)).toBeNull();
   });
 });

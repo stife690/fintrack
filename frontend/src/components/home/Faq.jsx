@@ -40,7 +40,7 @@ const FAQS = [
 /** Preguntas frecuentes en acordeón (la plantilla las usa en sus páginas de pricing). */
 export default function Faq() {
   return (
-    <section id="faq" className="scroll-mt-20 py-16 md:py-24 xl:py-32">
+    <section id="faq" className="scroll-mt-20 bg-[linear-gradient(to_bottom,#1c1248,#fff_10rem)] pb-16 pt-40 md:pb-24 md:pt-48 xl:pb-32">
       <div className="container-page grid gap-12 lg:grid-cols-[2fr_3fr]">
         <SectionHeading
           align="left"
