@@ -42,27 +42,33 @@ export default function Navbar() {
         // pt-safe: en el iPhone la página se dibuja bajo la hora y la batería (viewport-fit=cover);
         // ese relleno baja la barra justo debajo, y el fondo la cubre para que no se vea borrosa.
         'fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-colors duration-300',
-        scrolled || open ? 'bg-black/80 backdrop-blur-lg' : 'bg-transparent',
+        scrolled || open ? 'bg-black/85 shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-lg' : 'bg-transparent',
       )}
     >
-      <nav className="container-page flex h-20 items-center justify-between" aria-label="Principal">
+      <nav
+        className="container-page flex h-20 items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]"
+        aria-label="Principal"
+      >
         <Logo />
 
-        <ul className="hidden items-center gap-8 lg:flex">
+        <ul className="hidden items-center gap-1 rounded-full bg-white/[0.04] p-1 ring-1 ring-white/10 lg:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.href}>
-              <a href={link.href} className="text-white/85 transition-colors hover:text-white">
+              <a href={link.href} className="block rounded-full px-4 py-2 text-[15px] text-white/75 transition-colors hover:bg-white/10 hover:text-white">
                 {link.label}
               </a>
             </li>
           ))}
         </ul>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center justify-end gap-2 lg:flex">
           <Button asChild variant="ghost">
             <Link to="/login">Iniciar sesión</Link>
           </Button>
-          <Button asChild variant="dark" className="border border-white/10">
+          <Button
+            asChild
+            className="rounded-full px-5 motion-safe:transition-[background-color,transform] motion-safe:active:scale-[0.98]"
+          >
             <Link to="/registro">Crear cuenta</Link>
           </Button>
         </div>

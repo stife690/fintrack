@@ -1,5 +1,6 @@
 import SectionHeading from '@/components/common/SectionHeading';
 import Reveal from '@/components/common/Reveal';
+import { ReceiptPaper, ReceiptRow } from './Receipt';
 
 const ITEMS = [
   {
@@ -20,30 +21,74 @@ const ITEMS = [
   },
 ];
 
-/** Sección "Security & Compliance" adaptada a FinTrack. */
+/** Bloque tachado: el dato existe, pero no sale de tu cuenta. */
+function Redacted({ children }) {
+  return (
+    <>
+      <span aria-hidden="true" className="select-none rounded-sm bg-obsidian text-obsidian">
+        {children}
+      </span>
+      <span className="sr-only">Dato oculto</span>
+    </>
+  );
+}
+
+/**
+ * Tirilla de "lo que ve la IA": la descripción y el monto pasan; tu nombre y tu correo no.
+ */
+function WhatAiSees() {
+  return (
+    <div className="mx-auto w-full max-w-[320px] -rotate-2 motion-safe:transition-transform motion-safe:duration-500 hover:rotate-0">
+      <ReceiptPaper>
+        <p className="text-center text-lg font-bold tracking-tight">LO QUE VE LA IA</p>
+        <p className="mb-4 text-center text-xs text-obsidian/60">Al clasificar un gasto</p>
+        <ReceiptRow label="Almuerzo" detail="Descripción" value="$18.000" />
+        <ReceiptRow label="Nombre" value={<Redacted>Nombre Apellido</Redacted>} />
+        <ReceiptRow label="Correo" value={<Redacted>correo@dominio.co</Redacted>} />
+        <ReceiptRow strong label="Resultado" value="Alimentación" className="mt-3" />
+      </ReceiptPaper>
+    </div>
+  );
+}
+
+/**
+ * Seguridad: encabezado y tirilla a la izquierda, los tres compromisos a la derecha.
+ */
 export default function Security() {
   return (
-    <section id="seguridad" className="scroll-mt-20 py-12 md:py-20 xl:py-32">
-      <div className="container-page">
-        <SectionHeading
-          eyebrow="Seguridad"
-          title="Seguridad y privacidad desde el diseño."
-          description="Manejar dinero exige confianza. Por eso FinTrack protege tu información en cada paso."
-        />
-
-        <div className="mt-12 grid gap-6 md:mt-16 md:grid-cols-3">
-          {ITEMS.map((item, i) => (
-            <Reveal key={item.title} delay={i * 0.1} className="rounded-3xl bg-card p-8">
-              <img src={item.icon} alt="" aria-hidden="true" width="48" height="48" loading="lazy" className="size-12" />
-              <h3 className="mt-8 text-xl font-semibold tracking-tight text-obsidian">{item.title}</h3>
-              <p className="mt-3 text-muted-foreground">{item.description}</p>
-            </Reveal>
-          ))}
+    <section id="seguridad" className="scroll-mt-20 py-16 md:py-24 xl:py-32">
+      <div className="container-page grid gap-12 lg:grid-cols-[5fr_7fr] lg:gap-16">
+        <div className="space-y-12 lg:sticky lg:top-28 lg:self-start">
+          <SectionHeading
+            align="left"
+            eyebrow="Seguridad"
+            title="Seguridad y privacidad desde el diseño."
+            description="Manejar dinero exige confianza. Por eso FinTrack protege tu información en cada paso."
+          />
+          <Reveal delay={0.1} className="rounded-[2rem] bg-pink px-6 py-10">
+            <WhatAiSees />
+          </Reveal>
         </div>
 
-        <Reveal className="mx-auto mt-10 max-w-3xl rounded-full bg-pink px-6 py-4 text-center text-obsidian">
-          ⚡️ La forma más simple de registrar gastos, cumplir presupuestos y entender tus finanzas.
-        </Reveal>
+        <ul className="space-y-4">
+          {ITEMS.map((item, i) => (
+            <Reveal
+              as="li"
+              key={item.title}
+              delay={i * 0.08}
+              className="grid gap-5 rounded-[2rem] bg-card p-7 transition-colors hover:bg-pink/60 sm:grid-cols-[auto_1fr] sm:p-9"
+            >
+              <img src={item.icon} alt="" aria-hidden="true" width="48" height="48" loading="lazy" className="size-12" />
+              <div>
+                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-obsidian">{item.title}</h3>
+                <p className="mt-3 text-lg text-muted-foreground">{item.description}</p>
+              </div>
+            </Reveal>
+          ))}
+          <Reveal as="li" className="rounded-[2rem] bg-obsidian p-7 text-xl font-medium leading-snug text-white sm:p-9 sm:text-2xl">
+            La forma más simple de registrar gastos, cumplir presupuestos y entender tus finanzas.
+          </Reveal>
+        </ul>
       </div>
     </section>
   );
