@@ -162,9 +162,9 @@ export default function Register() {
           {isSubmitting && <Loader2 className="animate-spin" aria-hidden="true" />}
           {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
         </Button>
-
-        <SocialAuth />
       </form>
+
+      <SocialAuth mode="register" />
     </AuthLayout>
   );
 }
