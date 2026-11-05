@@ -2,7 +2,29 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
 
 const RESTORE_FOR_MS = 1500;
+/** Un cambio de página que llega hasta este tiempo después de un clic en `#ancla` es ese clic. */
+const ANCHOR_CLICK_MS = 1000;
 const positions = new Map();
+/** Llave que React Router da a las entradas del historial que no creó él (`#ancla`, primera carga). */
+const ANONYMOUS_KEY = 'default';
+
+/**
+ * Bajo qué nombre se guarda la posición de una entrada del historial. Las que no creó React Router
+ * comparten la llave "default", así que esas se distinguen por su ruta (`/#seguridad`).
+ */
+export const memoryKey = (key, page) => (key === ANONYMOUS_KEY ? `ruta:${page}` : key);
+
+/**
+ * A dónde llevar el scroll al cambiar de página, o `null` para dejar que el navegador decida.
+ * Un clic en un enlace `#ancla` llega como POP, igual que "atrás"; en ese caso manda el navegador,
+ * que ya está bajando suave hasta la sección.
+ * @param {{ hash: string, type: 'POP' | 'PUSH' | 'REPLACE', saved?: number, anchorClick?: boolean }} change
+ */
+export function scrollTargetFor({ hash, type, saved, anchorClick = false }) {
+  if (hash && (type !== 'POP' || anchorClick)) return null;
+  if (type === 'POP') return saved ?? (hash ? null : 0);
+  return 0;
+}
 
 /**
  * Al avanzar a otra página empieza arriba (salvo con un #ancla); al volver, regresa a donde estaba.
@@ -11,25 +33,36 @@ const positions = new Map();
 export default function ScrollMemory() {
   const { key, pathname, hash } = useLocation();
   const type = useNavigationType();
-  const current = useRef(key);
+  const current = useRef(null);
   const previousPage = useRef(null);
+  const anchorClickAt = useRef(-Infinity);
 
   useEffect(() => {
     if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
-    const save = () => positions.set(current.current, window.scrollY);
+    const save = () => {
+      if (current.current) positions.set(current.current, window.scrollY);
+    };
+    const noteAnchorClick = (event) => {
+      if (event.target.closest?.('a[href^="#"]')) anchorClickAt.current = performance.now();
+    };
+    document.addEventListener('click', noteAnchorClick, true);
     window.addEventListener('scroll', save, { passive: true });
-    return () => window.removeEventListener('scroll', save);
+    return () => {
+      window.removeEventListener('scroll', save);
+      document.removeEventListener('click', noteAnchorClick, true);
+    };
   }, []);
 
   useLayoutEffect(() => {
-    current.current = key;
     const page = pathname + hash;
+    current.current = memoryKey(key, page);
     const samePage = page === previousPage.current;
     previousPage.current = page;
     if (samePage) return undefined;
 
-    const target = type === 'POP' ? (positions.get(key) ?? 0) : 0;
-    if (hash && type !== 'POP') return undefined;
+    const anchorClick = performance.now() - anchorClickAt.current < ANCHOR_CLICK_MS;
+    const target = scrollTargetFor({ hash, type, saved: positions.get(current.current), anchorClick });
+    if (target === null) return undefined;
     window.scrollTo({ top: target, behavior: 'instant' });
     if (target === 0) return undefined;
 
