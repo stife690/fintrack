@@ -67,6 +67,8 @@ tags:
     description: Centro de notificaciones dentro de la app (FT-0045)
   - name: Debts
     description: Cuentas personales por cobrar y por pagar (FT-0046)
+  - name: Businesses
+    description: Emprendimientos — movimientos del negocio y panel del mes (FT-0017)
   - name: PendingPayments
     description: Pagos con Apple Pay que llegan desde Atajos del iPhone y esperan confirmación (FT-0047)
   - name: Reports
@@ -2077,6 +2079,85 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
         "429": { description: "RATE_LIMITED o TOO_MANY_PENDING" }
 
+  /businesses/{id}/movements:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Businesses]
+      summary: Movimientos del mes y panel del negocio
+      description: >
+        Todos los socios ven. Los movimientos del negocio no se mezclan con las finanzas personales.
+        `canRecord` es false para el lector. A quien no es socio se le responde 404.
+      parameters:
+        - { name: month, in: query, schema: { type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$" }, description: "AAAA-MM; por defecto el mes actual" }
+      responses:
+        "200":
+          description: Movimientos y panel
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [month, canRecord, movements, panel]
+                properties:
+                  month: { type: string, example: "2026-11" }
+                  canRecord: { type: boolean }
+                  movements:
+                    type: array
+                    items: { $ref: "#/components/schemas/BusinessMovement" }
+                  panel: { $ref: "#/components/schemas/BusinessPanel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Businesses]
+      summary: Registra un movimiento del negocio (dueños y editores)
+      description: >
+        Sin `category` se usa la de su tipo (ventas, insumos, arriendo…). Con `localId`, reenviar la
+        misma petición devuelve 200 con el movimiento que ya estaba.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, amount, description]
+              properties:
+                kind: { $ref: "#/components/schemas/BusinessMovementKind" }
+                amount: { type: number, minimum: 0.01, maximum: 9999999999.99 }
+                description: { type: string, minLength: 1, maxLength: 120 }
+                category: { $ref: "#/components/schemas/BusinessCategory" }
+                date: { type: string, format: date, description: "Por defecto hoy; no puede ser futura" }
+                localId: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Registrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessMovement" }
+        "200":
+          description: Ya estaba registrado con ese localId
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessMovement" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: "FORBIDDEN: el lector no registra" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /businesses/{id}/movements/{movementId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: movementId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [Businesses]
+      summary: Borra un movimiento (quien lo registró o un dueño)
+      responses:
+        "204": { description: Borrado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: "FORBIDDEN: lector, o editor que no lo registró" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /push/vapid-public-key:
     get:
       tags: [Push]
@@ -2433,6 +2514,7 @@ components:
                 - ALREADY_RESOLVED
                 - FEATURE_DISABLED
                 - TOO_MANY_PENDING
+                - FORBIDDEN
             message: { type: string }
             details:
               type: array
@@ -2646,6 +2728,71 @@ components:
         transactionId: { type: string, format: uuid, nullable: true, description: Movimiento creado al saldarla }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    BusinessMovementKind:
+      type: string
+      enum: [sale, otherIncome, cost, fixed, variable]
+      description: "Venta, otro ingreso, costo de venta, gasto fijo o gasto variable"
+    BusinessCategory:
+      type: string
+      enum: [ventas, insumos, arriendo, nomina, servicios, publicidad, transporte, impuestos, otros]
+    BusinessMovement:
+      type: object
+      required: [id, kind, category, amount, description, date, registeredBy, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/BusinessMovementKind" }
+        category: { $ref: "#/components/schemas/BusinessCategory" }
+        amount: { type: number }
+        description: { type: string }
+        date: { type: string, format: date }
+        registeredBy:
+          type: object
+          nullable: true
+          description: Quién lo registró; null si borró su cuenta
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    BusinessPanel:
+      type: object
+      description: >
+        Utilidad bruta = ventas − costo de venta. Utilidad neta = entradas − salidas. Margen de
+        contribución = (ventas − costo de venta − gastos variables) / ventas. Punto de equilibrio =
+        gastos fijos / margen de contribución, redondeado hacia arriba a pesos (null si no hay fijos o vender no deja nada).
+      properties:
+        month: { type: string }
+        sale: { type: number }
+        otherIncome: { type: number }
+        cost: { type: number }
+        fixed: { type: number }
+        variable: { type: number }
+        income: { type: number }
+        expenses: { type: number }
+        grossProfit: { type: number }
+        netProfit: { type: number }
+        netMargin: { type: number, nullable: true, description: Porcentaje }
+        contributionMargin: { type: number, nullable: true, description: Porcentaje }
+        breakEven: { type: number, nullable: true }
+        breakEvenReached: { type: boolean, nullable: true }
+        previous:
+          type: object
+          properties:
+            month: { type: string }
+            sale: { type: number }
+            netProfit: { type: number }
+            saleChange: { type: number, nullable: true, description: "% frente al mes anterior" }
+            netProfitChange: { type: number, nullable: true }
+        cashFlow:
+          type: array
+          items:
+            type: object
+            properties:
+              label: { type: string, example: "1–7" }
+              from: { type: string, format: date }
+              to: { type: string, format: date }
+              in: { type: number }
+              out: { type: number }
+              net: { type: number }
     PendingPayment:
       type: object
       required: [id, merchant, amount, date, card, status, transactionId, possibleDuplicate, createdAt]

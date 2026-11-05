@@ -1,4 +1,6 @@
+import * as movements from '../services/negocio-movements.service.js';
 import * as negocios from '../services/negocios.service.js';
+import { parseMonth, parseNewMovement } from '../validators/negocio-movements.validator.js';
 import {
   parseBusinessChanges,
   parseCode,
@@ -131,5 +133,41 @@ export async function patchPartner(req, res) {
  */
 export async function deletePartner(req, res) {
   await negocios.removePartner(req.userId, req.params.id, req.params.userId);
+  res.status(204).end();
+}
+
+/**
+ * `GET /api/v1/businesses/:id/movements?month=AAAA-MM`: movimientos del mes y su panel (FT-0017).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getMovements(req, res) {
+  res.json(await movements.listMonth(req.userId, req.params.id, parseMonth(req.query.month)));
+}
+
+/**
+ * `POST /api/v1/businesses/:id/movements`: 201 si es nuevo; 200 si ya llegó con ese `localId`.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postMovement(req, res) {
+  const { movement, created } = await movements.record(
+    req.userId,
+    req.params.id,
+    parseNewMovement(req.body),
+  );
+  res.status(created ? 201 : 200).json(movement);
+}
+
+/**
+ * `DELETE /api/v1/businesses/:id/movements/:movementId`.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function deleteMovement(req, res) {
+  await movements.remove(req.userId, req.params.id, req.params.movementId);
   res.status(204).end();
 }

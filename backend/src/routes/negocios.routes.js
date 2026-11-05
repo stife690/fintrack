@@ -2,16 +2,19 @@ import { Router } from 'express';
 import {
   deleteBusiness,
   deleteInvitation,
+  deleteMovement,
   deletePartner,
   getBusiness,
   getBusinesses,
   getInvitationPreview,
+  getMovements,
   patchBusiness,
   patchPartner,
   postBusiness,
   postCode,
   postInvitation,
   postJoin,
+  postMovement,
 } from '../controllers/negocios.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 
@@ -25,6 +28,8 @@ import { requireAuth } from '../middlewares/auth.middleware.js';
  * - `POST /:id/code` → código de invitación nuevo (dueños).
  * - `POST /:id/invitations` · `DELETE /:id/invitations?email=` → invitar por correo · cancelar (dueños).
  * - `PATCH /:id/partners/:userId` · `DELETE /:id/partners/:userId` → rol o participación · sacar o salirse.
+ * - `GET /:id/movements?month=` · `POST /:id/movements` · `DELETE /:id/movements/:movementId` →
+ *   movimientos y panel del mes · registrar (dueños y editores) · borrar (quien lo registró o un dueño).
  */
 const router = Router();
 
@@ -41,5 +46,8 @@ router.post('/:id/invitations', postInvitation);
 router.delete('/:id/invitations', deleteInvitation);
 router.patch('/:id/partners/:userId', patchPartner);
 router.delete('/:id/partners/:userId', deletePartner);
+router.get('/:id/movements', getMovements);
+router.post('/:id/movements', postMovement);
+router.delete('/:id/movements/:movementId', deleteMovement);
 
 export default router;

@@ -149,3 +149,38 @@ export function updatePartner(id, userId, changes) {
 export function removePartner(id, userId) {
   return apiRequest(`/businesses/${id}/partners/${userId}`, { method: 'DELETE' });
 }
+
+/* ---------- Movimientos y panel del negocio (FT-0017) ---------- */
+
+/**
+ * @typedef {'sale'|'otherIncome'|'cost'|'fixed'|'variable'} MovementKind
+ * @typedef {object} BusinessMovement
+ * @property {string} id
+ * @property {MovementKind} kind
+ * @property {string} category
+ * @property {number} amount
+ * @property {string} description
+ * @property {string} date AAAA-MM-DD.
+ * @property {{ id: string, name: string|null }|null} registeredBy
+ */
+
+/**
+ * Movimientos del mes y el panel.
+ * @param {string} id
+ * @param {string} [month] AAAA-MM; sin él, el mes actual.
+ * @returns {Promise<{ month: string, canRecord: boolean, movements: BusinessMovement[], panel: object }>}
+ */
+export const listMovements = (id, month) =>
+  apiRequest(`/businesses/${id}/movements${month ? `?month=${month}` : ''}`);
+
+/**
+ * @param {string} id
+ * @param {{ kind: MovementKind, amount: number, description: string, category?: string, date?: string, localId?: string }} data
+ * @returns {Promise<BusinessMovement>}
+ */
+export const createMovement = (id, data) =>
+  apiRequest(`/businesses/${id}/movements`, { method: 'POST', body: data });
+
+/** @returns {Promise<null>} */
+export const deleteMovement = (id, movementId) =>
+  apiRequest(`/businesses/${id}/movements/${movementId}`, { method: 'DELETE' });
