@@ -152,6 +152,7 @@ export default function NegocioDetail() {
       <div className="mb-8">
         <BusinessMonth
           businessId={id}
+          businessName={business.name}
           myRole={business.role}
           myId={business.partners.find((p) => p.isMe)?.userId}
           online={online}

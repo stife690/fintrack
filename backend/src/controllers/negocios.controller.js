@@ -1,6 +1,16 @@
 import * as movements from '../services/negocio-movements.service.js';
 import * as negocios from '../services/negocios.service.js';
-import { parseMonth, parseNewMovement } from '../validators/negocio-movements.validator.js';
+import {
+  parseExport,
+  parseMonth,
+  parseNewMovement,
+  parseWithdrawal,
+} from '../validators/negocio-movements.validator.js';
+import {
+  buildBusinessPdf,
+  buildBusinessWorkbook,
+  reportFilename,
+} from '../services/negocio-report.service.js';
 import {
   parseBusinessChanges,
   parseCode,
@@ -170,4 +180,42 @@ export async function postMovement(req, res) {
 export async function deleteMovement(req, res) {
   await movements.remove(req.userId, req.params.id, req.params.movementId);
   res.status(204).end();
+}
+
+/**
+ * `POST /api/v1/businesses/:id/withdrawals`: retiro del socio (FT-0018). También queda como
+ * ingreso en sus finanzas personales. 201 si es nuevo; 200 si ya llegó con ese `localId`.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postWithdrawal(req, res) {
+  const result = await movements.withdraw(req.userId, req.params.id, parseWithdrawal(req.body));
+  res
+    .status(result.created ? 201 : 200)
+    .json({ movement: result.movement, transaction: result.transaction });
+}
+
+/**
+ * `GET /api/v1/businesses/:id/export?month=AAAA-MM&format=xlsx|pdf`: el mes del negocio para el
+ * contador (FT-0018). Todos los socios pueden descargarlo.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function getExport(req, res) {
+  const { month, format } = parseExport(req.query);
+  const report = await movements.monthReport(req.userId, req.params.id, month);
+  const body =
+    format === 'xlsx' ? await buildBusinessWorkbook(report) : await buildBusinessPdf(report);
+  res
+    .set({
+      'Content-Type':
+        format === 'xlsx'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf',
+      'Content-Disposition': `attachment; filename="${reportFilename(report.business.name, report.month, format)}"`,
+      'Cache-Control': 'no-store',
+    })
+    .send(body);
 }

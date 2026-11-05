@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { pool } from './config/db.js';
 import {
   buildPanel,
+  distribution,
   indicators,
   monthRange,
   percentChange,
@@ -12,7 +13,13 @@ import {
   sumByKind,
   weeklyCashFlow,
 } from './services/negocio-panel.logic.js';
-import { parseMonth, parseNewMovement } from './validators/negocio-movements.validator.js';
+import { monthTitle, reportFilename, resultLines } from './services/negocio-report.service.js';
+import {
+  parseExport,
+  parseMonth,
+  parseNewMovement,
+  parseWithdrawal,
+} from './validators/negocio-movements.validator.js';
 import { createVerifiedSession } from './verified-session.helper.js';
 
 // Movimientos y panel de los negocios (FT-0017).
@@ -324,3 +331,203 @@ test('borrar: quien lo registró o un dueño; el lector no', options, async () =
     assert.equal((await del(owner.token, 'no-es-uuid')).status, 404);
   });
 });
+
+/* ---------- FT-0018: retiros, reparto y exportación ---------- */
+
+test('distribution reparte la utilidad según la participación y descuenta lo retirado', () => {
+  const r = distribution({
+    netProfit: 1_000_000,
+    partners: [
+      { userId: 'a', name: 'Rosa', share: 60 },
+      { userId: 'b', name: 'Luis', share: 30 },
+      { userId: 'c', name: 'Contador', share: null },
+    ],
+    withdrawals: [
+      { userId: 'a', amount: 200_000 },
+      { userId: 'b', amount: 400_000 },
+    ],
+  });
+  assert.equal(r.available, 1_000_000);
+  assert.equal(r.unassignedShare, 10);
+  assert.deepEqual(
+    r.items.map((i) => [i.userId, i.due, i.withdrawn, i.pending]),
+    [
+      ['a', 600_000, 200_000, 400_000],
+      ['b', 300_000, 400_000, 0],
+    ],
+  );
+  const loss = distribution({
+    netProfit: -5000,
+    partners: [{ userId: 'a', share: 100 }],
+    withdrawals: [],
+  });
+  assert.equal(loss.available, 0);
+  assert.equal(loss.items[0].due, 0);
+});
+
+test('los retiros no bajan la utilidad, pero salen de la caja', () => {
+  const panel = buildPanel({
+    month: '2026-11',
+    movements: [
+      { kind: 'sale', amount: 500, date: '2026-11-02' },
+      { kind: 'withdrawal', amount: 200, date: '2026-11-03' },
+    ],
+    previousMovements: [],
+  });
+  assert.equal(panel.netProfit, 500);
+  assert.equal(panel.withdrawal, 200);
+  assert.equal(panel.retained, 300);
+  assert.equal(panel.cashFlow[0].net, 300);
+  assert.deepEqual(resultLines(panel).at(-1), ['Quedó en el negocio', 300, true]);
+});
+
+test('reportFilename deja un nombre de archivo limpio', () => {
+  assert.equal(
+    reportFilename('Arepas Doña Rosa!', '2026-11', 'xlsx'),
+    'negocio-arepas-dona-rosa-2026-11.xlsx',
+  );
+  assert.equal(reportFilename('***', '2026-11', 'pdf'), 'negocio-negocio-2026-11.pdf');
+  assert.equal(monthTitle('2026-11'), 'noviembre de 2026');
+});
+
+test('parseWithdrawal y parseExport', () => {
+  assert.deepEqual(parseWithdrawal({ amount: 100000 }), {
+    amount: 100000,
+    date: null,
+    note: null,
+    localId: null,
+  });
+  assert.throws(
+    () => parseWithdrawal({ amount: -1 }),
+    (err) => err.statusCode === 422,
+  );
+  assert.deepEqual(parseExport({ format: 'pdf' }), { month: undefined, format: 'pdf' });
+  assert.throws(
+    () => parseExport({ format: 'csv' }),
+    (err) => err.statusCode === 422,
+  );
+});
+
+/**
+ * Movimientos personales activos de un usuario.
+ * @param {string} userId
+ * @returns {Promise<number>}
+ */
+async function personalCount(userId) {
+  const { rows } = await pool.query(
+    'SELECT count(*)::int AS n FROM transacciones WHERE usuario_id = $1 AND deleted_at IS NULL',
+    [userId],
+  );
+  return rows[0].n;
+}
+
+test(
+  'retiro: entra como ingreso personal, solo el socio lo deshace y el lector no retira',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const { owner, editor, reader, base } = await setup(api);
+      const businessUrl = base.replace('/movements', '');
+      await api(base, {
+        method: 'POST',
+        token: owner.token,
+        body: { kind: 'sale', amount: 300000, description: 'Ventas' },
+      });
+      const body = { amount: 120000, note: 'Mi parte de la semana', localId: randomUUID() };
+      const out = await api(`${businessUrl}/withdrawals`, {
+        method: 'POST',
+        token: editor.token,
+        body,
+      });
+      assert.equal(out.status, 201);
+      assert.equal(out.body.movement.kind, 'withdrawal');
+      assert.equal(out.body.movement.category, 'retiros');
+      assert.equal(out.body.transaction.type, 'ingreso');
+      assert.equal(out.body.transaction.amount, 120000);
+      assert.equal(out.body.transaction.category, 'otros_ingresos');
+      const again = await api(`${businessUrl}/withdrawals`, {
+        method: 'POST',
+        token: editor.token,
+        body,
+      });
+      assert.equal(again.status, 200, 'el mismo localId no duplica');
+      assert.equal(await personalCount(editor.id), 1);
+
+      const lectorTry = await api(`${businessUrl}/withdrawals`, {
+        method: 'POST',
+        token: reader.token,
+        body: { amount: 1 },
+      });
+      assert.equal(lectorTry.status, 403);
+
+      const month = await api(base, { token: owner.token });
+      assert.equal(month.body.panel.netProfit, 300000, 'el retiro no es gasto');
+      assert.equal(month.body.panel.retained, 180000);
+
+      const id = out.body.movement.id;
+      const byOwner = await api(`${base}/${id}`, { method: 'DELETE', token: owner.token });
+      assert.equal(byOwner.status, 403, 'ni el dueño deshace el retiro de otro');
+      const byEditor = await api(`${base}/${id}`, { method: 'DELETE', token: editor.token });
+      assert.equal(byEditor.status, 204);
+      assert.equal(await personalCount(editor.id), 0, 'deshacer el retiro borra el ingreso');
+    });
+  },
+);
+
+test(
+  'reparto en el listado y exportación en Excel y PDF para todos los socios',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const { owner, editor, reader, outsider, base } = await setup(api);
+      const businessId = base.split('/')[2];
+      await pool.query(
+        `UPDATE negocio_socios SET participacion = CASE WHEN usuario_id = $2 THEN 70 ELSE 30 END
+       WHERE negocio_id = $1 AND usuario_id = ANY($3)`,
+        [businessId, owner.id, [owner.id, editor.id]],
+      );
+      await api(base, {
+        method: 'POST',
+        token: owner.token,
+        body: { kind: 'sale', amount: 100000, description: 'Ventas' },
+      });
+      const month = await api(base, { token: reader.token });
+      assert.deepEqual(
+        month.body.distribution.items.map((i) => [i.share, i.due]).sort((a, b) => b[0] - a[0]),
+        [
+          [70, 70000],
+          [30, 30000],
+        ],
+      );
+
+      const server = createApp().listen(0);
+      try {
+        const download = (token, format) =>
+          fetch(
+            `http://127.0.0.1:${server.address().port}/api/v1/businesses/${businessId}/export?format=${format}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+        const xlsx = await download(reader.token, 'xlsx');
+        assert.equal(xlsx.status, 200, 'el lector también exporta');
+        assert.match(xlsx.headers.get('content-type'), /spreadsheetml/);
+        assert.match(
+          xlsx.headers.get('content-disposition'),
+          /negocio-arepas-dona-rosa-\d{4}-\d{2}\.xlsx/,
+        );
+        assert.ok((await xlsx.arrayBuffer()).byteLength > 1000);
+        const pdf = await download(owner.token, 'pdf');
+        assert.equal(pdf.status, 200);
+        assert.equal(
+          Buffer.from(await pdf.arrayBuffer())
+            .subarray(0, 4)
+            .toString(),
+          '%PDF',
+        );
+        assert.equal((await download(outsider.token, 'pdf')).status, 404);
+        assert.equal((await download(owner.token, 'csv')).status, 422);
+      } finally {
+        server.close();
+      }
+    });
+  },
+);

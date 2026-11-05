@@ -3,7 +3,7 @@ import { pool } from '../config/db.js';
 /**
  * @typedef {object} BusinessMovementRecord
  * @property {string} id UUID del movimiento.
- * @property {'sale'|'otherIncome'|'cost'|'fixed'|'variable'} kind Venta, otro ingreso, costo de venta, gasto fijo o variable.
+ * @property {'sale'|'otherIncome'|'cost'|'fixed'|'variable'|'withdrawal'} kind Venta, otro ingreso, costo de venta, gasto fijo o variable, o retiro de un socio.
  * @property {string} category Clave de la categoría del negocio.
  * @property {number} amount Monto.
  * @property {string} description Descripción.
@@ -13,7 +13,8 @@ import { pool } from '../config/db.js';
  */
 
 const KIND = `CASE m.tipo WHEN 'venta' THEN 'sale' WHEN 'otro_ingreso' THEN 'otherIncome'
-  WHEN 'costo_venta' THEN 'cost' WHEN 'gasto_fijo' THEN 'fixed' ELSE 'variable' END`;
+  WHEN 'costo_venta' THEN 'cost' WHEN 'gasto_fijo' THEN 'fixed' WHEN 'retiro' THEN 'withdrawal'
+  ELSE 'variable' END`;
 
 const COLUMNS = `m.id, ${KIND} AS kind, m.categoria AS category, m.monto::float8 AS amount,
   m.descripcion AS description, to_char(m.fecha, 'YYYY-MM-DD') AS date, m.created_at AS "createdAt",
@@ -39,15 +40,15 @@ export async function listMovements(businessId, from, to) {
 
 /**
  * Registra un movimiento. Si ya hay uno con el mismo `localId` en el negocio no hace nada.
- * @param {{ businessId: string, userId: string, kindDb: string, category: string, amount: number, description: string, date: string, localId?: string|null }} data
+ * @param {{ businessId: string, userId: string, kindDb: string, category: string, amount: number, description: string, date: string, localId?: string|null, transactionId?: string|null }} data
  * @returns {Promise<BusinessMovementRecord|undefined>} `undefined` si el `localId` ya existía.
  */
 export async function insertMovement(data) {
   const { rows } = await pool.query(
     `WITH ins AS (
        INSERT INTO negocio_movimientos
-         (negocio_id, usuario_id, tipo, categoria, monto, descripcion, fecha, local_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (negocio_id, usuario_id, tipo, categoria, monto, descripcion, fecha, local_id, transaccion_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (negocio_id, local_id) WHERE local_id IS NOT NULL DO NOTHING
        RETURNING *
      )
@@ -61,6 +62,7 @@ export async function insertMovement(data) {
       data.description,
       data.date,
       data.localId ?? null,
+      data.transactionId ?? null,
     ],
   );
   return rows[0];
@@ -83,11 +85,12 @@ export async function findByLocalId(businessId, localId) {
 /**
  * @param {string} businessId
  * @param {string} id
- * @returns {Promise<{ id: string, authorId: string|null }|null>}
+ * @returns {Promise<{ id: string, authorId: string|null, kind: string, transactionId: string|null }|null>}
  */
 export async function findMovement(businessId, id) {
   const { rows } = await pool.query(
-    `SELECT id, usuario_id AS "authorId" FROM negocio_movimientos WHERE negocio_id = $1 AND id = $2`,
+    `SELECT m.id, m.usuario_id AS "authorId", ${KIND} AS kind, m.transaccion_id AS "transactionId"
+     FROM negocio_movimientos m WHERE m.negocio_id = $1 AND m.id = $2`,
     [businessId, id],
   );
   return rows[0] ?? null;

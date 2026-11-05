@@ -68,7 +68,7 @@ tags:
   - name: Debts
     description: Cuentas personales por cobrar y por pagar (FT-0046)
   - name: Businesses
-    description: Emprendimientos — movimientos del negocio y panel del mes (FT-0017)
+    description: Emprendimientos — movimientos, panel del mes (FT-0017), retiros, reparto y exportación (FT-0018)
   - name: PendingPayments
     description: Pagos con Apple Pay que llegan desde Atajos del iPhone y esperan confirmación (FT-0047)
   - name: Reports
@@ -2097,7 +2097,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [month, canRecord, movements, panel]
+                required: [month, canRecord, movements, panel, distribution]
                 properties:
                   month: { type: string, example: "2026-11" }
                   canRecord: { type: boolean }
@@ -2105,6 +2105,7 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/BusinessMovement" }
                   panel: { $ref: "#/components/schemas/BusinessPanel" }
+                  distribution: { $ref: "#/components/schemas/BusinessDistribution" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -2145,13 +2146,77 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /businesses/{id}/withdrawals:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Businesses]
+      summary: Retiro del socio (dueños y editores)
+      description: >
+        Sale del negocio como movimiento `withdrawal` y entra como ingreso "Retiro de {negocio}" en
+        Otros ingresos de las finanzas personales de quien lo hace. No baja la utilidad del negocio.
+        Solo ese socio lo puede deshacer (DELETE del movimiento), y al deshacerlo se borra también el
+        ingreso. Con el mismo `localId` responde 200 con el que ya estaba.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number, minimum: 0.01, maximum: 9999999999.99 }
+                note: { type: string, maxLength: 120 }
+                date: { type: string, format: date }
+                localId: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Retiro registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [movement, transaction]
+                properties:
+                  movement: { $ref: "#/components/schemas/BusinessMovement" }
+                  transaction: { $ref: "#/components/schemas/Transaction" }
+        "200": { description: Ya estaba registrado con ese localId }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: "FORBIDDEN: el lector no retira" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /businesses/{id}/export:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Businesses]
+      summary: Reporte del mes para el contador (Excel o PDF)
+      description: >
+        Estado de resultados, punto de equilibrio, reparto entre socios y movimientos con quién los
+        registró. Todos los socios pueden descargarlo, también el lector.
+      parameters:
+        - { name: month, in: query, schema: { type: string }, description: "AAAA-MM; por defecto el mes actual" }
+        - { name: format, in: query, required: true, schema: { type: string, enum: [xlsx, pdf] } }
+      responses:
+        "200":
+          description: Archivo adjunto
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /businesses/{id}/movements/{movementId}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: movementId, in: path, required: true, schema: { type: string, format: uuid } }
     delete:
       tags: [Businesses]
-      summary: Borra un movimiento (quien lo registró o un dueño)
+      summary: Borra un movimiento (quien lo registró o un dueño; un retiro, solo su socio)
       responses:
         "204": { description: Borrado }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -2740,8 +2805,11 @@ components:
       required: [id, kind, category, amount, description, date, registeredBy, createdAt]
       properties:
         id: { type: string, format: uuid }
-        kind: { $ref: "#/components/schemas/BusinessMovementKind" }
-        category: { $ref: "#/components/schemas/BusinessCategory" }
+        kind:
+          type: string
+          enum: [sale, otherIncome, cost, fixed, variable, withdrawal]
+          description: "withdrawal es un retiro de socio (solo por POST /withdrawals)"
+        category: { type: string, description: "Una de BusinessCategory, o retiros" }
         amount: { type: number }
         description: { type: string }
         date: { type: string, format: date }
@@ -2774,6 +2842,8 @@ components:
         contributionMargin: { type: number, nullable: true, description: Porcentaje }
         breakEven: { type: number, nullable: true }
         breakEvenReached: { type: boolean, nullable: true }
+        withdrawal: { type: number, description: Retiros de socios del mes (no son gasto) }
+        retained: { type: number, description: Utilidad neta menos retiros }
         previous:
           type: object
           properties:
@@ -2793,6 +2863,25 @@ components:
               in: { type: number }
               out: { type: number }
               net: { type: number }
+    BusinessDistribution:
+      type: object
+      description: >
+        Reparto de la utilidad neta del mes según la participación de cada socio (solo los que
+        tienen participación). `pending` = lo que le toca − lo que ya retiró en el mes.
+      properties:
+        available: { type: number }
+        unassignedShare: { type: number, description: "% sin asignar a ningún socio" }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              share: { type: number }
+              due: { type: number }
+              withdrawn: { type: number }
+              pending: { type: number }
     PendingPayment:
       type: object
       required: [id, merchant, amount, date, card, status, transactionId, possibleDuplicate, createdAt]

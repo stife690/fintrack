@@ -1,4 +1,4 @@
-// Cálculos del panel de un negocio (FT-0017). Son funciones puras: reciben los movimientos ya
+// Cálculos del panel de un negocio (FT-0017) y del reparto de utilidades (FT-0018). Son funciones puras: reciben los movimientos ya
 // leídos de la base y no tocan nada más, así se prueban sin base de datos.
 
 /** Tipos de movimiento del negocio (`kind` en la API → `tipo` en la base). */
@@ -8,8 +8,12 @@ export const KIND_TO_DB = {
   cost: 'costo_venta',
   fixed: 'gasto_fijo',
   variable: 'gasto_variable',
+  withdrawal: 'retiro',
 };
-export const KINDS = Object.keys(KIND_TO_DB);
+/** Lo que se registra con `POST /movements`; los retiros van por su propia ruta. */
+export const KINDS = ['sale', 'otherIncome', 'cost', 'fixed', 'variable'];
+/** Categoría con la que se guardan los retiros. */
+export const WITHDRAWAL_CATEGORY = 'retiros';
 /** Los que entran plata; el resto la sacan. */
 export const INCOME_KINDS = ['sale', 'otherIncome'];
 
@@ -60,12 +64,12 @@ export function previousMonth(month) {
 /**
  * Suma los montos por tipo.
  * @param {Array<{ kind: string, amount: number }>} movements
- * @returns {{ sale: number, otherIncome: number, cost: number, fixed: number, variable: number }}
+ * @returns {{ sale: number, otherIncome: number, cost: number, fixed: number, variable: number, withdrawal: number }}
  */
 export function sumByKind(movements) {
-  const totals = { sale: 0, otherIncome: 0, cost: 0, fixed: 0, variable: 0 };
+  const totals = { sale: 0, otherIncome: 0, cost: 0, fixed: 0, variable: 0, withdrawal: 0 };
   for (const m of movements) totals[m.kind] += m.amount;
-  for (const k of KINDS) totals[k] = round2(totals[k]);
+  for (const k of Object.keys(totals)) totals[k] = round2(totals[k]);
   return totals;
 }
 
@@ -89,6 +93,8 @@ export function percentChange(now, before) {
  *   peso vendido para pagar los gastos fijos.
  * - Punto de equilibrio = gastos fijos / margen de contribución: cuánto hay que vender en el mes
  *   para no perder. Es `null` si no hay gastos fijos o si vender no deja nada.
+ * - Los retiros de los socios no son gasto: no bajan la utilidad. `retained` es lo que queda en el
+ *   negocio después de ellos.
  * @param {ReturnType<typeof sumByKind>} t
  * @returns {object}
  */
@@ -111,6 +117,7 @@ export function indicators(t) {
     contributionMargin: contribution === null ? null : round1(contribution * 100),
     breakEven,
     breakEvenReached: breakEven === null ? null : t.sale >= breakEven,
+    retained: round2(netProfit - t.withdrawal),
   };
 }
 
@@ -146,6 +153,36 @@ export function weeklyCashFlow(movements, month) {
     out: round2(w.out),
     net: round2(w.in - w.out),
   }));
+}
+
+/**
+ * Propuesta de reparto de la utilidad del mes según la participación de cada socio. Lo que ya
+ * retiró cada uno en el mes se descuenta de lo que le toca. Si no hubo utilidad no se reparte nada.
+ * @param {{ netProfit: number, partners: Array<{ userId: string, name: string|null, share: number|null }>, withdrawals: Array<{ userId: string|null, amount: number }> }} input
+ * @returns {{ available: number, unassignedShare: number, items: Array<{ userId: string, name: string|null, share: number, due: number, withdrawn: number, pending: number }> }}
+ */
+export function distribution({ netProfit, partners, withdrawals }) {
+  const available = Math.max(0, round2(netProfit));
+  const withdrawn = new Map();
+  for (const w of withdrawals) {
+    if (w.userId) withdrawn.set(w.userId, (withdrawn.get(w.userId) ?? 0) + w.amount);
+  }
+  const items = partners
+    .filter((p) => p.share > 0)
+    .map((p) => {
+      const due = Math.floor((available * p.share) / 100);
+      const taken = round2(withdrawn.get(p.userId) ?? 0);
+      return {
+        userId: p.userId,
+        name: p.name,
+        share: p.share,
+        due,
+        withdrawn: taken,
+        pending: Math.max(0, round2(due - taken)),
+      };
+    });
+  const assigned = partners.reduce((sum, p) => sum + (p.share > 0 ? p.share : 0), 0);
+  return { available, unassignedShare: round2(Math.max(0, 100 - assigned)), items };
 }
 
 /**

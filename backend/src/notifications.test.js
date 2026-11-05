@@ -13,7 +13,8 @@ const { rows } = await pool.query("SELECT to_regclass('public.notificaciones') A
 const options = { skip: !rows[0].tabla && 'Esquema no aplicado: falta la tabla notificaciones' };
 
 const TEST_DOMAIN = '@avisos-test.fintrack.test';
-const TODAY = new Date().toISOString().slice(0, 10);
+// En la zona del usuario de prueba (Bogotá): en UTC ya es mañana desde las 7 p. m.
+const TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 const MONTH = TODAY.slice(0, 7);
 
 after(async () => {
