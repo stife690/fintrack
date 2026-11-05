@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import script from './recorrido.json';
-import { scrollAt, segmentAt, segmentForScroll } from './timeline';
+import { jumpFor, scrollAt, segmentAt, segmentForScroll } from './timeline';
 
 export const TOUR_SEGMENTS = script.segments;
 export const TOUR_DURATION = script.duration;
@@ -86,10 +86,14 @@ export default function useGuidedTour() {
     raf.current = requestAnimationFrame(loop);
   }, [now, reduced]);
 
-  /** Arranca (o retoma) en el segundo `from`. */
+  /**
+   * Arranca (o retoma) en el segundo `from`. Con `glideFrom`, la bajada hacia la sección
+   * `glideFrom.index` parte de donde está la página (`glideFrom.y`) y no de la sección anterior.
+   */
   const playFrom = useCallback(
-    (from) => {
+    (from, glideFrom) => {
       tops.current = measureTops();
+      if (glideFrom) tops.current[glideFrom.index - 1] = glideFrom.y;
       if (!audio.current) {
         // La primera vez suena directo desde la URL (dentro del clic, para que el navegador lo
         // permita) y en paralelo se baja la copia local para los saltos posteriores.
@@ -146,6 +150,27 @@ export default function useGuidedTour() {
     setProgress(0);
     setIndex(0);
   }, []);
+
+  // Un clic en el menú (o cualquier `#ancla`) mientras suena: la voz salta a esa sección y la
+  // página baja hasta ella; si la voz no habla de esa sección, se pausa y el navegador baja normal.
+  useEffect(() => {
+    if (status !== 'playing') return undefined;
+    const onAnchor = (event) => {
+      const link = event.target.closest?.('a[href^="#"]');
+      if (!link) return;
+      const hash = link.getAttribute('href');
+      const jump = jumpFor(hash, TOUR_SEGMENTS);
+      if (!jump) {
+        pause();
+        return;
+      }
+      event.preventDefault();
+      window.history.replaceState(window.history.state, '', hash);
+      playFrom(jump.time, { index: jump.index, y: window.scrollY });
+    };
+    document.addEventListener('click', onAnchor, true);
+    return () => document.removeEventListener('click', onAnchor, true);
+  }, [status, pause, playFrom]);
 
   // Si la persona se mueve por su cuenta mientras suena, se pausa.
   useEffect(() => {

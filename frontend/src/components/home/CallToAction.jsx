@@ -7,7 +7,7 @@ import { LogoMark } from '@/components/common/Logo';
 /** Cierre violeta a todo el ancho: el logo, la invitación y las dos acciones. */
 export default function CallToAction() {
   return (
-    <section id="empieza" className="scroll-mt-20 bg-violet py-24 text-white md:py-32">
+    <section id="empieza" className="scroll-mt-20 bg-[linear-gradient(to_bottom,#fff,#6142ff_10rem)] pb-24 pt-40 text-white md:pb-32 md:pt-48">
       <Reveal className="container-page flex flex-col items-center text-center">
         <LogoMark
           tone="light"

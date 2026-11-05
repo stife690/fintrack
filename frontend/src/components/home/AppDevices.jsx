@@ -69,7 +69,7 @@ export default function AppDevices() {
   const { canInstall, isInstalled, install } = useInstallPrompt();
 
   return (
-    <section id="app" className="scroll-mt-20 bg-white py-24 md:py-32">
+    <section id="app" className="scroll-mt-20 bg-[linear-gradient(to_bottom,#141414,#fff_10rem)] pb-24 pt-40 md:pb-32 md:pt-48">
       <div className="container-page grid items-center gap-14 lg:grid-cols-[1fr_1.2fr]">
         <div className="text-obsidian">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet">App instalable</p>
