@@ -83,7 +83,6 @@ function domToWorld(el, canvas, viewport) {
 /** Logo con su coreografía: arriba al centro en el hero, a la derecha en "Qué es", y sube al salir. */
 function ChoreographedLogo({ stageRef, reducedMotion }) {
   const group = useRef();
-  const mix = useRef(0);
   const { viewport, pointer, gl } = useThree();
 
   useFrame(({ clock }, delta) => {
@@ -95,13 +94,20 @@ function ChoreographedLogo({ stageRef, reducedMotion }) {
     const d = easeInOut(dock);
     const wide = viewport.width > viewport.height * 1.1;
     const t = clock.elapsedTime;
-    // Violeta en el hero, obsidiana sobre el violeta de "Qué es" y de nuevo violeta como ícono de la app.
-    mix.current = clamp01((travel - 0.35) / 0.4) * (1 - d);
 
-    // En pantallas anchas viaja a la derecha y crece; en celular se va pequeño a la esquina superior derecha.
-    let targetX = lerp(0, viewport.width * (wide ? 0.22 : 0.3), k);
-    let targetY = wide ? lerp(viewport.height * 0.25, 0, k) : lerp(viewport.height * 0.24, viewport.height * 0.36, k);
-    let targetScale = (wide ? lerp(0.62, 1.05, k) : lerp(0.6, 0.32, k)) * Math.min(1, viewport.width / 6);
+    // Punto de partida: el espacio reservado del hero (encima del titular), medido en cada cuadro,
+    // así el logo nunca tapa el texto. El cuadro del logo mide 3,2 unidades de lado.
+    const heroSlot = stage?.querySelector('[data-logo-hero]');
+    const hero = heroSlot
+      ? domToWorld(heroSlot, gl.domElement, viewport)
+      : { x: 0, y: viewport.height * 0.25, width: 2 };
+    // Destino en "Qué es": a la derecha y grande en pantallas anchas; pequeño arriba a la derecha en celular.
+    const aboutX = viewport.width * (wide ? 0.22 : 0.3);
+    const aboutY = wide ? 0 : viewport.height * 0.36;
+    const aboutScale = (wide ? 1.05 : 0.32) * Math.min(1, viewport.width / 6);
+    let targetX = lerp(hero.x, aboutX, k);
+    let targetY = lerp(hero.y, aboutY, k);
+    let targetScale = lerp(hero.width / 3.2, aboutScale, k);
 
     // Detrás del texto mientras flota; por encima del contenido cuando entra al celular (si no,
     // la pantalla blanca lo taparía). La capa no recibe clics, así que no estorba.
@@ -132,7 +138,7 @@ function ChoreographedLogo({ stageRef, reducedMotion }) {
   return (
     // Arranca en tamaño cero: el suavizado lo hace "aparecer" creciendo hasta su escala.
     <group ref={group} position={[0, 1.5, 0]} scale={0.001}>
-      <LogoMark3D reducedMotion={reducedMotion} mixRef={mix} />
+      <LogoMark3D reducedMotion={reducedMotion} />
     </group>
   );
 }

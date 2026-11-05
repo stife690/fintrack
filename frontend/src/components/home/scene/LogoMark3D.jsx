@@ -22,11 +22,9 @@ const easeOutBack = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
  * La posición, escala y giro por scroll los aplica el padre; aquí solo vive el objeto.
  * @param {{ reducedMotion?: boolean }} props
  */
-export default function LogoMark3D({ reducedMotion = false, mixRef }) {
+export default function LogoMark3D({ reducedMotion = false }) {
   const bars = useRef([]);
   const born = useRef(null);
-  const violet = useMemo(() => new THREE.Color('#6142ff'), []);
-  const obsidian = useMemo(() => new THREE.Color('#141414'), []);
 
   const plate = useMemo(() => roundedBox(32 * U, 32 * U, 0.7, 9 * U), []);
   const barGeos = useMemo(
@@ -70,8 +68,6 @@ export default function LogoMark3D({ reducedMotion = false, mixRef }) {
   useFrame(({ clock }) => {
     if (born.current === null) born.current = clock.elapsedTime;
     const t = clock.elapsedTime - born.current;
-    // Sobre el fondo violeta de "Qué es" el cuadro pasa a obsidiana para no perderse.
-    if (mixRef) plateMat.color.copy(violet).lerp(obsidian, mixRef.current);
     bars.current.forEach((mesh, i) => {
       if (!mesh) return;
       const local = reducedMotion ? 1 : Math.min(Math.max((t - 0.25 - i * 0.18) / 0.7, 0), 1);

@@ -36,16 +36,16 @@ const FLAT_BARS = [
 
 /**
  * Logo plano animado: lo que se ve antes de que cargue el 3D, y en su lugar en equipos
- * modestos, con ahorro de datos o con "reducir movimiento". Ocupa el mismo sitio que el
- * logo 3D, así el cambio de uno a otro casi no se nota.
+ * modestos, con ahorro de datos o con "reducir movimiento". Llena el espacio reservado del
+ * hero, el mismo donde se ubica el logo 3D, así el cambio de uno a otro casi no se nota.
  */
 function FlatLogo({ animate }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute left-1/2 top-[25svh] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500 group-data-[scene=on]/stage:opacity-0"
+      className="pointer-events-none absolute inset-0 transition-opacity duration-500 group-data-[scene=on]/stage:opacity-0"
     >
-      <svg viewBox="0 0 32 32" className="size-[min(26svh,32vw)] drop-shadow-[0_30px_60px_rgba(97,66,255,0.45)] motion-safe:animate-float">
+      <svg viewBox="0 0 32 32" className="size-full drop-shadow-[0_30px_60px_rgba(97,66,255,0.45)] motion-safe:animate-float">
         <rect width="32" height="32" rx="9" fill="#6142ff" />
         {FLAT_BARS.map(({ x, h, o }, i) => (
           <motion.rect
@@ -83,13 +83,16 @@ function canRun3D(reducedMotion) {
 /** Eventos que cuentan como "la persona ya está aquí": a partir de ahí se carga el 3D. */
 const FIRST_INTERACTION = ['pointermove', 'pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'];
 
-/** Colores del escenario en RGB: obsidiana del hero, violeta de "Qué es" y lavanda de "Cómo funciona". */
+/**
+ * Colores del escenario en RGB: obsidiana del hero, violeta profundo de "Qué es" (oscuro para
+ * que el logo violeta de la marca resalte encima) y lavanda de "Cómo funciona".
+ */
 const BLACK = [0, 0, 0];
-const VIOLET = [97, 66, 255];
+const DEEP_VIOLET = [28, 18, 72];
 const LAVENDER = [246, 226, 248];
 const mixRgb = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 const stageColor = ([toAbout, toHow]) => {
-  const [r, g, b] = mixRgb(mixRgb(BLACK, VIOLET, toAbout), LAVENDER, toHow).map(Math.round);
+  const [r, g, b] = mixRgb(mixRgb(BLACK, DEEP_VIOLET, toAbout), LAVENDER, toHow).map(Math.round);
   return `rgb(${r}, ${g}, ${b})`;
 };
 
@@ -171,15 +174,19 @@ export default function HeroStage() {
         </div>
       </div>
 
-      {/* Hero: el logo ocupa la parte de arriba; el mensaje va abajo, centrado. */}
+      {/*
+        Hero: logo, titular y acciones en una sola columna centrada. El logo tiene su propio
+        espacio reservado (`data-logo-hero`) y el 3D se ubica justo ahí, así nunca tapa el texto,
+        sea cual sea el tamaño de la pantalla. Si no cabe todo, el hero crece en vez de encimarse.
+      */}
       <section
         id="inicio"
         data-stage="hero"
-        // En celular el texto arranca justo debajo del logo (centro en 25svh, mitad del ancho 16vw);
-        // desde `sm` hay espacio de sobra y el texto se apoya abajo.
-        className="relative z-10 flex min-h-[100svh] flex-col items-center justify-end px-4 pb-14 pt-[calc(25svh+16vw+2.5rem)] text-center sm:pt-[calc(6rem+env(safe-area-inset-top))] md:pb-20"
+        className="relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-4 pb-12 pt-[calc(5.5rem+env(safe-area-inset-top))] text-center"
       >
-        <FlatLogo animate={!reducedMotion} />
+        <div data-logo-hero className="relative mb-8 size-[clamp(6.5rem,20svh,12rem)] shrink-0 md:mb-10">
+          <FlatLogo animate={!reducedMotion} />
+        </div>
         <h1 className="max-w-5xl text-balance text-5xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-6xl md:text-7xl lg:text-[5.25rem]">
           Todos tus ingresos y gastos en un solo lugar
         </h1>
