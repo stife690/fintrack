@@ -22,12 +22,15 @@ function GoogleIcon() {
 const MAX_BUTTON_WIDTH = 400;
 
 /**
- * Separador "o" + botón "Continuar con Google" (login y registro).
+ * Separador + botón "Continuar con Google" (login y registro). Va fuera del formulario y con un
+ * separador que lo nombra como otra forma de entrar: en el registro hubo quien lo tocó creyendo
+ * que era el paso de aceptar los términos, porque quedaba pegado a "Crear cuenta".
  * Con `VITE_GOOGLE_CLIENT_ID` muestra el botón oficial de Google Identity Services: al elegir una
  * cuenta, Google entrega un `credential` y se inicia sesión con `signInWithGoogle` (si el correo
  * es nuevo, la cuenta se crea). Sin esa variable se deja el botón deshabilitado con "Próximamente".
+ * @param {{ mode?: 'login'|'register' }} props
  */
-export default function SocialAuth() {
+export default function SocialAuth({ mode = 'login' }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signInWithGoogle } = useAuth();
@@ -86,7 +89,9 @@ export default function SocialAuth() {
     <>
       <div className="flex items-center gap-4">
         <span className="h-px flex-1 bg-white/10" />
-        <span className="text-xs uppercase tracking-wide text-white/55">o</span>
+        <span className="text-xs uppercase tracking-wide text-white/55">
+          {mode === 'register' ? 'O regístrate con Google' : 'O entra con Google'}
+        </span>
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
@@ -120,7 +125,10 @@ export default function SocialAuth() {
             </p>
           )}
           <p className="text-center text-xs text-white/55">
-            Al continuar con Google aceptas los términos de uso y la política de privacidad.
+            {mode === 'register'
+              ? 'Solo si tu correo es de Google (Gmail). Si usas Outlook u otro correo, crea la cuenta con el formulario de arriba. '
+              : ''}
+            Al usar Google aceptas los términos de uso y la política de privacidad.
           </p>
         </div>
       )}

@@ -168,9 +168,9 @@ export default function Login() {
           {isSubmitting && <Loader2 className="animate-spin" aria-hidden="true" />}
           {isSubmitting ? 'Ingresando…' : 'Iniciar sesión'}
         </Button>
-
-        <SocialAuth />
       </form>
+
+      <SocialAuth mode="login" />
     </AuthLayout>
   );
 }
