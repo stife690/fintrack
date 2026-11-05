@@ -67,7 +67,9 @@ export default defineConfig({
         importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,webp,png,woff2}'],
         // Las pantallas de carga de iOS las lee el sistema; no hace falta precachearlas.
-        globIgnores: ['**/mockServiceWorker.js', 'splash/**'],
+        // La escena 3D de la landing (~830 KB) solo se baja si el equipo la va a mostrar;
+        // precachearla haría que todos los celulares la descargaran igual.
+        globIgnores: ['**/mockServiceWorker.js', 'splash/**', '**/LandingScene-*.js'],
         navigateFallback: '/index.html',
       },
     }),

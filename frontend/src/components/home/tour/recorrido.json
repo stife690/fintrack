@@ -1,0 +1,53 @@
+{
+  "duration": 56.87,
+  "segments": [
+    {
+      "id": "inicio",
+      "text": "Hola. Esto es FinTrack: todos tus ingresos y gastos en un solo lugar. Te lo muestro en un minuto.",
+      "start": 0.0,
+      "end": 7.99
+    },
+    {
+      "id": "que-es",
+      "text": "Tus gastos, tus ingresos, tus presupuestos, y hasta las cuentas de tu negocio, en una sola app que funciona incluso sin internet.",
+      "start": 8.34,
+      "end": 17.34
+    },
+    {
+      "id": "como-funciona",
+      "text": "Registrar es así de fácil: escribes o dices «almuerzo dieciocho mil», y la inteligencia artificial le pone la categoría por ti.",
+      "start": 17.69,
+      "end": 26.47
+    },
+    {
+      "id": "funcionalidades",
+      "text": "Ves en qué se te va la plata, le pones un límite a cada categoría, y llevas lo que debes y lo que te deben.",
+      "start": 26.82,
+      "end": 33.73
+    },
+    {
+      "id": "alertas",
+      "text": "Y antes de que te pases del presupuesto, FinTrack te avisa.",
+      "start": 34.08,
+      "end": 38.33
+    },
+    {
+      "id": "app",
+      "text": "La instalas desde el navegador, en tu celular o en tu computador.",
+      "start": 38.68,
+      "end": 43.34
+    },
+    {
+      "id": "seguridad",
+      "text": "Tus datos están protegidos: la inteligencia artificial nunca ve tu nombre ni tu correo.",
+      "start": 43.69,
+      "end": 49.57
+    },
+    {
+      "id": "empieza",
+      "text": "Crea tu cuenta gratis en menos de un minuto. FinTrack: tu plata, bajo control.",
+      "start": 49.92,
+      "end": 56.52
+    }
+  ]
+}
