@@ -40,7 +40,7 @@ const FAQS = [
 /** Preguntas frecuentes en acordeón (la plantilla las usa en sus páginas de pricing). */
 export default function Faq() {
   return (
-    <section id="faq" className="scroll-mt-20 py-12 md:py-20 xl:py-32">
+    <section id="faq" className="scroll-mt-20 py-16 md:py-24 xl:py-32">
       <div className="container-page grid gap-12 lg:grid-cols-[2fr_3fr]">
         <SectionHeading
           align="left"
@@ -52,9 +52,13 @@ export default function Faq() {
         <Reveal delay={0.1}>
           <Accordion type="single" collapsible defaultValue="item-0" className="space-y-3">
             {FAQS.map((faq, i) => (
-              <AccordionItem key={faq.q} value={`item-${i}`}>
-                <AccordionTrigger>{faq.q}</AccordionTrigger>
-                <AccordionContent>{faq.a}</AccordionContent>
+              <AccordionItem
+                key={faq.q}
+                value={`item-${i}`}
+                className="rounded-[1.5rem] transition-colors hover:bg-pink/40 data-[state=open]:bg-pink"
+              >
+                <AccordionTrigger className="py-6 text-xl tracking-[-0.01em]">{faq.q}</AccordionTrigger>
+                <AccordionContent className="pb-6 text-lg text-obsidian/75">{faq.a}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

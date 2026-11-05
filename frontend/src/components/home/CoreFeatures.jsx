@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, FileDown, PiggyBank } from 'lucide-react';
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Check, FileDown, PiggyBank } from 'lucide-react';
 import SectionHeading from '@/components/common/SectionHeading';
 import Reveal from '@/components/common/Reveal';
 import { cn } from '@/lib/utils';
@@ -90,24 +90,31 @@ function BudgetsMock() {
   );
 }
 
-const CARDS = [
+const ROWS = [
   {
     title: 'Registra en segundos.',
     description:
       'Escribe el monto y una descripción; la inteligencia artificial clasifica el gasto automáticamente. Siempre puedes corregirla.',
+    points: ['Gastos e ingresos en el mismo lugar', 'Categoría sugerida por IA', 'Exporta en Excel, PDF o CSV'],
     mock: QuickActionsMock,
+    field: 'bg-pink',
   },
   {
     title: 'Presupuestos con alertas.',
     description: 'Define un límite por categoría y recibe una alerta antes de pasarte, no cuando ya es tarde.',
+    points: ['Un límite mensual por categoría', 'Aviso al 80% y al 100%', 'Ves cuánto te queda en cada una'],
     mock: BudgetsMock,
+    field: 'bg-violet',
   },
 ];
 
-/** Sección "Core Features": dos tarjetas grandes con maqueta + texto. */
+/**
+ * Sección "Funcionalidades": dos filas alternadas, texto grande de un lado y la maqueta
+ * sobre un campo de color de la marca del otro (rosado y violeta), en vez de dos tarjetas iguales.
+ */
 export default function CoreFeatures() {
   return (
-    <section id="funcionalidades" className="scroll-mt-20 py-12 md:py-20 xl:py-32">
+    <section id="funcionalidades" className="scroll-mt-20 py-16 md:py-24 xl:py-32">
       <div className="container-page">
         <SectionHeading
           eyebrow="Funcionalidades"
@@ -115,15 +122,30 @@ export default function CoreFeatures() {
           description="Desde el primer gasto hasta el cierre del mes: todo organizado, categorizado y en un solo lugar."
         />
 
-        <div className="mt-12 grid gap-6 md:mt-16 md:grid-cols-2">
-          {CARDS.map(({ title, description, mock: Mock }, i) => (
-            <Reveal key={title} delay={i * 0.1} className="flex flex-col gap-8 rounded-3xl bg-card p-6 sm:p-10">
-              <div className="mx-auto w-full max-w-sm">
-                <Mock />
+        <div className="mt-14 space-y-6 md:mt-20 md:space-y-8">
+          {ROWS.map(({ title, description, points, mock: Mock, field }, i) => (
+            <Reveal
+              key={title}
+              className="grid items-center gap-8 rounded-[2rem] bg-card p-4 sm:p-6 lg:grid-cols-2 lg:gap-14 lg:p-8"
+            >
+              <div className={cn('rounded-3xl px-5 py-10 sm:px-10 sm:py-14', field, i % 2 === 1 && 'lg:order-2')}>
+                <div className="mx-auto w-full max-w-sm motion-safe:transition-transform motion-safe:duration-500 lg:hover:-translate-y-1">
+                  <Mock />
+                </div>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-semibold tracking-tight text-obsidian">{title}</h3>
-                <p className="text-muted-foreground">{description}</p>
+              <div className="space-y-5 px-2 pb-4 sm:px-4 lg:pb-0">
+                <h3 className="text-balance text-3xl font-semibold tracking-[-0.03em] text-obsidian md:text-4xl">{title}</h3>
+                <p className="max-w-md text-lg text-muted-foreground">{description}</p>
+                <ul className="space-y-2.5 pt-2">
+                  {points.map((point) => (
+                    <li key={point} className="flex items-center gap-3 font-medium text-obsidian">
+                      <span className="grid size-6 place-items-center rounded-full bg-violet text-white">
+                        <Check className="size-3.5" aria-hidden="true" />
+                      </span>
+                      {point}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </Reveal>
           ))}

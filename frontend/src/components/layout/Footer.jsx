@@ -39,35 +39,26 @@ export default function Footer() {
 
   return (
     <footer className="relative overflow-hidden bg-black text-white">
-      <img
-        src="/images/common/footer-pattern.svg"
-        alt=""
-        aria-hidden="true"
-        loading="lazy"
-        decoding="async"
-        className="pointer-events-none absolute -right-24 -top-10 w-[420px] opacity-20 md:w-[520px]"
-      />
-
-      <div className="container-page relative grid gap-12 py-16 md:grid-cols-[1.5fr_repeat(3,1fr)] md:py-20">
-        <div className="max-w-xs space-y-4">
+      <div className="container-page relative grid grid-cols-2 gap-x-6 gap-y-12 py-16 md:grid-cols-[1.5fr_repeat(3,1fr)] md:py-24">
+        <div className="col-span-2 max-w-xs space-y-4 md:col-span-1">
           <Logo />
-          <p className="text-white/55">
+          <p className="text-white/65">
             Registra tus gastos, controla tu presupuesto y sincroniza tus datos, incluso sin conexión.
           </p>
         </div>
 
         {COLUMNS.map((col) => (
           <div key={col.title}>
-            <h3 className="mb-4 font-medium text-white">{col.title}</h3>
+            <h3 className="mb-4 text-sm font-medium text-orchid">{col.title}</h3>
             <ul className="space-y-3">
               {col.links.map((link) => (
                 <li key={link.label}>
                   {link.to ? (
-                    <Link to={link.to} className="text-white/55 transition-colors hover:text-white">
+                    <Link to={link.to} className="text-white/70 transition-colors hover:text-white">
                       {link.label}
                     </Link>
                   ) : (
-                    <a href={link.href} className="text-white/55 transition-colors hover:text-white">
+                    <a href={link.href} className="text-white/70 transition-colors hover:text-white">
                       {link.label}
                     </a>
                   )}
@@ -76,6 +67,13 @@ export default function Footer() {
             </ul>
           </div>
         ))}
+      </div>
+
+      {/* Cierre: el nombre de la marca a todo el ancho. */}
+      <div aria-hidden="true" className="container-page relative select-none">
+        <p className="text-[clamp(3rem,27vw,21rem)] font-semibold leading-[0.8] tracking-[-0.06em] text-white/[0.07]">
+          FinTrack
+        </p>
       </div>
 
       <div className="container-page relative flex flex-col gap-3 border-t border-white/10 py-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">

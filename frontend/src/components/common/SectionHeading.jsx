@@ -31,7 +31,7 @@ export default function SectionHeading({ eyebrow, title, description, align = 'c
       </span>
       <h2
         className={cn(
-          'text-balance text-4xl font-semibold tracking-tight md:text-5xl',
+          'text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.035em] md:text-5xl lg:text-6xl',
           dark ? 'text-white' : 'text-obsidian',
         )}
       >
