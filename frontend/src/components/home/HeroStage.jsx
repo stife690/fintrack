@@ -69,19 +69,20 @@ function FlatLogo({ animate }) {
 }
 
 /**
- * ¿Vale la pena cargar el 3D en este equipo? No con "reducir movimiento", ahorro de datos,
- * 4 núcleos o menos, o 2 GB de memoria o menos: ahí el logo plano se ve bien y no traba.
+ * ¿Se intenta el 3D? Solo se respetan las decisiones de la persona: "reducir movimiento" y
+ * ahorro de datos. No se adivina por núcleos ni memoria (Safari, por privacidad, reporta menos
+ * núcleos de los reales): si el equipo no da la talla, la escena lo mide y vuelve al logo plano.
  */
 function canRun3D(reducedMotion) {
   if (reducedMotion || typeof navigator === 'undefined') return false;
-  if (navigator.connection?.saveData) return false;
-  if ((navigator.hardwareConcurrency ?? 8) <= 4) return false;
-  if ((navigator.deviceMemory ?? 8) <= 2) return false;
-  return true;
+  return !navigator.connection?.saveData;
 }
 
-/** Eventos que cuentan como "la persona ya está aquí": a partir de ahí se carga el 3D. */
+/** Eventos que cuentan como "la persona ya está aquí" en computador: con eso se carga el 3D. */
 const FIRST_INTERACTION = ['pointermove', 'pointerdown', 'touchstart', 'wheel', 'scroll', 'keydown'];
+
+/** Pantallas táctiles (celulares y tablets): ahí el 3D no espera un toque para aparecer. */
+const isTouchScreen = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
 /**
  * Colores del escenario en RGB: obsidiana del hero, violeta profundo de "Qué es" (oscuro para
@@ -131,13 +132,30 @@ export default function HeroStage() {
     return () => io.disconnect();
   }, []);
 
-  // El 3D (≈225 KB y su compilación) espera a la primera interacción: así no compite con el
-  // titular al cargar. En computador eso es apenas mover el mouse.
+  // Cuándo se carga el 3D (≈225 KB y su compilación), sin competir con el titular:
+  // - en computador, con la primera interacción (apenas mover el mouse);
+  // - en celular, apenas la página termina de cargar y el navegador queda libre, para que la
+  //   animación ya esté al entrar (no todos tocan la pantalla antes de mirar).
+  // Si la escena mide que no va fluida (`tooSlow`), se desmonta y queda el logo plano animado.
   const [load3D, setLoad3D] = useState(false);
   const [sceneOn, setSceneOn] = useState(false);
+  const [tooSlow, setTooSlow] = useState(false);
   useEffect(() => {
     if (!canRun3D(reducedMotion)) return undefined;
     const start = () => setLoad3D(true);
+    if (isTouchScreen()) {
+      let idle = 0;
+      const whenIdle = () => {
+        idle = window.requestIdleCallback ? window.requestIdleCallback(start, { timeout: 1500 }) : window.setTimeout(start, 300);
+      };
+      if (document.readyState === 'complete') whenIdle();
+      else window.addEventListener('load', whenIdle, { once: true });
+      return () => {
+        window.removeEventListener('load', whenIdle);
+        if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
+        window.clearTimeout(idle);
+      };
+    }
     FIRST_INTERACTION.forEach((type) => window.addEventListener(type, start, { once: true, passive: true }));
     return () => FIRST_INTERACTION.forEach((type) => window.removeEventListener(type, start));
   }, [reducedMotion]);
@@ -159,7 +177,7 @@ export default function HeroStage() {
           style={{ opacity: glowOpacity }}
           className="absolute left-1/2 top-[30%] size-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet/30 blur-[140px]"
         />
-        {load3D && (
+        {load3D && !tooSlow && (
           <SceneBoundary fallback={null}>
             <Suspense fallback={null}>
               <LandingScene
@@ -167,6 +185,10 @@ export default function HeroStage() {
                 active={active}
                 reducedMotion={reducedMotion}
                 onReady={() => setSceneOn(true)}
+                onTooSlow={() => {
+                  setSceneOn(false);
+                  setTooSlow(true);
+                }}
               />
             </Suspense>
           </SceneBoundary>
