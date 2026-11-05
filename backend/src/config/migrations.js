@@ -441,6 +441,16 @@ export const MIGRATIONS = [
          ON negocio_movimientos(negocio_id, local_id) WHERE local_id IS NOT NULL`,
     ],
   },
+  {
+    id: '020_retiros_socios',
+    statements: [
+      `ALTER TABLE negocio_movimientos DROP CONSTRAINT IF EXISTS negocio_movimientos_tipo_check`,
+      `ALTER TABLE negocio_movimientos ADD CONSTRAINT negocio_movimientos_tipo_check
+         CHECK (tipo IN ('venta', 'costo_venta', 'gasto_fijo', 'gasto_variable', 'otro_ingreso', 'retiro'))`,
+      `ALTER TABLE negocio_movimientos ADD COLUMN IF NOT EXISTS transaccion_id UUID NULL
+         REFERENCES transacciones(id) ON DELETE SET NULL`,
+    ],
+  },
 ];
 
 /**

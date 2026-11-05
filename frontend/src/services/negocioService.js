@@ -2,7 +2,9 @@
  * Capa de Emprendimientos del frontend (FT-0016). Llama a `/api/v1/businesses` con el access
  * token de la sesión.
  */
-import { apiRequest } from '@/lib/apiRequest';
+import { authFetch } from '@/lib/authFetch';
+import { CONNECTION_ERROR, apiRequest, toApiError } from '@/lib/apiRequest';
+import { filenameFrom } from '@/services/reportService';
 
 /**
  * @typedef {'dueno'|'editor'|'lector'} BusinessRole
@@ -184,3 +186,34 @@ export const createMovement = (id, data) =>
 /** @returns {Promise<null>} */
 export const deleteMovement = (id, movementId) =>
   apiRequest(`/businesses/${id}/movements/${movementId}`, { method: 'DELETE' });
+
+/* ---------- Retiros y reporte del negocio (FT-0018) ---------- */
+
+/**
+ * Retiro del socio: sale del negocio y entra como ingreso en sus movimientos personales.
+ * @param {string} id
+ * @param {{ amount: number, note?: string|null, date?: string, localId?: string }} data
+ * @returns {Promise<{ movement: BusinessMovement, transaction: object }>}
+ */
+export const withdraw = (id, data) => apiRequest(`/businesses/${id}/withdrawals`, { method: 'POST', body: data });
+
+/**
+ * Descarga el mes del negocio para el contador.
+ * @param {string} id
+ * @param {{ month: string, format: 'xlsx'|'pdf' }} options
+ * @returns {Promise<{ blob: Blob, filename: string }>}
+ */
+export async function exportBusinessMonth(id, { month, format }) {
+  const query = new URLSearchParams({ month, format });
+  let res;
+  try {
+    res = await authFetch(`/businesses/${id}/export?${query}`);
+  } catch {
+    throw new Error(CONNECTION_ERROR);
+  }
+  if (!res.ok) throw await toApiError(res);
+  return {
+    blob: await res.blob(),
+    filename: filenameFrom(res.headers.get('Content-Disposition'), `negocio-${month}.${format}`),
+  };
+}

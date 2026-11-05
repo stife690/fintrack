@@ -6,6 +6,7 @@ import {
   deletePartner,
   getBusiness,
   getBusinesses,
+  getExport,
   getInvitationPreview,
   getMovements,
   patchBusiness,
@@ -15,6 +16,7 @@ import {
   postInvitation,
   postJoin,
   postMovement,
+  postWithdrawal,
 } from '../controllers/negocios.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 
@@ -30,6 +32,8 @@ import { requireAuth } from '../middlewares/auth.middleware.js';
  * - `PATCH /:id/partners/:userId` · `DELETE /:id/partners/:userId` → rol o participación · sacar o salirse.
  * - `GET /:id/movements?month=` · `POST /:id/movements` · `DELETE /:id/movements/:movementId` →
  *   movimientos y panel del mes · registrar (dueños y editores) · borrar (quien lo registró o un dueño).
+ * - `POST /:id/withdrawals` → retiro del socio, que entra a sus finanzas personales (FT-0018).
+ * - `GET /:id/export?month=&format=xlsx|pdf` → el mes para el contador (todos los socios).
  */
 const router = Router();
 
@@ -49,5 +53,7 @@ router.delete('/:id/partners/:userId', deletePartner);
 router.get('/:id/movements', getMovements);
 router.post('/:id/movements', postMovement);
 router.delete('/:id/movements/:movementId', deleteMovement);
+router.post('/:id/withdrawals', postWithdrawal);
+router.get('/:id/export', getExport);
 
 export default router;

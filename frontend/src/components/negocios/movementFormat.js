@@ -9,9 +9,13 @@ export const MOVEMENT_KINDS = {
   variable: { label: 'Gasto variable', income: false, category: 'otros', hint: 'Cambia según cuánto vendes' },
   fixed: { label: 'Gasto fijo', income: false, category: 'arriendo', hint: 'Se paga igual aunque no vendas' },
   otherIncome: { label: 'Otro ingreso', income: true, category: 'otros', hint: 'Plata que no viene de vender' },
+  // Los retiros no se registran con el formulario: van por "Registrar mi retiro" (FT-0018).
+  withdrawal: { label: 'Retiro de socio', income: false, category: 'retiros', hint: 'Plata que un socio sacó para él' },
 };
 
-export const KIND_OPTIONS = Object.entries(MOVEMENT_KINDS).map(([value, { label }]) => ({ value, label }));
+export const KIND_OPTIONS = Object.entries(MOVEMENT_KINDS)
+  .filter(([value]) => value !== 'withdrawal')
+  .map(([value, { label }]) => ({ value, label }));
 
 /** Categorías del negocio. */
 export const BUSINESS_CATEGORIES = {
@@ -24,9 +28,12 @@ export const BUSINESS_CATEGORIES = {
   transporte: 'Transporte',
   impuestos: 'Impuestos',
   otros: 'Otros',
+  retiros: 'Retiros',
 };
 
-export const CATEGORY_OPTIONS = Object.entries(BUSINESS_CATEGORIES).map(([value, label]) => ({ value, label }));
+export const CATEGORY_OPTIONS = Object.entries(BUSINESS_CATEGORIES)
+  .filter(([value]) => value !== 'retiros')
+  .map(([value, label]) => ({ value, label }));
 
 const MONTHS = [
   'enero',

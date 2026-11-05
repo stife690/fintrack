@@ -437,3 +437,10 @@ CREATE TABLE IF NOT EXISTS negocio_movimientos (
 CREATE INDEX IF NOT EXISTS idx_negocio_movimientos_fecha ON negocio_movimientos(negocio_id, fecha DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_negocio_movimientos_local
   ON negocio_movimientos(negocio_id, local_id) WHERE local_id IS NOT NULL;
+
+-- FT-0018: retiros de los socios (ver db/patches/020).
+ALTER TABLE negocio_movimientos DROP CONSTRAINT IF EXISTS negocio_movimientos_tipo_check;
+ALTER TABLE negocio_movimientos ADD CONSTRAINT negocio_movimientos_tipo_check
+  CHECK (tipo IN ('venta', 'costo_venta', 'gasto_fijo', 'gasto_variable', 'otro_ingreso', 'retiro'));
+ALTER TABLE negocio_movimientos ADD COLUMN IF NOT EXISTS transaccion_id UUID NULL
+  REFERENCES transacciones(id) ON DELETE SET NULL;
