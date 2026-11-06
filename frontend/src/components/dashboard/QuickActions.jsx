@@ -4,8 +4,8 @@ import CircleActions from '@/components/common/CircleActions';
 import { cn } from '@/lib/utils';
 
 const ACTIONS = [
-  { to: '/app/transacciones?nuevo=gasto', label: 'Gasto', icon: Minus, tone: 'bg-negative/12 text-negative' },
-  { to: '/app/transacciones?nuevo=ingreso', label: 'Ingreso', icon: Plus, tone: 'bg-positive/12 text-positive' },
+  { to: '/app/anotar?tipo=gasto', label: 'Gasto', icon: Minus, tone: 'bg-negative/12 text-negative' },
+  { to: '/app/anotar?tipo=ingreso', label: 'Ingreso', icon: Plus, tone: 'bg-positive/12 text-positive' },
   { to: '/app/presupuestos', label: 'Presupuesto', icon: Target, tone: 'bg-brand-soft text-brand' },
 ];
 

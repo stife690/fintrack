@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { currentMonth, formatMonth, shiftMonth } from '@/components/budgets/month';
 import CategoryIcon from '@/components/categories/CategoryIcon';
@@ -9,14 +9,17 @@ import { cn } from '@/lib/utils';
 import useCategoryNames from '@/hooks/useCategoryNames';
 import { monthRange } from '@/services/summaryService';
 import MovementRow from '@/components/transactions/MovementRow';
-import { SEARCH_DELAY_MS } from '@/components/transactions/TransactionFilters';
+import ConflictList from '@/components/transactions/ConflictList';
+import { CachedNotice, PendingList } from '@/components/transactions/SyncNotices';
 import { formatRelativeDay } from '@/components/transactions/format';
 import { Button } from '@/components/ui/button';
-import { SYNC_EVENT, listCached, listPending } from '@/offline/sync';
+import { SYNC_EVENT, dismissConflicts, listCached, listConflicts, listPending } from '@/offline/sync';
 import { TRANSACTION_SAVED_EVENT } from '@/offline/saveNewTransaction';
 import { listTransactions } from '@/services/transactionService';
 
 const PAGE_SIZE = 20;
+/** Pausa tras dejar de escribir antes de buscar. */
+const SEARCH_DELAY_MS = 300;
 
 /**
  * Agrupa los movimientos por día, en el orden en que llegan (del más reciente al más antiguo).
@@ -44,8 +47,8 @@ const CHIP = 'flex h-11 shrink-0 items-center gap-1 rounded-full border px-3 tex
 const chipTone = (selected) => (selected ? 'border-2 border-brand bg-brand-soft font-semibold text-brand' : 'border-ink/15 bg-surface');
 
 /**
- * Movimientos dentro de Mi plata, en el celular: mes, buscador, filtros y la lista por día. Sin conexión
- * muestra la copia guardada en el dispositivo. Lo pendiente de sincronizar se abre en Movimientos.
+ * Movimientos dentro de Mi plata: mes, buscador, filtros y la lista por día. Sin conexión muestra la copia
+ * guardada en el dispositivo, y aquí mismo se ve lo que espera sincronizarse y lo que tuvo conflicto.
  * @param {{ names: Record<string, string>, hidden?: boolean }} props
  */
 export default function MovementList({ names, hidden = false }) {
@@ -58,8 +61,14 @@ export default function MovementList({ names, hidden = false }) {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null); // `{ data, total }` con todas las páginas cargadas
-  const [pending, setPending] = useState(0);
+  const [pending, setPending] = useState([]);
+  const [conflicts, setConflicts] = useState([]);
+  // Hora de la copia del dispositivo (`''` si nunca se llenó); `null` cuando la lista viene del servidor.
+  const [cachedAt, setCachedAt] = useState(null);
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const { hash } = useLocation();
+  const sectionRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
 
@@ -69,18 +78,34 @@ export default function MovementList({ names, hidden = false }) {
   }, [text]);
 
   useEffect(() => {
-    const countPending = () => listPending().then((ops) => setPending(ops.length)).catch(() => {});
-    const reload = () => (setPage(1), setVersion((v) => v + 1), countPending());
-    countPending();
+    const refreshQueue = () => {
+      listPending().then(setPending).catch(() => {});
+      listConflicts().then(setConflicts).catch(() => {});
+    };
+    const reload = () => (setPage(1), setVersion((v) => v + 1), refreshQueue());
+    const onSync = ({ detail }) => {
+      reload();
+      const synced = detail?.synced?.length ?? 0;
+      if (synced > 0) setNotice(synced === 1 ? 'Se sincronizó 1 movimiento guardado sin conexión.' : `Se sincronizaron ${synced} movimientos guardados sin conexión.`);
+      if (detail?.notices?.some((n) => n.code === 'cardDropped')) {
+        setNotice('Guardamos el gasto sin tarjeta: esa tarjeta ya no existe. Puedes asignarle una al editarlo.');
+      }
+    };
+    refreshQueue();
     window.addEventListener(TRANSACTION_SAVED_EVENT, reload);
-    window.addEventListener(SYNC_EVENT, reload);
+    window.addEventListener(SYNC_EVENT, onSync);
     window.addEventListener('online', reload);
     return () => {
       window.removeEventListener(TRANSACTION_SAVED_EVENT, reload);
-      window.removeEventListener(SYNC_EVENT, reload);
+      window.removeEventListener(SYNC_EVENT, onSync);
       window.removeEventListener('online', reload);
     };
   }, []);
+
+  // Desde el aviso de sincronización se llega directo a la lista.
+  useEffect(() => {
+    if (hash === '#movimientos') sectionRef.current?.scrollIntoView();
+  }, [hash]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +122,7 @@ export default function MovementList({ names, hidden = false }) {
         if (cancelled) return;
         // "Ver más" suma la página siguiente a las que ya están.
         setResult((current) => (page === 1 || !current ? res : { ...res, data: [...current.data, ...res.data] }));
+        setCachedAt(res.syncedAt === undefined ? null : (res.syncedAt ?? ''));
         setError('');
         setBusy(false);
       })
@@ -112,6 +138,8 @@ export default function MovementList({ names, hidden = false }) {
 
   const groups = useMemo(() => groupByDay(result?.data ?? []), [result]);
   const fresh = useFreshIds(result?.data);
+  // Cambios en la cola de cada movimiento; un `create` aún no tiene fila propia en la lista.
+  const syncStatus = useMemo(() => new Map(pending.filter((o) => o.serverId).map((o) => [o.serverId, o.rejected ? 'rejected' : 'pending'])), [pending]);
   const monthName = formatMonth(month).replace(new RegExp(` de ${currentMonth().slice(0, 4)}$`), '');
   const expense = categories?.expense ?? [];
   const income = categories?.income ?? [];
@@ -131,7 +159,7 @@ export default function MovementList({ names, hidden = false }) {
   };
 
   return (
-    <section id="movimientos" aria-labelledby="movimientos-title" className="scroll-mt-4">
+    <section id="movimientos" ref={sectionRef} aria-labelledby="movimientos-title" className="scroll-mt-4">
       <div className="flex items-center justify-between gap-2">
         <h2 id="movimientos-title" className="text-lg font-semibold tracking-tight">
           Movimientos
@@ -165,7 +193,7 @@ export default function MovementList({ names, hidden = false }) {
         />
       </label>
 
-      <div className="-mx-4 mt-2.5 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+      <div className="-mx-4 mt-2.5 flex gap-1.5 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 [scrollbar-width:none]">
         {TYPES.map(({ value, label }) => (
           <button key={label} type="button" aria-pressed={type === value} onClick={() => pickType(value)} className={cn(CHIP, chipTone(type === value))}>
             {label}
@@ -199,11 +227,16 @@ export default function MovementList({ names, hidden = false }) {
         </ul>
       </Sheet>
 
-      {pending > 0 && (
-        <Link to="/app/transacciones" className="mt-3 block rounded-xl bg-brand-soft/60 px-3 py-2.5 text-sm text-brand">
-          {pending === 1 ? '1 cambio espera' : `${pending} cambios esperan`} sincronizarse. <span className="font-medium underline">Ver</span>
-        </Link>
+      {notice && (
+        <p role="status" className="mt-3 text-sm text-positive">
+          {notice}
+        </p>
       )}
+      {cachedAt !== null && <CachedNotice syncedAt={cachedAt} />}
+      {conflicts.length > 0 && (
+        <ConflictList conflicts={conflicts} onDismiss={(ids) => dismissConflicts(ids).catch((err) => setError(err.message))} />
+      )}
+      {pending.length > 0 && <PendingList operations={pending} onError={setError} />}
 
       {error && (
         <p role="alert" className="mt-3 text-sm text-negative">
@@ -229,7 +262,7 @@ export default function MovementList({ names, hidden = false }) {
             <h3 className="mb-1 mt-4 text-sm font-medium text-ink/60">{day}</h3>
             <ul className="divide-y divide-ink/10">
               {items.map((t) => (
-                <MovementRow key={t.id} transaction={t} names={names} hidden={hidden} icon fresh={fresh.has(t.id)} />
+                <MovementRow key={t.id} transaction={t} names={names} hidden={hidden} icon fresh={fresh.has(t.id)} syncStatus={syncStatus.get(t.id)} />
               ))}
             </ul>
           </div>

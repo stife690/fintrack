@@ -90,7 +90,7 @@ describe('nextAction', () => {
     expect(action).toMatchObject({
       title: 'Registra tus ingresos del mes',
       gain: 25,
-      to: '/app/transacciones?nuevo=ingreso',
+      to: '/app/anotar?tipo=ingreso',
     });
   });
 

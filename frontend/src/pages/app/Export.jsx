@@ -1,9 +1,7 @@
 import { useId, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   CalendarRange,
   Check,
-  ChevronRight,
   CircleCheck,
   Download,
   FileSpreadsheet,
@@ -249,21 +247,6 @@ export default function Export() {
 
   return (
     <>
-      <nav aria-label="Ruta" className="mb-4">
-        <ol className="flex items-center gap-1.5 text-sm">
-          <li>
-            <Link to="/app/transacciones" className="font-medium text-ink/60 transition-colors hover:text-brand">
-              Movimientos
-            </Link>
-          </li>
-          <li aria-hidden="true">
-            <ChevronRight className="size-4 text-ink/30" />
-          </li>
-          <li aria-current="page" className="font-medium text-ink">
-            Exportar
-          </li>
-        </ol>
-      </nav>
 
       <header className="mb-6 md:mb-8">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Exportar movimientos</h1>

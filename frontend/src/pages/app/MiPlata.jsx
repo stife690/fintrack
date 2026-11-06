@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { CalendarDays, Loader2, Pencil, Plus, ReceiptText, Sparkles, Trash2 } from 'lucide-react';
+import { CalendarDays, Download, Loader2, Pencil, Plus, ReceiptText, Sparkles, Trash2 } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
 import Sheet from '@/components/common/Sheet';
 import { MASK } from '@/components/dashboard/BalanceCard';
@@ -436,9 +436,30 @@ export default function MiPlata() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl lg:max-w-6xl">
       <div className="max-md:sr-only">
-        <PageHeader title="Mi plata" description="Con esto calculamos cuánto puedes gastar." />
+        <PageHeader
+          title="Mi plata"
+          description="Tus movimientos y lo que usamos para calcular cuánto puedes gastar."
+          actions={
+            !mobile && (
+              <>
+                <Button asChild variant="soft">
+                  <Link to="/app/transacciones/exportar">
+                    <Download aria-hidden="true" />
+                    Exportar reporte
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/app/anotar">
+                    <Plus aria-hidden="true" />
+                    Anotar
+                  </Link>
+                </Button>
+              </>
+            )
+          }
+        />
       </div>
 
       {/* En el celular, Mi plata es donde se ve la plata: saldo, acciones, pagos y movimientos (como en el diseño). */}
@@ -463,20 +484,29 @@ export default function MiPlata() {
       </div>
       )}
 
-      {!mobile && profile.error && !data && (
-        <p role="alert" className="text-sm text-negative">
-          {profile.error}{' '}
-          <button type="button" className="underline" onClick={profile.reload}>
-            Reintentar
-          </button>
-        </p>
-      )}
-      {!mobile && data && (
-        <div className="flex flex-col gap-5">
-          <IncomeSection profile={data} onSave={save} />
-          {data.money === null && <BalanceSection profile={data} onSave={save} />}
-          <div id="pagos" className="scroll-mt-4">
-            <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
+      {!mobile && (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <Panel>
+            <MovementList names={names} hidden={hidden} />
+          </Panel>
+          <div className="flex min-w-0 flex-col gap-5">
+            {profile.error && !data && (
+              <p role="alert" className="text-sm text-negative">
+                {profile.error}{' '}
+                <button type="button" className="underline" onClick={profile.reload}>
+                  Reintentar
+                </button>
+              </p>
+            )}
+            {data && (
+              <>
+                <IncomeSection profile={data} onSave={save} />
+                {data.money === null && <BalanceSection profile={data} onSave={save} />}
+                <div id="pagos" className="scroll-mt-4">
+                  <PaymentsSection commitments={data.commitments} onChanged={profile.reload} />
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

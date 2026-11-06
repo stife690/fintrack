@@ -66,7 +66,7 @@ export function nextAction({ health, projection, smallExpenses, day, daysInMonth
           title: 'Registra tus ingresos del mes',
           detail: `Llevas ${formatMoney(projection.income)} en ingresos frente a ${formatMoney(projected)} de gasto. Si ya te pagaron, regístralo: el ahorro cuenta con lo que ingresas.`,
           gain,
-          to: '/app/transacciones?nuevo=ingreso',
+          to: '/app/anotar?tipo=ingreso',
           cta: 'Registrar ingreso',
         };
       }

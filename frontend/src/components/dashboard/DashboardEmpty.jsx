@@ -32,13 +32,13 @@ export default function DashboardEmpty() {
 
       <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
         <Button asChild>
-          <Link to="/app/transacciones?nuevo=gasto">
+          <Link to="/app/anotar?tipo=gasto">
             <Minus aria-hidden="true" />
             Registrar un gasto
           </Link>
         </Button>
         <Button asChild variant="soft">
-          <Link to="/app/transacciones?nuevo=ingreso">
+          <Link to="/app/anotar?tipo=ingreso">
             <Plus aria-hidden="true" />
             Registrar un ingreso
           </Link>

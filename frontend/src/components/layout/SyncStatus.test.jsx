@@ -35,7 +35,7 @@ describe('SyncStatus: estado de conexión y cola (FT-0008)', () => {
   it('rechazados: avisa y lleva a Movimientos, con o sin conexión', () => {
     const html = render({ rejected: 2 });
     expect(html).toContain('2 movimientos guardados sin conexión no se pudieron sincronizar');
-    expect(html).toContain('href="/app/transacciones"');
+    expect(html).toContain('href="/app/mi-plata#movimientos"');
     expect(html).toContain('text-negative');
     expect(render({ online: false, rejected: 1 })).toContain('Un movimiento guardado sin conexión no se pudo sincronizar');
   });
@@ -43,7 +43,7 @@ describe('SyncStatus: estado de conexión y cola (FT-0008)', () => {
   it('conflicto donde su cambio no se aplicó: advertencia con enlace al detalle', () => {
     const html = render({ conflicts: 1, conflictsLost: 1 });
     expect(html).toContain('1 cambio tuyo no se aplicó porque otro dispositivo lo modificó después');
-    expect(html).toContain('href="/app/transacciones"');
+    expect(html).toContain('href="/app/mi-plata#movimientos"');
     expect(html).toContain('text-caution');
     expect(render({ conflicts: 3, conflictsLost: 2 })).toContain('2 cambios tuyos no se aplicaron');
   });

@@ -22,7 +22,7 @@ export default function RecentTransactions({ transactions, names, hidden, error 
         <Link to="/app/mi-plata" className="-my-3 py-3 text-sm font-medium text-brand hover:underline md:hidden">
           Ver todos
         </Link>
-        <Link to="/app/transacciones" className="hidden text-sm font-medium text-brand hover:underline md:inline">
+        <Link to="/app/mi-plata" className="hidden text-sm font-medium text-brand hover:underline md:inline">
           Ver todo
         </Link>
       </div>
@@ -39,7 +39,7 @@ export default function RecentTransactions({ transactions, names, hidden, error 
         <div className="mt-4">
           <p className="text-sm text-ink/60">Aún no tienes movimientos. Registra tu primer gasto o ingreso.</p>
           <Link
-            to="/app/transacciones?nuevo=gasto"
+            to="/app/anotar"
             className="mt-4 inline-flex h-10 items-center rounded-xl bg-brand-soft px-4 text-sm font-medium text-brand"
           >
             Registrar movimiento

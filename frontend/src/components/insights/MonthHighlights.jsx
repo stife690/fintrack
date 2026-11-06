@@ -60,7 +60,7 @@ export default function MonthHighlights({ message }) {
         <p className="font-medium">Todavía no hay suficiente historial</p>
         <p className="mx-auto mt-1 max-w-md text-sm text-ink/70">{message}</p>
         <Button asChild className="mt-4">
-          <Link to="/app/transacciones">Registrar un movimiento</Link>
+          <Link to="/app/anotar">Registrar un movimiento</Link>
         </Button>
       </div>
     );

@@ -4,7 +4,6 @@ import {
   CreditCard,
   HandCoins,
   Inbox,
-  ArrowLeftRight,
   Briefcase,
   CalendarDays,
   ChevronLeft,
@@ -44,7 +43,6 @@ const NAV_GROUPS = [
     label: 'Mis finanzas',
     items: [
       { to: '/app', label: 'Inicio', icon: House, end: true },
-      { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
       { to: '/app/metas', label: 'Metas', icon: Flag },
       { to: '/app/insights', label: 'Consejos', icon: Sparkles },
@@ -183,7 +181,7 @@ function MobileHeader() {
 }
 
 /** Pantallas con la barra rápida para anotar desde tablet (FT-0013): donde se registran los movimientos. */
-const QUICK_ENTRY_PATHS = ['/app', '/app/transacciones'];
+const QUICK_ENTRY_PATHS = ['/app'];
 
 /** Pantallas con una barra fija abajo en el celular: la de anotar o la caja del asistente (Consejos). */
 const BOTTOM_BAR_PATHS = [...QUICK_ENTRY_PATHS, '/app/insights'];
