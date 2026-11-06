@@ -1,6 +1,7 @@
 import { isAdminEmail } from '../config/env.js';
+import { LEGAL_VERSION } from '../config/legal.js';
 import { AppError } from '../errors/app-error.js';
-import { findUserById, updateUserName } from '../repositories/users.repository.js';
+import { acceptTerms, findUserById, updateUserName } from '../repositories/users.repository.js';
 
 /**
  * @typedef {object} Profile
@@ -8,6 +9,7 @@ import { findUserById, updateUserName } from '../repositories/users.repository.j
  * @property {string} email
  * @property {string|null} name Nombre visible; `null` si no lo ha puesto.
  * @property {string} timezone
+ * @property {boolean} termsAccepted Si aceptó la versión vigente de los términos y la privacidad.
  */
 
 /**
@@ -22,6 +24,7 @@ function toProfile(user) {
     name: user.name,
     timezone: user.timezone,
     isAdmin: isAdminEmail(user.email),
+    termsAccepted: user.termsVersion === LEGAL_VERSION,
   };
 }
 
@@ -49,6 +52,25 @@ export async function getProfile(userId) {
  */
 export async function updateProfile(userId, { name }) {
   const user = await updateUserName(userId, name);
+  if (!user) throw accountGone();
+  return toProfile(user);
+}
+
+/**
+ * Guarda que el usuario aceptó los términos y la política de privacidad (FT-0017). Solo vale la
+ * versión vigente: si la app trae una vieja (estaba abierta cuando se publicó otra), se rechaza y
+ * la persona ve el texto nuevo antes de aceptar.
+ * @param {string} userId
+ * @param {string} version Ya validada como texto.
+ * @returns {Promise<Profile>}
+ */
+export async function acceptCurrentTerms(userId, version) {
+  if (version !== LEGAL_VERSION) {
+    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+      { field: 'version', problem: 'No es la versión vigente de los términos; recarga la página' },
+    ]);
+  }
+  const user = await acceptTerms(userId, version);
   if (!user) throw accountGone();
   return toProfile(user);
 }

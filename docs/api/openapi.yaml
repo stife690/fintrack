@@ -113,12 +113,14 @@ paths:
       description: |
         Crea la cuenta sin verificar y envía al correo un enlace `APP_URL/verificar#token=…` que vence en
         24 horas (FT-0016). No abre sesión: hasta abrir el enlace, el login responde 403 EMAIL_NOT_VERIFIED.
+        Exige `acceptTerms: true` y guarda la versión vigente de los términos y la privacidad con la fecha
+        (FT-0017); sin aceptarlos responde 422 con el campo `acceptTerms`.
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/Credentials" }
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
       responses:
         "201":
           description: Usuario creado sin sesión; falta confirmar el correo
@@ -459,6 +461,32 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "503": { description: "`GOOGLE_NOT_CONFIGURED`: el servidor no tiene Google configurado" }
 
+  /users/me/terms:
+    post:
+      tags: [Users]
+      summary: Acepta los términos y la política de privacidad (FT-0017)
+      description: |
+        Guarda la versión aceptada y la fecha. Solo vale la versión vigente (publicada en `/terminos` y
+        `/privacidad`); otra responde 422. Lo usan las cuentas creadas antes de publicarlos o cuando se
+        publica una versión nueva.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: string, example: "2026-11-05", description: Versión que la persona leyó (AAAA-MM-DD). }
+      responses:
+        "200":
+          description: Perfil actualizado, con `termsAccepted` en `true`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /users/me/reminder-settings:
     get:
       tags: [Users, Push]
@@ -2689,6 +2717,16 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string, format: password, minLength: 8 }
+    RegisterRequest:
+      allOf:
+        - $ref: "#/components/schemas/Credentials"
+        - type: object
+          required: [acceptTerms]
+          properties:
+            acceptTerms:
+              type: boolean
+              enum: [true]
+              description: Aceptó los términos de uso y la política de privacidad (FT-0017).
     RefreshTokenRequest:
       type: object
       required: [refreshToken]
@@ -2723,6 +2761,9 @@ components:
         isAdmin:
           type: boolean
           description: Si administra Lo que viene (`ADMIN_EMAILS`).
+        termsAccepted:
+          type: boolean
+          description: Si aceptó la versión vigente de los términos y la privacidad (FT-0017). Viene en `GET /users/me`.
     UpdateProfileRequest:
       type: object
       required: [name]

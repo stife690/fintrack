@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
+import { LEGAL_VERSION } from '../config/legal.js';
 import { AppError } from '../errors/app-error.js';
 import {
   claimUnverifiedAccount,
@@ -86,7 +87,12 @@ async function sendVerificationLink(user, mailer) {
  */
 export async function register({ email, password }, mailer = sendVerificationEmail) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  const user = await createUser({ email: email.trim().toLowerCase(), passwordHash });
+  // Llega aquí solo si aceptó los términos (parseNewCredentials): se guarda la versión vigente.
+  const user = await createUser({
+    email: email.trim().toLowerCase(),
+    passwordHash,
+    termsVersion: LEGAL_VERSION,
+  });
   if (!user) {
     throw new AppError(409, 'EMAIL_TAKEN', 'El correo ya está registrado');
   }
@@ -121,7 +127,8 @@ export async function login({ email, password }) {
 
 /**
  * Inicia sesión con una cuenta de Google. Si el correo ya tiene cuenta en FinTrack, entra a esa
- * misma cuenta; si no, la crea (con el nombre de Google). Las cuentas creadas así no tienen
+ * misma cuenta; si no, la crea (con el nombre de Google) y guarda que aceptó los términos: el botón
+ * dice que al continuar se aceptan (FT-0017). Las cuentas creadas así no tienen
  * contraseña utilizable: se guarda el hash de una cadena aleatoria que nadie conoce.
  *
  * Google garantiza que el correo es de quien entra. Si la cuenta existente no estaba verificada,
@@ -138,8 +145,13 @@ export async function loginWithGoogle(credential, verifier = googleVerifier) {
   if (!user) {
     // Si otra petición creó la cuenta en este instante, `createUser` devuelve null: se vuelve a buscar.
     user =
-      (await createUser({ email, passwordHash, name, verified: true })) ??
-      (await findUserByEmail(email));
+      (await createUser({
+        email,
+        passwordHash,
+        name,
+        verified: true,
+        termsVersion: LEGAL_VERSION,
+      })) ?? (await findUserByEmail(email));
   }
   if (!user.emailVerified) {
     // Si otra petición la reclamó en este instante, `claimUnverifiedAccount` devuelve null.

@@ -63,7 +63,7 @@ test('register crea la cuenta sin verificar y sin abrir sesión (201)', options,
     const email = newEmail();
     const res = await api('/auth/register', {
       method: 'POST',
-      body: { email: `  ${email.toUpperCase()} `, password: PASSWORD },
+      body: { email: `  ${email.toUpperCase()} `, password: PASSWORD, acceptTerms: true },
     });
     assert.equal(res.status, 201);
     // El correo se guarda sin espacios y en minúsculas; no hay tokens hasta verificarlo (FT-0016).
@@ -81,7 +81,7 @@ test('register crea la cuenta sin verificar y sin abrir sesión (201)', options,
 
 test('register rechaza un correo ya registrado (409 EMAIL_TAKEN)', options, async () => {
   await withApi(async (api) => {
-    const body = { email: newEmail(), password: PASSWORD };
+    const body = { email: newEmail(), password: PASSWORD, acceptTerms: true };
     await api('/auth/register', { method: 'POST', body });
     const res = await api('/auth/register', { method: 'POST', body });
     assert.equal(res.status, 409);
@@ -97,7 +97,11 @@ test('register valida las reglas y la forma del cuerpo (422 / 400)', options, as
     });
     assert.equal(invalid.status, 422);
     assert.equal(invalid.body.error.code, 'VALIDATION_ERROR');
-    assert.deepEqual(invalid.body.error.details.map((d) => d.field).sort(), ['email', 'password']);
+    assert.deepEqual(invalid.body.error.details.map((d) => d.field).sort(), [
+      'acceptTerms',
+      'email',
+      'password',
+    ]);
 
     const malformed = await api('/auth/register', { method: 'POST', body: { email: 123 } });
     assert.equal(malformed.status, 400);
@@ -159,6 +163,7 @@ test('users/me exige un access token válido y vigente', options, async () => {
       name: null,
       timezone: 'America/Bogota',
       isAdmin: false,
+      termsAccepted: true,
     });
 
     const noToken = await api('/users/me');

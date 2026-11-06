@@ -117,7 +117,7 @@ test(
 test('pedir un enlace nuevo anula el anterior', options, async () => {
   await withApi(async (api) => {
     const email = newEmail();
-    await api('/auth/register', { email, password: OLD_PASSWORD });
+    await api('/auth/register', { email, password: OLD_PASSWORD, acceptTerms: true });
     const first = await requestToken(email);
     const second = await requestToken(email);
     assert.notEqual(first.token, second.token);
@@ -138,7 +138,7 @@ test('pedir un enlace nuevo anula el anterior', options, async () => {
 test('un enlace vencido no sirve (400 INVALID_RESET_TOKEN)', options, async () => {
   await withApi(async (api) => {
     const email = newEmail();
-    await api('/auth/register', { email, password: OLD_PASSWORD });
+    await api('/auth/register', { email, password: OLD_PASSWORD, acceptTerms: true });
     const { token } = await requestToken(email);
     await pool.query(
       `UPDATE password_reset_tokens SET expires_at = now() - interval '1 minute'
@@ -156,7 +156,7 @@ test('forgot-password responde lo mismo exista o no la cuenta', options, async (
   t.mock.method(console, 'info', () => {}); // el correo de desarrollo se imprime en la consola
   await withApi(async (api) => {
     const email = newEmail();
-    await api('/auth/register', { email, password: OLD_PASSWORD });
+    await api('/auth/register', { email, password: OLD_PASSWORD, acceptTerms: true });
 
     const registered = await api('/auth/forgot-password', { email });
     const unknown = await api('/auth/forgot-password', { email: newEmail() });
@@ -178,7 +178,7 @@ test('si el correo falla, la petición no falla: solo queda en el log', options,
   const logged = t.mock.method(console, 'error', () => {});
   await withApi(async (api) => {
     const email = newEmail();
-    await api('/auth/register', { email, password: OLD_PASSWORD });
+    await api('/auth/register', { email, password: OLD_PASSWORD, acceptTerms: true });
     await requestPasswordReset(email, async () => {
       throw new Error('Brevo respondió 401');
     });

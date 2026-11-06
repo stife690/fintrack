@@ -4,6 +4,7 @@ import {
   getMe,
   getReminderSettings,
   patchMe,
+  postTerms,
   putReminderSettings,
 } from '../controllers/users.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
@@ -21,6 +22,7 @@ const router = Router();
 router.get('/me', requireAuth, getMe);
 router.patch('/me', requireAuth, patchMe);
 router.delete('/me', requireAuth, deleteMe);
+router.post('/me/terms', requireAuth, postTerms);
 router.get('/me/reminder-settings', requireAuth, getReminderSettings);
 router.put('/me/reminder-settings', requireAuth, putReminderSettings);
 

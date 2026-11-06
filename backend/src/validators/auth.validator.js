@@ -21,13 +21,20 @@ export function parseCredentials(body) {
 }
 
 /**
- * Igual que `parseCredentials`, y además exige las reglas de una cuenta nueva (registro).
+ * Igual que `parseCredentials`, y además exige las reglas de una cuenta nueva (registro), entre
+ * ellas aceptar los términos y la política de privacidad (`acceptTerms: true`, FT-0017).
  * @param {unknown} body
  * @returns {{ email: string, password: string }}
  */
 export function parseNewCredentials(body) {
   const { email, password } = parseCredentials(body);
   const details = [];
+  if (body.acceptTerms !== true) {
+    details.push({
+      field: 'acceptTerms',
+      problem: 'Debes aceptar los términos y la política de privacidad',
+    });
+  }
   if (!EMAIL_RE.test(email.trim())) {
     details.push({ field: 'email', problem: 'Debe ser un correo válido' });
   }

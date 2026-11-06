@@ -1,8 +1,12 @@
 import { accountService } from '../services/account.service.js';
 import { pushService } from '../services/push.service.js';
-import { getProfile, updateProfile } from '../services/users.service.js';
+import { acceptCurrentTerms, getProfile, updateProfile } from '../services/users.service.js';
 import { parseReminderSettings } from '../validators/push.validator.js';
-import { parseDeleteAccount, parseUpdateProfile } from '../validators/users.validator.js';
+import {
+  parseAcceptTerms,
+  parseDeleteAccount,
+  parseUpdateProfile,
+} from '../validators/users.validator.js';
 
 /**
  * `GET /api/v1/users/me`: perfil del usuario dueño del token.
@@ -54,4 +58,14 @@ export async function putReminderSettings(req, res) {
 export async function deleteMe(req, res) {
   await accountService.remove(req.userId, parseDeleteAccount(req.body));
   res.status(204).end();
+}
+
+/**
+ * `POST /api/v1/users/me/terms`: acepta la versión vigente de los términos y la privacidad.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>}
+ */
+export async function postTerms(req, res) {
+  res.json(await acceptCurrentTerms(req.userId, parseAcceptTerms(req.body)));
 }

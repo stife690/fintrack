@@ -8,24 +8,33 @@ import { pool } from '../config/db.js';
  * @property {string} passwordHash Hash bcrypt de la contraseña (nunca sale de la API).
  * @property {string} timezone Zona horaria del usuario.
  * @property {boolean} emailVerified Si ya abrió el enlace del correo de verificación (FT-0016).
+ * @property {string|null} termsVersion Versión de los términos y la privacidad que aceptó (FT-0017).
  */
 
 const USER_COLUMNS = `id, email, nombre AS name, password_hash AS "passwordHash", timezone,
-  email_verificado_at IS NOT NULL AS "emailVerified"`;
+  email_verificado_at IS NOT NULL AS "emailVerified", terminos_version AS "termsVersion"`;
 
 /**
  * Crea un usuario. Si el correo ya existe no inserta nada.
- * @param {{ email: string, passwordHash: string, name?: string|null, verified?: boolean }} data
+ * @param {{ email: string, passwordHash: string, name?: string|null, verified?: boolean, termsVersion?: string|null }} data
  *   `verified`: la cuenta nace con el correo verificado (entrar con Google ya lo demuestra).
+ *   `termsVersion`: versión de los términos que aceptó al crearla; se guarda con la fecha (FT-0017).
  * @returns {Promise<UserRecord|null>} El usuario creado, o `null` si el correo ya estaba registrado.
  */
-export async function createUser({ email, passwordHash, name = null, verified = false }) {
+export async function createUser({
+  email,
+  passwordHash,
+  name = null,
+  verified = false,
+  termsVersion = null,
+}) {
   const { rows } = await pool.query(
-    `INSERT INTO usuarios (email, password_hash, nombre, email_verificado_at)
-     VALUES ($1, $2, $3, CASE WHEN $4 THEN now() END)
+    `INSERT INTO usuarios
+       (email, password_hash, nombre, email_verificado_at, terminos_version, terminos_aceptados_at)
+     VALUES ($1, $2, $3, CASE WHEN $4 THEN now() END, $5::varchar, CASE WHEN $5 IS NOT NULL THEN now() END)
      ON CONFLICT (email) DO NOTHING
      RETURNING ${USER_COLUMNS}`,
-    [email, passwordHash, name, verified],
+    [email, passwordHash, name, verified, termsVersion],
   );
   return rows[0] ?? null;
 }
@@ -88,6 +97,21 @@ export async function claimUnverifiedAccount({ id, passwordHash }) {
      )
      SELECT * FROM usuario`,
     [id, passwordHash],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Guarda que el usuario aceptó una versión de los términos y la privacidad, con la fecha de hoy.
+ * @param {string} id
+ * @param {string} version
+ * @returns {Promise<UserRecord|null>} El usuario actualizado, o `null` si no existe.
+ */
+export async function acceptTerms(id, version) {
+  const { rows } = await pool.query(
+    `UPDATE usuarios SET terminos_version = $2, terminos_aceptados_at = now()
+     WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+    [id, version],
   );
   return rows[0] ?? null;
 }
