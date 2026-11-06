@@ -460,8 +460,34 @@ export const MIGRATIONS = [
 ];
 
 /**
- * Aplica los parches pendientes antes de atender peticiones. Si la base todavía no tiene el
- * esquema (p. ej. una base vacía en CI) no hace nada: eso lo crea `db/init/`.
+ * Row Level Security en todas las tablas de `public` (ver db/patches/999_rls.sql): la API REST de
+ * Supabase no expone nada y el backend, dueño de las tablas, no se ve afectado. No va en
+ * MIGRATIONS sino que `runMigrations` lo corre siempre al final: así cubre también las tablas de
+ * cualquier parche que se agregue después, sin depender del orden de la lista.
+ */
+export const RLS_STATEMENT = `DO $$
+DECLARE
+  t record;
+  superusuario boolean;
+BEGIN
+  SELECT rolsuper INTO superusuario FROM pg_roles WHERE rolname = current_user;
+  FOR t IN
+    SELECT c.relname, pg_get_userbyid(c.relowner) AS dueno
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity
+  LOOP
+    IF superusuario OR t.dueno = current_user THEN
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.relname);
+    ELSE
+      RAISE WARNING 'RLS: no se activó en % (su dueño es %, no %)', t.relname, t.dueno, current_user;
+    END IF;
+  END LOOP;
+END $$;`;
+
+/**
+ * Aplica los parches pendientes antes de atender peticiones y, al final, RLS en todas las tablas.
+ * Si la base todavía no tiene el esquema (p. ej. una base vacía en CI) no hace nada: eso lo crea
+ * `db/init/`.
  * @param {import('pg').Pool} [db]
  * @returns {Promise<string[]>} Ids de los parches revisados, o `[]` si no hay esquema.
  */
@@ -471,5 +497,6 @@ export async function runMigrations(db = pool) {
   for (const { statements } of MIGRATIONS) {
     for (const sql of statements) await db.query(sql);
   }
+  await db.query(RLS_STATEMENT);
   return MIGRATIONS.map((m) => m.id);
 }
