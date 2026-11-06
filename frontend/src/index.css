@@ -79,6 +79,7 @@
   --animate-done-in: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
   --animate-pop: pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   --animate-bar-in: bar-in 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-ring-in: ring-in 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   --animate-row-in: row-in 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   /* Registro por voz (FT-0013): anillos del micrófono y barras de la onda mientras escucha. */
   --animate-voice-ring: voice-ring 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
@@ -137,6 +138,13 @@
     from {
       opacity: 0;
       transform: scale(0.5);
+    }
+  }
+
+  /* Cada parte del anillo crece desde su punto de partida, hasta el valor que trae en línea. */
+  @keyframes ring-in {
+    from {
+      stroke-dasharray: 0 100;
     }
   }
 
@@ -240,6 +248,16 @@
     /* Barras de ingresos y gastos de los gráficos (validadas para daltonismo sobre blanco). */
     --app-chart-income: #087a59;
     --app-chart-expense: #c8321f;
+    /* Categorías en gráficos: validadas para daltonismo sobre este fondo; siempre llevan su nombre al lado. */
+    --app-chart-cat-1: #2a78d6;
+    --app-chart-cat-2: #eb6834;
+    --app-chart-cat-3: #1baf7a;
+    --app-chart-cat-4: #eda100;
+    --app-chart-cat-5: #e87ba4;
+    --app-chart-cat-6: #008300;
+    --app-chart-cat-7: #6250d6;
+    --app-chart-cat-8: #e34948;
+    --app-chart-other: #a3a1ae;
     color-scheme: light;
   }
 
@@ -259,6 +277,15 @@
     /* En barras, los tonos de texto (positive/negative) son muy claros: se usan unos más profundos. */
     --app-chart-income: #1fa77e;
     --app-chart-expense: #e5594a;
+    --app-chart-cat-1: #3987e5;
+    --app-chart-cat-2: #d95926;
+    --app-chart-cat-3: #199e70;
+    --app-chart-cat-4: #c98500;
+    --app-chart-cat-5: #d55181;
+    --app-chart-cat-6: #008300;
+    --app-chart-cat-7: #9085e9;
+    --app-chart-cat-8: #e66767;
+    --app-chart-other: #6c6a78;
     color-scheme: dark;
   }
 

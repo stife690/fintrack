@@ -33,8 +33,16 @@ export default function TransactionDetail() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const passed = state?.transaction?.id === id ? state.transaction : null;
-  const fetched = useAsync(() => (passed ? Promise.resolve(passed) : getTransaction(id)), [id, passed]);
-  const t = fetched.data;
+  // Con conexión siempre pide la versión del servidor, por si se acaba de editar.
+  const fetched = useAsync(
+    () =>
+      getTransaction(id).catch((err) => {
+        if (passed) return passed;
+        throw err;
+      }),
+    [id],
+  );
+  const t = fetched.data ?? passed;
   const { names } = useCategoryNames();
   const [hidden] = useHiddenAmounts();
   const [error, setError] = useState('');
@@ -109,7 +117,7 @@ export default function TransactionDetail() {
       )}
 
       <div className="flex flex-col gap-2">
-        <Button size="lg" onClick={() => navigate('/app/transacciones', { state: { editTransaction: t } })}>
+        <Button size="lg" onClick={() => navigate(`/app/transacciones/${t.id}/editar`, { state: { transaction: t } })}>
           <Pencil aria-hidden="true" />
           Editar
         </Button>

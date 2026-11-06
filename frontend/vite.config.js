@@ -46,13 +46,13 @@ export default defineConfig({
           {
             name: 'Registrar gasto',
             short_name: 'Gasto',
-            url: '/app/transacciones?nuevo=gasto',
+            url: '/app/anotar?tipo=gasto',
             icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
           {
             name: 'Registrar ingreso',
             short_name: 'Ingreso',
-            url: '/app/transacciones?nuevo=ingreso',
+            url: '/app/anotar?tipo=ingreso',
             icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
           {

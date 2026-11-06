@@ -199,7 +199,7 @@ export default function PendingPayments() {
           {notice && (
             <p role="status" className="rounded-xl bg-brand-soft p-3 text-sm text-brand">
               {notice}{' '}
-              <Link to="/app/transacciones" className="underline">
+              <Link to="/app/mi-plata" className="underline">
                 Ver movimientos
               </Link>
             </p>

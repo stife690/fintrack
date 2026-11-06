@@ -4,12 +4,12 @@ import { CIRCLES } from '@/components/dashboard/QuickActions';
 import { LINKS } from '@/pages/app/Account';
 
 /** Rutas que no necesitan entrada: el inicio, redirecciones, flujos automáticos y la vista de administración. */
-const NO_ENTRY = ['/app', '/app/bienvenida', '/app/mes', '/app/lo-que-viene/admin'];
+const NO_ENTRY = ['/app', '/app/bienvenida', '/app/mes', '/app/transacciones', '/app/lo-que-viene/admin'];
 
 /** Entradas que están dentro de una pantalla, no en una lista. */
 const INSIDE_SCREENS = {
   '/app/cuenta': 'avatar del inicio',
-  '/app/transacciones': 'Editar en el detalle de un movimiento',
+  '/app/transacciones/nuevo': 'Editar antes de guardar, en la barra rápida',
   '/app/mi-plata': 'saldo del inicio',
   '/app/ingresos': 'total del inicio',
   '/app/gastos': 'total del inicio',

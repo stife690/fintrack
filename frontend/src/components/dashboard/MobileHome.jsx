@@ -1,7 +1,9 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownLeft, ArrowUpRight, Bell, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
 import { MASK } from '@/components/dashboard/BalanceCard';
+import ExpenseDonut from '@/components/dashboard/ExpenseDonut';
 import { CIRCLES } from '@/components/dashboard/QuickActions';
 import CircleActions from '@/components/common/CircleActions';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
@@ -64,12 +66,13 @@ function SectionTitle({ id, to, children }) {
 
 /**
  * Inicio en el celular: lo esencial y nada más. El saldo, los ingresos y gastos del mes, los accesos,
- * un solo aviso, los últimos movimientos y cómo van los presupuestos. Lo demás está a un toque.
+ * un solo aviso, los últimos movimientos, los gastos por categoría y cómo van los presupuestos. Lo demás está a un toque.
  *
  * @param {object} props
  * @param {number|null|undefined} props.balance Saldo; `undefined` mientras carga.
  * @param {{ income: number, expense: number }|undefined} props.totals Del mes actual.
  * @param {object[]|undefined} props.budgets
+ * @param {object|null|undefined} props.expense Gastos del mes por categoría; `undefined` mientras carga, `null` si no se pudieron traer.
  * @param {object[]|undefined} props.cards
  * @param {object[]|undefined} props.recent
  * @param {object[]} [props.pending] Pagos pendientes de Mi plata.
@@ -86,6 +89,7 @@ function SectionTitle({ id, to, children }) {
 export default function MobileHome({
   balance,
   totals,
+  expense,
   budgets,
   cards,
   recent,
@@ -107,6 +111,10 @@ export default function MobileHome({
   const name = getDisplayName(user);
   const notice = pickHomeNotice({ cards, budgets, pending, names, money });
   const topBudgets = budgets ? [...budgets].sort((a, b) => b.percentage - a.percentage).slice(0, BUDGETS) : [];
+  // Al anotar algo se recalcula sin borrar la dona, para que la pantalla no salte.
+  const lastExpense = useRef();
+  if (expense) lastExpense.current = expense;
+  const shownExpense = expense === undefined ? lastExpense.current : expense;
 
   return (
     <div className="-mt-2 flex flex-col">
@@ -222,8 +230,12 @@ export default function MobileHome({
             </Panel>
           </section>
 
+          {shownExpense !== null && (
+            <ExpenseDonut className="mt-5" expense={shownExpense} names={names} hidden={hidden} periodLabel={monthLabel} />
+          )}
+
           {topBudgets.length > 0 && (
-            <section aria-labelledby="presupuestos-inicio" className="mt-5">
+            <section aria-labelledby="presupuestos-inicio" className="mt-3">
               <SectionTitle id="presupuestos-inicio" to="/app/presupuestos">
                 Presupuestos
               </SectionTitle>

@@ -97,8 +97,8 @@ function DebtRow({ debt, today, money, online, onSettle, onEdit }) {
             {debt.transactionId && (
               <>
                 ·{' '}
-                <Link to="/app/transacciones" className="underline">
-                  ver en Movimientos
+                <Link to={`/app/transacciones/${debt.transactionId}`} className="underline">
+                  ver el movimiento
                 </Link>
               </>
             )}

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import ErrorBoundary, { hasChunkFailed } from '@/components/common/ErrorBoundary';
 import ScrollMemory from '@/components/common/ScrollMemory';
 import UpdatePrompt from '@/components/common/UpdatePrompt';
@@ -24,7 +24,7 @@ const BudgetDetail = lazy(() => import('@/pages/app/BudgetDetail'));
 const FixBalance = lazy(() => import('@/pages/app/FixBalance'));
 const MoneyPayments = lazy(() => import('@/pages/app/MoneyPayments'));
 const Anotar = lazy(() => import('@/pages/app/Anotar'));
-const Transactions = lazy(() => import('@/pages/app/Transactions'));
+const TransactionEdit = lazy(() => import('@/pages/app/TransactionEdit'));
 const TransactionDetail = lazy(() => import('@/pages/app/TransactionDetail'));
 const Budgets = lazy(() => import('@/pages/app/Budgets'));
 const Insights = lazy(() => import('@/pages/app/Insights'));
@@ -68,11 +68,21 @@ function RouteFallback() {
 }
 
 /**
+ * La pantalla vieja de Movimientos ya no existe; su dirección sigue en accesos de la app instalada y en
+ * avisos ya enviados. `?nuevo=gasto|ingreso` lleva a anotar y lo demás, a Mi plata.
+ */
+function OldMovements() {
+  const [params] = useSearchParams();
+  const type = params.get('nuevo');
+  return <Navigate to={type ? `/app/anotar?tipo=${type === 'ingreso' ? 'ingreso' : 'gasto'}` : '/app/mi-plata'} replace />;
+}
+
+/**
  * Rutas del frontend:
  * `/` landing · `/login` inicio de sesión · `/registro` crear cuenta · `/recuperar` pedir el enlace
  * para cambiar la contraseña · `/restablecer` contraseña nueva (enlace del correo) ·
  * `/verificar` confirmar el correo al registrarse (enlace del correo, FT-0016) · `*` 404.
- * Zona privada, dentro del marco con menú (`AppShell`): `/app` inicio · `/app/transacciones` registro y listado ·
+ * Zona privada, dentro del marco con menú (`AppShell`): `/app` inicio · `/app/mi-plata` saldo y movimientos · `/app/transacciones/nuevo` y `/app/transacciones/:id/editar` formulario completo ·
  * `/app/presupuestos` presupuestos por categoría y mes · `/app/insights` consejos con IA ·
  * `/app/transacciones/exportar` descarga de movimientos · `/app/cuenta` tema, notificaciones y sesión ·
  * `/app/renta` enlaces a la DIAN · `/app/invitar` compartir FinTrack · `/app/planes` planes de ejemplo ·
@@ -108,7 +118,9 @@ export default function App() {
               <Route path="/app/bienvenida" element={<Welcome />} />
               <Route element={<AppShell />}>
                 <Route path="/app" element={<Dashboard />} />
-                <Route path="/app/transacciones" element={<Transactions />} />
+                <Route path="/app/transacciones" element={<OldMovements />} />
+                <Route path="/app/transacciones/nuevo" element={<TransactionEdit />} />
+                <Route path="/app/transacciones/:id/editar" element={<TransactionEdit />} />
                 <Route path="/app/presupuestos" element={<Budgets />} />
                 <Route path="/app/insights" element={<Insights />} />
                 <Route path="/app/transacciones/exportar" element={<Export />} />

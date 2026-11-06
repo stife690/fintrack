@@ -79,7 +79,7 @@ export default function PeriodDetail({ type }) {
         </>
       )}
 
-      {!income && <ExpenseByCategory plain expense={current?.expense} names={names} hidden={hidden} />}
+      {!income && <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />}
 
       <section aria-labelledby="movimientos-periodo">
         <h2 id="movimientos-periodo" className="mb-2 text-lg font-semibold tracking-tight">

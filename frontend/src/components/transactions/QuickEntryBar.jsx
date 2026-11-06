@@ -42,10 +42,10 @@ export default function QuickEntryBar() {
     setEntry({ text });
   };
 
-  // "Editar antes de guardar" lleva al formulario de Movimientos; "Escribir" vuelve a la barra.
+  // "Editar antes de guardar" lleva al formulario completo; "Escribir" vuelve a la barra.
   const edit = (draft) => {
     setEntry(null);
-    if (draft) navigate('/app/transacciones', { state: { voiceDraft: draft } });
+    if (draft) navigate('/app/transacciones/nuevo', { state: { voiceDraft: draft } });
     else focusOnClose.current = true;
   };
 

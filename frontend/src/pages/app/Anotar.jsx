@@ -95,8 +95,8 @@ export default function Anotar() {
   }
   // Desde el detalle de una tarjeta (`?tarjeta=id`) llega con esa tarjeta elegida.
   const [startCard] = useState(() => params.get('tarjeta') ?? CASH);
-  // Desde un presupuesto (`?categoria=clave`) llega con esa categoría elegida.
-  const [form, setForm] = useState(() => ({ ...empty(startCard), category: params.get('categoria') ?? AI }));
+  // Desde un presupuesto (`?categoria=clave`) llega con esa categoría; desde un acceso (`?tipo=ingreso`), con ese tipo.
+  const [form, setForm] = useState(() => ({ ...empty(startCard), type: params.get('tipo') === 'ingreso' ? 'ingreso' : 'gasto', category: params.get('categoria') ?? AI }));
   const [result, setResult] = useState(null); // lo que devolvió `saveNewTransaction`
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

@@ -30,7 +30,7 @@ export default function SyncStatus({ online, pending, rejected, conflicts = 0, c
     return gap;
   };
   const detail = (
-    <Link to="/app/transacciones" className="font-medium underline">
+    <Link to="/app/mi-plata#movimientos" className="font-medium underline">
       Ver detalle
     </Link>
   );
@@ -64,8 +64,8 @@ export default function SyncStatus({ online, pending, rejected, conflicts = 0, c
             {rejected === 1
               ? 'Un movimiento guardado sin conexión no se pudo sincronizar. '
               : `${rejected} movimientos guardados sin conexión no se pudieron sincronizar. `}
-            <Link to="/app/transacciones" className="font-medium underline">
-              Revisar en Movimientos
+            <Link to="/app/mi-plata#movimientos" className="font-medium underline">
+              Revisar en Mi plata
             </Link>
           </span>
         </p>

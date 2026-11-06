@@ -19,8 +19,8 @@ describe('DashboardEmpty (FT-0004)', () => {
 
   it('lleva al formulario con el tipo ya elegido', () => {
     const html = render();
-    expect(html).toContain('href="/app/transacciones?nuevo=gasto"');
-    expect(html).toContain('href="/app/transacciones?nuevo=ingreso"');
+    expect(html).toContain('href="/app/anotar?tipo=gasto"');
+    expect(html).toContain('href="/app/anotar?tipo=ingreso"');
   });
 
   it('anticipa lo que verá el usuario: balance, categorías y presupuestos', () => {

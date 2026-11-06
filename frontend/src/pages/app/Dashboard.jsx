@@ -5,7 +5,7 @@ import BudgetOverview, { BudgetAlert } from '@/components/dashboard/BudgetOvervi
 import CardsSummary from '@/components/dashboard/CardsSummary';
 import DashboardEmpty from '@/components/dashboard/DashboardEmpty';
 import MobileHome from '@/components/dashboard/MobileHome';
-import ExpenseByCategory from '@/components/dashboard/ExpenseByCategory';
+import ExpenseDonut from '@/components/dashboard/ExpenseDonut';
 import HealthCard from '@/components/dashboard/HealthCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import PeriodSelector from '@/components/dashboard/PeriodSelector';
@@ -149,6 +149,7 @@ export default function Dashboard() {
       <MobileHome
         balance={loadingBalance ? undefined : (moneyProfile.data?.money ?? totals?.balance ?? null)}
         totals={totals}
+        expense={summary.error ? null : current?.expense}
         budgets={budgets.data}
         cards={cards.data}
         recent={recent.data?.data}
@@ -222,8 +223,17 @@ export default function Dashboard() {
                 timeSeries={current?.timeSeries}
                 hidden={hidden}
               />
-              <ExpenseByCategory expense={current?.expense} names={names} hidden={hidden} />
               <RecentTransactions transactions={recent.data?.data} names={names} hidden={hidden} error={recent.error} />
+              {!summary.error && (
+                <ExpenseDonut
+                  large
+                  expense={current?.expense}
+                  names={names}
+                  hidden={hidden}
+                  periodLabel={periodLabel(selected.period, selected.date)}
+                  selected={selected}
+                />
+              )}
             </>
           )}
         </div>
