@@ -18,6 +18,7 @@ import {
   Target,
   UserPlus,
   Wallet,
+  Flag,
 } from 'lucide-react';
 import { LogoMark } from '@/components/common/Logo';
 import NotificationBell from '@/components/layout/NotificationBell';
@@ -45,6 +46,7 @@ const NAV_GROUPS = [
       { to: '/app', label: 'Inicio', icon: House, end: true },
       { to: '/app/transacciones', label: 'Movimientos', short: 'Movim.', icon: ArrowLeftRight },
       { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
+      { to: '/app/metas', label: 'Metas', icon: Flag },
       { to: '/app/insights', label: 'Consejos', icon: Sparkles },
       { to: '/app/mi-plata', label: 'Mi plata', icon: Wallet },
       { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },

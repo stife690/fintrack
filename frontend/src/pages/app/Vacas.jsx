@@ -69,6 +69,9 @@ function VacaCard({ vaca }) {
   );
 }
 
+/** Las metas personales salen en `/app/metas`, no aquí. */
+const isGroup = (vaca) => !vaca.personal;
+
 /**
  * Página privada `/app/vacas` (FT-0014): las vacas del usuario. Crear una y unirse con un código
  * se abren en una ventana para que la página muestre solo la lista. Sin conexión muestra la
@@ -92,7 +95,7 @@ export default function Vacas() {
       try {
         const data = await listVacas();
         if (cancelled) return;
-        setVacas(data);
+        setVacas(data.filter(isGroup));
         setFromCache(false);
         setError('');
         queue.cacheVacaList(data).catch(() => {});
@@ -101,7 +104,7 @@ export default function Vacas() {
         const cached = await queue.getCachedVacaList().catch(() => null);
         if (cancelled) return;
         if (cached) {
-          setVacas(cached);
+          setVacas(cached.filter(isGroup));
           setFromCache(true);
         } else {
           setError(err.message);

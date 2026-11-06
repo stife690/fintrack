@@ -36,11 +36,12 @@ function toDefaults(initial) {
  * @param {object} props
  * @param {import('@/services/vacaService').Vaca|null} [props.initial] Vaca a editar.
  * @param {boolean} [props.disabled] Sin conexión.
+ * @param {boolean} [props.personal] Meta personal: sin reparto entre miembros.
  * @param {(values: { name: string, goal: number, description: string|null, deadline: string|null, split: string }) => Promise<void>} props.onSubmit
  *   Debe lanzar un `Error` si falla; con `err.fields` se marcan los campos del servidor.
  * @param {() => void} [props.onCancel]
  */
-export default function VacaForm({ initial = null, disabled = false, onSubmit, onCancel }) {
+export default function VacaForm({ initial = null, disabled = false, personal = false, onSubmit, onCancel }) {
   const [serverError, setServerError] = useState('');
   const {
     control,
@@ -76,9 +77,19 @@ export default function VacaForm({ initial = null, disabled = false, onSubmit, o
   });
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-5" aria-label={initial ? 'Editar vaca' : 'Nueva vaca'}>
+    <form
+      onSubmit={submit}
+      noValidate
+      className="space-y-5"
+      aria-label={personal ? (initial ? 'Editar meta' : 'Nueva meta') : initial ? 'Editar vaca' : 'Nueva vaca'}
+    >
       <FormField id="vaca-name" label="Nombre" error={errors.name?.message}>
-        <Input placeholder="Ej. Paseo de fin de año" maxLength={60} disabled={disabled} {...register('name')} />
+        <Input
+          placeholder={personal ? 'Ej. Moto, semestre, viaje' : 'Ej. Paseo de fin de año'}
+          maxLength={60}
+          disabled={disabled}
+          {...register('name')}
+        />
       </FormField>
 
       <Controller
@@ -104,26 +115,35 @@ export default function VacaForm({ initial = null, disabled = false, onSubmit, o
       </FormField>
 
       <FormField id="vaca-description" label="¿Para qué es? (opcional)" error={errors.description?.message}>
-        <Input placeholder="Ej. Hotel y transporte" maxLength={200} disabled={disabled} {...register('description')} />
+        <Input
+          placeholder={personal ? 'Ej. La cuota inicial de la moto' : 'Ej. Hotel y transporte'}
+          maxLength={200}
+          disabled={disabled}
+          {...register('description')}
+        />
       </FormField>
 
-      <Controller
-        control={control}
-        name="split"
-        render={({ field }) => (
-          <ChipGroup
-            legend="Cómo se reparte"
-            options={SPLIT_OPTIONS}
-            value={field.value}
-            onChange={field.onChange}
-            disabled={disabled}
+      {!personal && (
+        <>
+          <Controller
+            control={control}
+            name="split"
+            render={({ field }) => (
+              <ChipGroup
+                legend="Cómo se reparte"
+                options={SPLIT_OPTIONS}
+                value={field.value}
+                onChange={field.onChange}
+                disabled={disabled}
+              />
+            )}
           />
-        )}
-      />
-      <p className="-mt-3 text-sm text-ink/60">
-        Con partes iguales, a cada miembro le toca la meta dividida entre todos. Con cuotas a medida, un
-        administrador pone la de cada uno y lo demás se reparte.
-      </p>
+          <p className="-mt-3 text-sm text-ink/60">
+            Con partes iguales, a cada miembro le toca la meta dividida entre todos. Con cuotas a medida, un
+            administrador pone la de cada uno y lo demás se reparte.
+          </p>
+        </>
+      )}
 
       {serverError && (
         <p role="alert" className="text-sm text-negative">
@@ -134,7 +154,7 @@ export default function VacaForm({ initial = null, disabled = false, onSubmit, o
       <div className="flex gap-3">
         <Button type="submit" size="lg" className="flex-1" disabled={disabled || isSubmitting}>
           {isSubmitting && <Loader2 className="animate-spin" aria-hidden="true" />}
-          {isSubmitting ? 'Guardando…' : initial ? 'Guardar cambios' : 'Crear vaca'}
+          {isSubmitting ? 'Guardando…' : initial ? 'Guardar cambios' : personal ? 'Crear meta' : 'Crear vaca'}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={isSubmitting}>

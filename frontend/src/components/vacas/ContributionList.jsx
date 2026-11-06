@@ -127,10 +127,17 @@ function ContributionRow({ contribution, online, onDelete }) {
  * @param {boolean} props.online
  * @param {(id: string) => Promise<void>} props.onDelete
  * @param {(localId: string) => Promise<void>} props.onDiscard
+ * @param {boolean} [props.personal] Meta personal: el texto vacío le habla a la persona.
  */
-export default function ContributionList({ contributions, pending, online, onDelete, onDiscard }) {
+export default function ContributionList({ contributions, pending, online, onDelete, onDiscard, personal = false }) {
   if (contributions.length === 0 && pending.length === 0) {
-    return <p className="py-6 text-center text-ink/60">Todavía no hay aportes. ¡Sé el primero en poner tu parte!</p>;
+    return (
+      <p className="py-6 text-center text-ink/60">
+        {personal
+          ? 'Todavía no hay aportes. Aparta lo que puedas y regístralo aquí.'
+          : 'Todavía no hay aportes. ¡Sé el primero en poner tu parte!'}
+      </p>
+    );
   }
   return (
     <ul className="divide-y divide-ink/10">

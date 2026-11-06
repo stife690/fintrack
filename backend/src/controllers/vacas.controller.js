@@ -8,16 +8,17 @@ import {
   parseMemberChanges,
   parseNewVaca,
   parseVacaChanges,
+  parseVacaKind,
 } from '../validators/vacas.validator.js';
 
 /**
- * `GET /api/v1/vacas`: vacas del usuario con su avance.
+ * `GET /api/v1/vacas?tipo=personal|grupo`: vacas del usuario con su avance (todas sin `tipo`).
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @returns {Promise<void>}
  */
 export async function getVacas(req, res) {
-  res.json(await vacas.list(req.userId));
+  res.json(await vacas.list(req.userId, parseVacaKind(req.query.tipo)));
 }
 
 /**

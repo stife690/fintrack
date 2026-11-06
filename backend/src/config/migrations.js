@@ -451,6 +451,12 @@ export const MIGRATIONS = [
          REFERENCES transacciones(id) ON DELETE SET NULL`,
     ],
   },
+  {
+    id: '021_vacas_personales',
+    statements: [
+      `ALTER TABLE vacas ADD COLUMN IF NOT EXISTS personal BOOLEAN NOT NULL DEFAULT false`,
+    ],
+  },
 ];
 
 /**

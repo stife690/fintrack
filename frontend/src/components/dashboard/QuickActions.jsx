@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { CreditCard, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
+import { CreditCard, Flag, HandCoins, Minus, Plus, Sparkles, Target, Users } from 'lucide-react';
 import CircleActions from '@/components/common/CircleActions';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ const ACTIONS = [
 export const CIRCLES = [
   { to: '/app/anotar', label: 'Anotar', icon: Plus, primary: true },
   { to: '/app/presupuestos', label: 'Presupuestos', icon: Target },
+  { to: '/app/metas', label: 'Metas', icon: Flag },
   { to: '/app/insights', label: 'Consejos', icon: Sparkles },
   { to: '/app/tarjetas', label: 'Tarjetas', icon: CreditCard },
   { to: '/app/cuentas', label: 'Cuentas', icon: HandCoins },

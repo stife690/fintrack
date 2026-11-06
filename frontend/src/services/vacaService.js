@@ -53,7 +53,8 @@ import { apiRequest } from '@/lib/apiRequest';
  * @property {number} goal
  * @property {string|null} deadline
  * @property {'igual'|'personalizado'} split
- * @property {string} code Código de invitación.
+ * @property {string|null} code Código de invitación (`null` en una meta personal).
+ * @property {boolean} [personal] Meta personal: solo del usuario, sin invitar a nadie.
  * @property {'admin'|'miembro'} role Rol del usuario actual.
  * @property {number} total
  * @property {number} percentage
@@ -80,7 +81,7 @@ export function listVacas() {
 
 /**
  * Crea una vaca; quien la crea queda de administrador.
- * @param {{ name: string, goal: number, description?: string|null, deadline?: string|null, split?: 'igual'|'personalizado' }} data
+ * @param {{ name: string, goal: number, description?: string|null, deadline?: string|null, split?: 'igual'|'personalizado', personal?: boolean }} data
  * @returns {Promise<Vaca>}
  */
 export function createVaca(data) {
