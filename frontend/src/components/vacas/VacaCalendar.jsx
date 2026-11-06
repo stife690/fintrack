@@ -99,7 +99,7 @@ export default function VacaCalendar({ vaca }) {
           </ul>
         )}
         {vaca.contributions.length >= CONTRIBUTIONS_SHOWN && (
-          <p className="mt-2 text-xs text-ink/50">Se ven los últimos {CONTRIBUTIONS_SHOWN} aportes.</p>
+          <p className="mt-2 text-xs text-ink/60">Se ven los últimos {CONTRIBUTIONS_SHOWN} aportes.</p>
         )}
       </section>
     </div>
