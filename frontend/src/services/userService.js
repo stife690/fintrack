@@ -39,3 +39,13 @@ export function updateProfile(name) {
 export function deleteAccount(confirmation) {
   return apiRequest('/users/me', { method: 'DELETE', body: confirmation });
 }
+
+/**
+ * Acepta los términos y la política de privacidad en la versión que la persona leyó (FT-0017).
+ * El servidor solo acepta la vigente.
+ * @param {string} version AAAA-MM-DD
+ * @returns {Promise<object>} El perfil, con `termsAccepted: true`.
+ */
+export function acceptTerms(version) {
+  return apiRequest('/users/me/terms', { method: 'POST', body: { version } });
+}

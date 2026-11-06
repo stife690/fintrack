@@ -62,3 +62,20 @@ export function parseDeleteAccount(body) {
   }
   return hasPassword ? { password } : { googleCredential };
 }
+
+/**
+ * Valida el cuerpo de `POST /users/me/terms` (FT-0017): `{ version }`, la que la persona leyó.
+ * @param {unknown} body
+ * @returns {string}
+ */
+export function parseAcceptTerms(body) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'El cuerpo de la petición no es válido');
+  }
+  if (typeof body.version !== 'string' || body.version.length > 10) {
+    throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
+      { field: 'version', problem: 'Debe ser la versión de los términos (AAAA-MM-DD)' },
+    ]);
+  }
+  return body.version;
+}

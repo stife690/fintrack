@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
+import { LEGAL_VERSION } from './config/legal.js';
 import { pool } from './config/db.js';
 import { login, loginWithGoogle } from './services/auth.service.js';
 import { createGoogleVerifier } from './services/google-auth.service.js';
@@ -84,6 +85,13 @@ test(
     assert.equal(first.user.email, email);
     assert.equal(first.user.name, 'Ana Pérez');
     assert.ok(first.accessToken && first.refreshToken);
+    // El botón dice que al continuar se aceptan los términos: la cuenta nueva queda con la versión.
+    const { rows: terms } = await pool.query(
+      'SELECT terminos_version, terminos_aceptados_at FROM usuarios WHERE id = $1',
+      [first.user.id],
+    );
+    assert.equal(terms[0].terminos_version, LEGAL_VERSION);
+    assert.ok(terms[0].terminos_aceptados_at instanceof Date);
 
     const second = await loginWithGoogle('token', verifier);
     assert.equal(second.user.id, first.user.id, 'es la misma cuenta');

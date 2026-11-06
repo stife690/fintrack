@@ -13,6 +13,8 @@ CREATE TABLE usuarios (
   reminder_time TIME NULL, -- en desuso: lo reemplaza reminder_times (parche 003)
   reminder_times TIME[] NOT NULL DEFAULT '{}', -- horas locales del recordatorio diario (hasta 5)
   email_verificado_at TIMESTAMPTZ NULL, -- NULL: no ha abierto el enlace del correo y no puede entrar
+  terminos_version VARCHAR(10) NULL, -- versión de términos y privacidad aceptada (FT-0017)
+  terminos_aceptados_at TIMESTAMPTZ NULL, -- cuándo la aceptó
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

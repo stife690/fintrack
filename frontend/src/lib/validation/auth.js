@@ -33,7 +33,7 @@ export const registerSchema = z
     email,
     password: newPassword,
     confirmPassword: z.string().min(1, 'Confirma tu contraseña'),
-    acceptTerms: z.boolean().refine((v) => v, 'Debes aceptar los términos para continuar'),
+    acceptTerms: z.boolean().refine((v) => v, 'Debes ser mayor de edad y aceptar los términos para continuar'),
   })
   .refine((data) => data.password === data.confirmPassword, PASSWORDS_MISMATCH);
 

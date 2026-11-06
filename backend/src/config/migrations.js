@@ -457,6 +457,13 @@ export const MIGRATIONS = [
       `ALTER TABLE vacas ADD COLUMN IF NOT EXISTS personal BOOLEAN NOT NULL DEFAULT false`,
     ],
   },
+  {
+    id: '022_terminos',
+    statements: [
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS terminos_version VARCHAR(10) NULL',
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS terminos_aceptados_at TIMESTAMPTZ NULL',
+    ],
+  },
 ];
 
 /**
