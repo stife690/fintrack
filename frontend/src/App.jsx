@@ -10,6 +10,8 @@ import AppShell from '@/components/layout/AppShell';
 const Home = lazy(() => import('@/pages/Home'));
 const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
+const Terms = lazy(() => import('@/pages/legal/Terms'));
+const Privacy = lazy(() => import('@/pages/legal/Privacy'));
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const VerifyEmail = lazy(() => import('@/pages/auth/VerifyEmail'));
@@ -114,6 +116,8 @@ export default function App() {
             <Route path="/recuperar" element={<ForgotPassword />} />
             <Route path="/restablecer" element={<ResetPassword />} />
             <Route path="/verificar" element={<VerifyEmail />} />
+            <Route path="/terminos" element={<Terms />} />
+            <Route path="/privacidad" element={<Privacy />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/app/bienvenida" element={<Welcome />} />
               <Route element={<AppShell />}>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth/AuthContext';
@@ -128,7 +128,15 @@ export default function SocialAuth({ mode = 'login' }) {
             {mode === 'register'
               ? 'Solo si tu correo es de Google (Gmail). Si usas Outlook u otro correo, crea la cuenta con el formulario de arriba. '
               : ''}
-            Al usar Google aceptas los términos de uso y la política de privacidad.
+            Al usar Google aceptas los{' '}
+            <Link to="/terminos" target="_blank" rel="noopener" className="underline underline-offset-4 hover:text-white">
+              términos de uso
+            </Link>{' '}
+            y la{' '}
+            <Link to="/privacidad" target="_blank" rel="noopener" className="underline underline-offset-4 hover:text-white">
+              política de privacidad
+            </Link>
+            .
           </p>
         </div>
       )}

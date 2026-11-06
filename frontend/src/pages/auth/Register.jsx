@@ -46,7 +46,7 @@ export default function Register() {
   });
   const password = useWatch({ control, name: 'password' });
 
-  const onSubmit = async ({ confirmPassword: _confirm, acceptTerms: _terms, ...data }) => {
+  const onSubmit = async ({ confirmPassword: _confirm, ...data }) => {
     setServerError('');
     try {
       const { email } = await registerUser(data);
@@ -142,7 +142,15 @@ export default function Register() {
               )}
             />
             <Label htmlFor="acceptTerms" className="leading-snug text-white/55">
-              Acepto los términos de uso y la política de privacidad de FinTrack.
+              Acepto los{' '}
+              <Link to="/terminos" target="_blank" rel="noopener" className="text-violet-light underline underline-offset-4">
+                términos de uso
+              </Link>{' '}
+              y la{' '}
+              <Link to="/privacidad" target="_blank" rel="noopener" className="text-violet-light underline underline-offset-4">
+                política de privacidad
+              </Link>{' '}
+              de FinTrack.
             </Label>
           </div>
           {errors.acceptTerms && (

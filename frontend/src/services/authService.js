@@ -71,15 +71,16 @@ export function login({ email, password }) {
 }
 
 /**
- * Crea una cuenta. Contrato: `POST /auth/register { email, password }` → 201
+ * Crea una cuenta. Contrato: `POST /auth/register { email, password, acceptTerms: true }` → 201
  * `{ email, verificationRequired: true }`: no abre sesión hasta que abra el enlace del correo
  * (FT-0016). Responde 409 `EMAIL_TAKEN` si el correo ya existe (REQ-003)
- * y 422 `VALIDATION_ERROR` si el correo o la contraseña no cumplen las reglas.
- * @param {{ email: string, password: string }} data
+ * y 422 `VALIDATION_ERROR` si el correo o la contraseña no cumplen las reglas, o si no aceptó los
+ * términos y la política de privacidad (FT-0017).
+ * @param {{ email: string, password: string, acceptTerms: boolean }} data
  * @returns {Promise<{ email: string, verificationRequired: true }>}
  */
-export function register({ email, password }) {
-  return postJson('/auth/register', { email, password }, {
+export function register({ email, password, acceptTerms }) {
+  return postJson('/auth/register', { email, password, acceptTerms }, {
     fallback: 'No pudimos crear tu cuenta. Inténtalo de nuevo.',
     messages: { EMAIL_TAKEN: 'Ya existe una cuenta con ese correo.', RATE_LIMITED: TOO_MANY },
   });

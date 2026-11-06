@@ -24,6 +24,13 @@ const COLUMNS = [
     ],
   },
   {
+    title: 'Legal',
+    links: [
+      { to: '/terminos', label: 'Términos de uso' },
+      { to: '/privacidad', label: 'Política de privacidad' },
+    ],
+  },
+  {
     title: 'Cuenta',
     links: [
       { to: '/login', label: 'Iniciar sesión' },
@@ -50,7 +57,7 @@ export default function Footer() {
 
   return (
     <footer className="relative overflow-hidden bg-[linear-gradient(to_bottom,#6142ff,#000_10rem)] pt-16 text-white">
-      <div className="container-page relative grid grid-cols-2 gap-x-6 gap-y-12 py-16 md:grid-cols-[1.5fr_repeat(3,1fr)] md:py-20">
+      <div className="container-page relative grid grid-cols-2 gap-x-6 gap-y-12 py-16 md:grid-cols-[1.5fr_repeat(4,1fr)] md:py-20">
         <div className="col-span-2 max-w-xs md:col-span-1">
           <Logo />
           <p className="mt-4 text-white/65">
