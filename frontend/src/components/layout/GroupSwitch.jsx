@@ -18,6 +18,8 @@ export default function GroupSwitch() {
         <NavLink
           key={to}
           to={to}
+          // Cambiar de pestaña reemplaza la entrada del historial: "atrás" vuelve al inicio, no a la otra pestaña.
+          replace
           className={({ isActive }) =>
             cn(
               'flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors',
