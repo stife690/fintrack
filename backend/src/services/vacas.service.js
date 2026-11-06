@@ -57,6 +57,15 @@ function notFound() {
 }
 
 /** @returns {AppError} 403 para acciones de administrador. Solo se usa con miembros. */
+/** @returns {AppError} 409: las metas personales no tienen invitaciones, miembros ni recordatorios. */
+function personalOnly() {
+  return new AppError(
+    409,
+    'PERSONAL_VACA',
+    'Es una meta personal: no se puede compartir ni tiene otros miembros',
+  );
+}
+
 function adminOnly() {
   return new AppError(403, 'FORBIDDEN', 'Solo un administrador de la vaca puede hacer esto');
 }
@@ -252,6 +261,7 @@ export function vacaStatus(total, goal, deadline, today) {
  * @property {number} doneCount Miembros que ya pusieron su cuota.
  * @property {Projection} projection Ritmo y fechas.
  * @property {'completada'|'vencida'|'activa'} status Estado de la vaca.
+ * @property {boolean} [personal] Meta personal: se le habla a una persona y no se sugiere invitar.
  */
 
 /**
@@ -259,8 +269,17 @@ export function vacaStatus(total, goal, deadline, today) {
  * @param {AdviceStats} stats
  * @returns {string}
  */
-export function ruleAdvice({ total, status, behindCount, membersCount, projection }) {
+export function ruleAdvice({ total, status, behindCount, membersCount, projection, personal }) {
   const solo = membersCount === 1;
+  if (personal && status === 'completada') {
+    return '¡Meta cumplida! Ya tienes la plata. Si quieres seguir ahorrando, sube la meta o crea una nueva.';
+  }
+  if (personal && status === 'vencida') {
+    return `Pasó la fecha límite y te faltan ${money.format(projection.remaining)}. Ponle una fecha nueva que puedas cumplir.`;
+  }
+  if (personal && total === 0) {
+    return 'Todavía no has apartado nada. Si guardas algo esta semana, arrancas con buen ritmo.';
+  }
   if (status === 'completada') {
     return '¡Meta cumplida! Ya pueden usar la plata de la vaca. Si quieren seguir ahorrando, suban la meta o creen una nueva.';
   }
@@ -311,6 +330,7 @@ export function advicePrompt({
   doneCount,
   projection,
   status,
+  personal,
 }) {
   return [
     `Meta: ${money.format(goal)}. Reunido: ${money.format(total)} (${percentage} %). Estado: ${status}.`,
@@ -322,9 +342,11 @@ export function advicePrompt({
     projection.estimatedDate
       ? `Fecha estimada a este ritmo: ${longDate(projection.estimatedDate)}.`
       : '',
-    membersCount === 1
-      ? 'Solo hay un miembro: háblale a esa persona en singular (tú), no al grupo, y sugiérele invitar a más gente.'
-      : '',
+    personal
+      ? 'Es una meta de ahorro personal, no una vaca en grupo: háblale en singular (tú) y no sugieras invitar a nadie.'
+      : membersCount === 1
+        ? 'Solo hay un miembro: háblale a esa persona en singular (tú), no al grupo, y sugiérele invitar a más gente.'
+        : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -377,7 +399,9 @@ export function buildDetail({ vaca, members, contributions, userId, today }) {
     goal: vaca.goal,
     deadline: vaca.deadline,
     split: vaca.split,
-    code: vaca.code,
+    // Una meta personal no expone el código: no hay a quién invitar.
+    code: vaca.personal ? null : vaca.code,
+    personal: Boolean(vaca.personal),
     role: vaca.role,
     total: vaca.total,
     percentage: Math.round((vaca.total / vaca.goal) * 1000) / 10,
@@ -489,10 +513,14 @@ function notify(userIds, payload) {
 /**
  * Vacas del usuario, con su avance y lo que le toca a él.
  * @param {string} userId
+ * @param {boolean} [personal] `true`: solo metas personales; `false`: solo en grupo; sin dato: todas.
  * @returns {Promise<object[]>}
  */
-export async function list(userId) {
-  const [vacas, today] = await Promise.all([repo.listVacasForUser(userId), todayFor(userId)]);
+export async function list(userId, personal) {
+  const [vacas, today] = await Promise.all([
+    repo.listVacasForUser(userId, personal),
+    todayFor(userId),
+  ]);
   return Promise.all(
     vacas.map(async (vaca) => {
       const members = await repo.listMembers(vaca.id);
@@ -502,9 +530,9 @@ export async function list(userId) {
 }
 
 /**
- * Crea una vaca con el usuario como administrador.
+ * Crea una vaca con el usuario como administrador. Con `personal` es una meta solo suya.
  * @param {string} userId
- * @param {{ name: string, description: string|null, goal: number, deadline: string|null, split: 'igual'|'personalizado' }} data
+ * @param {{ name: string, description: string|null, goal: number, deadline: string|null, split: 'igual'|'personalizado', personal?: boolean }} data
  * @returns {Promise<object>} El detalle de la vaca nueva.
  */
 export async function create(userId, data) {
@@ -544,6 +572,9 @@ export async function get(userId, id) {
  */
 export async function update(userId, id, changes) {
   const vaca = await requireAdmin(userId, id);
+  // Una meta personal no reparte entre miembros: el reparto no se cambia.
+  if (vaca.personal)
+    changes = Object.fromEntries(Object.entries(changes).filter(([k]) => k !== 'split'));
   const today = await todayFor(userId);
   if (changes.deadline && changes.deadline < today && changes.deadline !== vaca.deadline) {
     throw new AppError(422, 'VALIDATION_ERROR', 'Datos inválidos', [
@@ -574,7 +605,9 @@ export async function remove(userId, id) {
  */
 export async function preview(userId, code) {
   const vaca = await repo.findVacaByCode(code);
-  if (!vaca) throw new AppError(404, 'NOT_FOUND', 'El código de invitación no existe o ya cambió');
+  if (!vaca || vaca.personal) {
+    throw new AppError(404, 'NOT_FOUND', 'El código de invitación no existe o ya cambió');
+  }
   const member = await repo.findVacaForMember(vaca.id, userId);
   return {
     id: vaca.id,
@@ -597,7 +630,9 @@ export async function preview(userId, code) {
  */
 export async function join(userId, code) {
   const vaca = await repo.findVacaByCode(code);
-  if (!vaca) throw new AppError(404, 'NOT_FOUND', 'El código de invitación no existe o ya cambió');
+  if (!vaca || vaca.personal) {
+    throw new AppError(404, 'NOT_FOUND', 'El código de invitación no existe o ya cambió');
+  }
   let joined = false;
   if (!(await repo.findVacaForMember(vaca.id, userId))) {
     if (vaca.membersCount >= MAX_MEMBERS) {
@@ -628,7 +663,7 @@ export async function join(userId, code) {
  * @returns {Promise<{ code: string }>}
  */
 export async function regenerateCode(userId, id) {
-  await requireAdmin(userId, id);
+  if ((await requireAdmin(userId, id)).personal) throw personalOnly();
   for (let attempt = 0; ; attempt += 1) {
     const code = generateCode();
     try {
@@ -651,6 +686,7 @@ export async function regenerateCode(userId, id) {
  */
 export async function invite(userId, id, email, mailer = sendVacaInvitationEmail) {
   const vaca = await requireMember(userId, id);
+  if (vaca.personal) throw personalOnly();
   const members = await repo.listMembers(id);
   if (members.some((m) => m.email.toLowerCase() === email)) {
     throw new AppError(409, 'ALREADY_MEMBER', 'Esa persona ya está en la vaca');
@@ -711,6 +747,7 @@ export async function cancelInvitation(userId, id, email) {
  */
 export async function updateMember(userId, id, memberId, changes) {
   const vaca = await requireAdmin(userId, id);
+  if (vaca.personal) throw personalOnly();
   if (!UUID_RE.test(memberId)) throw new AppError(404, 'NOT_FOUND', 'Miembro no encontrado');
   const members = await repo.listMembers(id);
   const target = members.find((m) => m.userId === memberId);
@@ -740,6 +777,8 @@ export async function updateMember(userId, id, memberId, changes) {
  */
 export async function removeMember(userId, id, memberId) {
   const vaca = await requireMember(userId, id);
+  // Salir de una meta personal la dejaría sin dueño: para eso se elimina.
+  if (vaca.personal) throw personalOnly();
   if (memberId !== userId && vaca.role !== 'admin') throw adminOnly();
   if (!UUID_RE.test(memberId) || !(await repo.removeMember(id, memberId))) {
     throw new AppError(404, 'NOT_FOUND', 'Miembro no encontrado');
@@ -877,6 +916,7 @@ export async function getAdvice(userId, id, generate = completeText) {
     doneCount: detail.members.filter((m) => m.status === 'cumplido').length,
     projection: detail.projection,
     status: detail.status,
+    personal: detail.personal,
   };
 
   try {
@@ -904,6 +944,7 @@ export async function getAdvice(userId, id, generate = completeText) {
  */
 export async function remind(userId, id) {
   const vaca = await requireAdmin(userId, id);
+  if (vaca.personal) throw personalOnly();
   const detail = await loadDetail(userId, vaca);
   const targets = detail.members.filter(
     (m) => !m.isMe && (m.status === 'atrasado' || m.status === 'pendiente') && m.remaining > 0,

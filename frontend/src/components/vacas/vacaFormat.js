@@ -85,15 +85,41 @@ export function deadlineText({ deadline, projection, status }, { withDate = true
   return withDate ? `${left} · ${date}` : left;
 }
 
+/** Textos de la lectura del ritmo: al grupo (vaca) o a una persona (meta personal). */
+const GROUP = {
+  done: '¡Meta cumplida! Ya juntaron toda la plata.',
+  empty: 'Aún no hay aportes. Con el primero calculamos el ritmo del grupo.',
+  complete: 'completan',
+  keep: 'Sigan aportando para ver cuándo completan la meta.',
+  onTime: 'Van a tiempo',
+  late: 'no llegan',
+  would: 'terminarían',
+  need: 'Necesitan',
+  each: ' entre todos',
+};
+const SOLO = {
+  done: '¡Meta cumplida! Ya tienes toda la plata.',
+  empty: 'Aún no has apartado nada. Con el primer aporte calculamos tu ritmo.',
+  complete: 'completas',
+  keep: 'Sigue aportando para ver cuándo completas la meta.',
+  onTime: 'Vas a tiempo',
+  late: 'no llegas',
+  would: 'terminarías',
+  need: 'Necesitas',
+  each: '',
+};
+
 /**
  * Lectura "inteligente" del ritmo: si llegan a tiempo, cuánto hace falta por semana y la fecha
  * estimada. Sale de la proyección que calcula el servidor.
- * @param {{ deadline: string|null, projection: import('@/services/vacaService').VacaProjection, status: string, total: number }} vaca
+ * @param {{ deadline: string|null, projection: import('@/services/vacaService').VacaProjection, status: string, total: number, personal?: boolean }} vaca
  * @returns {{ tone: 'positive'|'caution'|'neutral', text: string }}
  */
-export function projectionText({ deadline, projection, status, total }) {
-  if (status === 'completada') return { tone: 'positive', text: '¡Meta cumplida! Ya juntaron toda la plata.' };
-  if (total === 0) return { tone: 'neutral', text: 'Aún no hay aportes. Con el primero calculamos el ritmo del grupo.' };
+export function projectionText({ deadline, projection, status, total, personal = false }) {
+  // A una meta personal se le habla en singular; a una vaca, al grupo.
+  const t = personal ? SOLO : GROUP;
+  if (status === 'completada') return { tone: 'positive', text: t.done };
+  if (total === 0) return { tone: 'neutral', text: t.empty };
   const estimated = projection.estimatedDate ? formatDate(projection.estimatedDate) : null;
   if (status === 'vencida') {
     return { tone: 'caution', text: `Pasó la fecha límite y faltan ${formatPesos(projection.remaining)}.` };
@@ -102,18 +128,18 @@ export function projectionText({ deadline, projection, status, total }) {
     return {
       tone: 'neutral',
       text: estimated
-        ? `A este ritmo (${formatPesos(projection.averagePerDay)} por día) completan la meta hacia el ${estimated}.`
-        : 'Sigan aportando para ver cuándo completan la meta.',
+        ? `A este ritmo (${formatPesos(projection.averagePerDay)} por día) ${t.complete} la meta hacia el ${estimated}.`
+        : t.keep,
     };
   }
   if (projection.onTrack) {
     return {
       tone: 'positive',
-      text: `Van a tiempo: a este ritmo completan la meta hacia el ${estimated}.`,
+      text: `${t.onTime}: a este ritmo ${t.complete} la meta hacia el ${estimated}.`,
     };
   }
   return {
     tone: 'caution',
-    text: `A este ritmo no llegan${estimated ? ` (terminarían hacia el ${estimated})` : ''}. Necesitan ${formatPesos(projection.neededPerWeek ?? projection.remaining)} por semana entre todos.`,
+    text: `A este ritmo ${t.late}${estimated ? ` (${t.would} hacia el ${estimated})` : ''}. ${t.need} ${formatPesos(projection.neededPerWeek ?? projection.remaining)} por semana${t.each}.`,
   };
 }

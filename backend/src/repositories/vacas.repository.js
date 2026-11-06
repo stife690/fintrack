@@ -9,6 +9,7 @@ import { pool } from '../config/db.js';
  * @property {string|null} deadline Fecha límite AAAA-MM-DD.
  * @property {'igual'|'personalizado'} split Cómo se reparte la meta entre los miembros.
  * @property {string} code Código de invitación.
+ * @property {boolean} personal Meta personal: una sola persona, sin invitaciones.
  * @property {string|null} creatorId Quien la creó (`null` si borró su cuenta).
  * @property {number} total Suma de los aportes no borrados.
  * @property {number} membersCount Cantidad de miembros.
@@ -52,7 +53,7 @@ import { pool } from '../config/db.js';
 /** Vaca con su total, cantidad de miembros y primer aporte. */
 const SELECT_VACA = `SELECT v.id, v.nombre AS name, v.descripcion AS description,
   v.meta::float8 AS goal, to_char(v.fecha_limite, 'YYYY-MM-DD') AS deadline, v.reparto AS split,
-  v.codigo AS code, v.creador_id AS "creatorId",
+  v.codigo AS code, v.personal, v.creador_id AS "creatorId",
   COALESCE(a.total, 0)::float8 AS total, to_char(a.primero, 'YYYY-MM-DD') AS "firstContributionDate",
   (SELECT COUNT(*) FROM vaca_miembros m WHERE m.vaca_id = v.id)::int AS "membersCount",
   to_char(v.created_at AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS "createdDate",
@@ -74,7 +75,7 @@ const SELECT_CONTRIBUTION = `SELECT a.id, a.vaca_id AS "vacaId", a.usuario_id AS
 
 /**
  * Crea una vaca y deja a su creador como administrador, en una sola transacción.
- * @param {{ name: string, description: string|null, goal: number, deadline: string|null, split: string, code: string, creatorId: string }} data
+ * @param {{ name: string, description: string|null, goal: number, deadline: string|null, split: string, code: string, creatorId: string, personal?: boolean }} data
  * @returns {Promise<string>} Id de la vaca.
  */
 export async function insertVaca(data) {
@@ -82,8 +83,8 @@ export async function insertVaca(data) {
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO vacas (nombre, descripcion, meta, fecha_limite, reparto, codigo, creador_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      `INSERT INTO vacas (nombre, descripcion, meta, fecha_limite, reparto, codigo, creador_id, personal)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [
         data.name,
         data.description,
@@ -92,6 +93,7 @@ export async function insertVaca(data) {
         data.split,
         data.code,
         data.creatorId,
+        Boolean(data.personal),
       ],
     );
     await client.query(
@@ -112,17 +114,19 @@ export async function insertVaca(data) {
  * Vacas de las que el usuario es miembro, con su rol, su cuota y lo que ha aportado.
  * La más reciente (por último cambio) primero.
  * @param {string} userId
+ * @param {boolean} [personal] `true`: solo metas personales; `false`: solo vacas en grupo; sin dato: todas.
  * @returns {Promise<Array<VacaRecord & { role: 'admin'|'miembro', quota: number|null, myContributed: number }>>}
  */
-export async function listVacasForUser(userId) {
+export async function listVacasForUser(userId, personal) {
   const { rows } = await pool.query(
     `SELECT x.*, m.rol AS role, m.cuota::float8 AS quota,
        COALESCE((SELECT SUM(monto) FROM vaca_aportes
                   WHERE vaca_id = x.id AND usuario_id = $1 AND deleted_at IS NULL), 0)::float8
          AS "myContributed"
      FROM (${SELECT_VACA}) x JOIN vaca_miembros m ON m.vaca_id = x.id AND m.usuario_id = $1
+     WHERE $2::boolean IS NULL OR x.personal = $2
      ORDER BY x."updatedAt" DESC`,
-    [userId],
+    [userId, personal ?? null],
   );
   return rows;
 }

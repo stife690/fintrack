@@ -137,9 +137,10 @@ function readVacaFields(body, details) {
 }
 
 /**
- * Valida el cuerpo de `POST /vacas`: `{ name, goal, description?, deadline?, split? }`.
+ * Valida el cuerpo de `POST /vacas`: `{ name, goal, description?, deadline?, split?, personal? }`.
+ * Una meta personal (`personal: true`) es de una sola persona: siempre con reparto igual.
  * @param {unknown} body
- * @returns {{ name: string, description: string|null, goal: number, deadline: string|null, split: 'igual'|'personalizado' }}
+ * @returns {{ name: string, description: string|null, goal: number, deadline: string|null, split: 'igual'|'personalizado', personal: boolean }}
  */
 export function parseNewVaca(body) {
   if (!isObject(body)) throw invalidBody();
@@ -147,8 +148,27 @@ export function parseNewVaca(body) {
   if (!('name' in body)) details.push({ field: 'name', problem: 'Es obligatorio' });
   if (!('goal' in body)) details.push({ field: 'goal', problem: 'Es obligatoria' });
   const fields = readVacaFields(body, details);
+  if ('personal' in body && typeof body.personal !== 'boolean') {
+    details.push({ field: 'personal', problem: 'Debe ser true o false' });
+  }
   throwIfInvalid(details);
-  return { description: null, deadline: null, split: 'igual', ...fields };
+  const personal = body.personal === true;
+  const vaca = { description: null, deadline: null, split: 'igual', ...fields, personal };
+  if (personal) vaca.split = 'igual';
+  return vaca;
+}
+
+/**
+ * Valida el filtro `?tipo=` de `GET /vacas`: `personal` (metas), `grupo` (vacas) o nada (todas).
+ * @param {unknown} tipo
+ * @returns {boolean|undefined}
+ */
+export function parseVacaKind(tipo) {
+  if (tipo === undefined || tipo === '') return undefined;
+  if (tipo === 'personal') return true;
+  if (tipo === 'grupo') return false;
+  throwIfInvalid([{ field: 'tipo', problem: 'Debe ser "personal" o "grupo"' }]);
+  return undefined;
 }
 
 /**

@@ -26,6 +26,7 @@ export default function AdviceCard({ vaca, online, onRemind }) {
   const [loading, setLoading] = useState(false);
   const [remindState, setRemindState] = useState({ busy: false, message: '', error: '' });
   const reading = projectionText(vaca);
+  const personal = Boolean(vaca.personal);
   const others = vaca.members?.filter((m) => !m.isMe) ?? [];
   const behind = others.filter((m) => m.remaining > 0 && m.status !== 'al_dia').length;
 
@@ -70,7 +71,7 @@ export default function AdviceCard({ vaca, online, onRemind }) {
 
       <div className="rounded-xl bg-brand-soft/50 p-4">
         <p className="flex items-center gap-2 text-sm font-semibold text-brand">
-          <Sparkles className="size-4" aria-hidden="true" /> Consejo para el grupo
+          <Sparkles className="size-4" aria-hidden="true" /> {personal ? 'Consejo para ti' : 'Consejo para el grupo'}
         </p>
         {!online ? (
           <p className="mt-2 text-sm text-ink/60">Sin conexión: el consejo aparece al volver internet.</p>
@@ -82,9 +83,13 @@ export default function AdviceCard({ vaca, online, onRemind }) {
           <>
             <p className="mt-2 text-ink/80">{advice.advice}</p>
             <p className="mt-2 text-xs text-ink/50">
-              {advice.source === 'ia'
-                ? 'Generado con IA solo con los totales del grupo (sin nombres).'
-                : 'Calculado con los datos del grupo.'}
+              {personal
+                ? advice.source === 'ia'
+                  ? 'Generado con IA solo con los totales de tu meta.'
+                  : 'Calculado con los datos de tu meta.'
+                : advice.source === 'ia'
+                  ? 'Generado con IA solo con los totales del grupo (sin nombres).'
+                  : 'Calculado con los datos del grupo.'}
             </p>
           </>
         ) : (
@@ -92,7 +97,7 @@ export default function AdviceCard({ vaca, online, onRemind }) {
         )}
       </div>
 
-      {vaca.role === 'admin' && vaca.status !== 'completada' && (
+      {!personal && vaca.role === 'admin' && vaca.status !== 'completada' && (
         <div>
           {behind > 0 || remindState.message ? (
             <Button variant="outline" className="w-full sm:w-auto" onClick={remind} disabled={!online || remindState.busy}>

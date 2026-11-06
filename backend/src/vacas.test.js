@@ -515,3 +515,91 @@ test(
     });
   },
 );
+
+test(
+  'meta personal: solo del creador, sin código, no se comparte y sale aparte de las vacas en grupo',
+  options,
+  async () => {
+    await withApi(async (api) => {
+      const owner = await newUser();
+      const other = await newUser();
+      const created = await api('/vacas', {
+        method: 'POST',
+        token: owner.token,
+        body: { name: 'Moto', goal: 2000000, personal: true, split: 'personalizado' },
+      });
+      assert.equal(created.status, 201);
+      assert.equal(created.body.personal, true);
+      assert.equal(created.body.code, null);
+      assert.equal(created.body.split, 'igual');
+      assert.equal(created.body.myQuota, 2000000);
+      const id = created.body.id;
+
+      const group = await api('/vacas', {
+        method: 'POST',
+        token: owner.token,
+        body: { name: 'Paseo', goal: 100000 },
+      });
+      assert.equal(group.body.personal, false);
+
+      const personal = await api('/vacas?tipo=personal', { token: owner.token });
+      assert.deepEqual(
+        personal.body.map((v) => v.id),
+        [id],
+      );
+      const grupal = await api('/vacas?tipo=grupo', { token: owner.token });
+      assert.deepEqual(
+        grupal.body.map((v) => v.id),
+        [group.body.id],
+      );
+      assert.equal((await api('/vacas', { token: owner.token })).body.length, 2);
+      assert.equal((await api('/vacas?tipo=otro', { token: owner.token })).status, 422);
+
+      // Nadie entra aunque consiga el código guardado en la base.
+      const {
+        rows: [row],
+      } = await pool.query('SELECT codigo FROM vacas WHERE id = $1', [id]);
+      assert.equal(
+        (await api(`/vacas/invitations/${row.codigo}`, { token: other.token })).status,
+        404,
+      );
+      const join = await api('/vacas/join', {
+        method: 'POST',
+        token: other.token,
+        body: { code: row.codigo },
+      });
+      assert.equal(join.status, 404);
+
+      for (const [path, method, body] of [
+        [`/vacas/${id}/invitations`, 'POST', { email: 'amigo@example.com' }],
+        [`/vacas/${id}/code`, 'POST', undefined],
+        [`/vacas/${id}/reminders`, 'POST', undefined],
+        [`/vacas/${id}/members/${owner.id}`, 'DELETE', undefined],
+      ]) {
+        const res = await api(path, { method, token: owner.token, body });
+        assert.equal(res.status, 409, path);
+        assert.equal(res.body.error.code, 'PERSONAL_VACA');
+      }
+
+      // El reparto de una meta personal no se cambia; lo demás sí.
+      const patched = await api(`/vacas/${id}`, {
+        method: 'PATCH',
+        token: owner.token,
+        body: { split: 'personalizado', goal: 2500000 },
+      });
+      assert.equal(patched.status, 200);
+      assert.equal(patched.body.split, 'igual');
+      assert.equal(patched.body.goal, 2500000);
+
+      // Aportar funciona igual que en una vaca: queda el gasto de ahorro en sus movimientos.
+      const aporte = await api(`/vacas/${id}/contributions`, {
+        method: 'POST',
+        token: owner.token,
+        body: { amount: 50000, date: today() },
+      });
+      assert.equal(aporte.status, 201);
+      assert.equal(aporte.body.vaca.total, 50000);
+      assert.equal(aporte.body.transaction.category, 'ahorro_inversion');
+    });
+  },
+);

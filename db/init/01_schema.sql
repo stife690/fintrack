@@ -444,3 +444,6 @@ ALTER TABLE negocio_movimientos ADD CONSTRAINT negocio_movimientos_tipo_check
   CHECK (tipo IN ('venta', 'costo_venta', 'gasto_fijo', 'gasto_variable', 'otro_ingreso', 'retiro'));
 ALTER TABLE negocio_movimientos ADD COLUMN IF NOT EXISTS transaccion_id UUID NULL
   REFERENCES transacciones(id) ON DELETE SET NULL;
+
+-- Metas personales: vacas de una sola persona (ver db/patches/021).
+ALTER TABLE vacas ADD COLUMN IF NOT EXISTS personal BOOLEAN NOT NULL DEFAULT false;

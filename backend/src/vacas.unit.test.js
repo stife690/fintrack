@@ -277,6 +277,33 @@ test('consejo con un solo miembro: le habla a esa persona, nunca al grupo', () =
   assert.doesNotMatch(advicePrompt({ ...solo, membersCount: 3 }), /Solo hay un miembro/);
 });
 
+test('consejo de una meta personal: nunca sugiere invitar a nadie', () => {
+  const meta = {
+    goal: 1000,
+    total: 0,
+    percentage: 0,
+    membersCount: 1,
+    behindCount: 0,
+    doneCount: 0,
+    status: 'activa',
+    personal: true,
+    projection: {
+      remaining: 1000,
+      averagePerDay: 0,
+      daysLeft: null,
+      neededPerWeek: null,
+      onTrack: null,
+      estimatedDate: null,
+    },
+  };
+  for (const status of ['activa', 'completada', 'vencida']) {
+    assert.doesNotMatch(ruleAdvice({ ...meta, status }), /invit|grupo|pueden/i);
+  }
+  assert.match(ruleAdvice(meta), /no has apartado/);
+  assert.match(advicePrompt(meta), /meta de ahorro personal/);
+  assert.doesNotMatch(advicePrompt(meta), /sugiérele invitar/);
+});
+
 test('validar una vaca nueva: nombre y meta obligatorios, reparto igual por defecto', () => {
   assert.deepEqual(parseNewVaca({ name: ' Paseo ', goal: 500000.456 }), {
     name: 'Paseo',
@@ -284,7 +311,14 @@ test('validar una vaca nueva: nombre y meta obligatorios, reparto igual por defe
     description: null,
     deadline: null,
     split: 'igual',
+    personal: false,
   });
+  // Una meta personal es de una sola persona: el reparto siempre es igual.
+  assert.equal(
+    parseNewVaca({ name: 'Moto', goal: 1, personal: true, split: 'personalizado' }).split,
+    'igual',
+  );
+  assertInvalid(() => parseNewVaca({ name: 'Moto', goal: 1, personal: 'si' }), ['personal']);
   assertInvalid(() => parseNewVaca({}), ['goal', 'name']);
   assertInvalid(
     () => parseNewVaca({ name: 'x'.repeat(61), goal: -1, deadline: '2026-02-30', split: 'otro' }),

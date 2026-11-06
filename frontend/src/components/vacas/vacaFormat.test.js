@@ -62,3 +62,19 @@ describe('appOrigin (dominio de los enlaces)', () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe('projectionText en una meta personal', () => {
+  const projection = { remaining: 500000, averagePerDay: 5000, estimatedDate: '2027-01-20', neededPerWeek: 70000, onTrack: false };
+  it('le habla a la persona, nunca al grupo', () => {
+    const texts = [
+      projectionText({ personal: true, deadline: null, projection, status: 'activa', total: 0 }),
+      projectionText({ personal: true, deadline: null, projection, status: 'activa', total: 100000 }),
+      projectionText({ personal: true, deadline: '2026-12-31', projection, status: 'activa', total: 100000 }),
+      projectionText({ personal: true, deadline: '2026-12-31', projection: { ...projection, onTrack: true }, status: 'activa', total: 100000 }),
+      projectionText({ personal: true, deadline: null, projection, status: 'completada', total: 500000 }),
+    ].map((r) => r.text);
+    for (const text of texts) expect(text).not.toMatch(/grupo|entre todos|completan|llegan|Sigan|juntaron/);
+    expect(texts[2]).toMatch(/no llegas.*Necesitas/);
+    expect(texts[3]).toMatch(/^Vas a tiempo/);
+  });
+});
