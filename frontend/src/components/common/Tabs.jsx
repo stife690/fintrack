@@ -46,7 +46,7 @@ export default function Tabs({ label, tabs, value, onChange, children }) {
             )}
           >
             <span className="truncate">{tab.label}</span>
-            {tab.count !== undefined && <span className="tabular-nums text-ink/50">{tab.count}</span>}
+            {tab.count !== undefined && <span className="tabular-nums text-ink/60">{tab.count}</span>}
           </button>
         ))}
       </div>

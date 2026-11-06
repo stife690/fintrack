@@ -82,7 +82,7 @@ export default function AdviceCard({ vaca, online, onRemind }) {
         ) : advice ? (
           <>
             <p className="mt-2 text-ink/80">{advice.advice}</p>
-            <p className="mt-2 text-xs text-ink/50">
+            <p className="mt-2 text-xs text-ink/60">
               {personal
                 ? advice.source === 'ia'
                   ? 'Generado con IA solo con los totales de tu meta.'
