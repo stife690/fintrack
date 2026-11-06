@@ -47,6 +47,12 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - name: Vulnerabilidades en dependencias de producción (falla con una alta o crítica)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Vulnerabilidades en herramientas de desarrollo (solo informa)
+        run: |
+          npm audit --audit-level=high >/dev/null 2>&1 && exit 0
+          echo "::warning title=npm audit (${PWD##*/})::Hay vulnerabilidades altas o críticas en herramientas de desarrollo (no llegan al despliegue). Revisa 'npm audit' en ${PWD##*/}."
       - run: npm run lint
       # Va antes de `npm test`: sin las tablas, las pruebas con base de datos se omiten sin avisar.
       - name: Validar que el esquema SQL se aplica sobre PostgreSQL
@@ -75,5 +81,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Vulnerabilidades en dependencias de producción (falla con una alta o crítica)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Vulnerabilidades en herramientas de desarrollo (solo informa)
+        run: |
+          npm audit --audit-level=high >/dev/null 2>&1 && exit 0
+          echo "::warning title=npm audit (${PWD##*/})::Hay vulnerabilidades altas o críticas en herramientas de desarrollo (no llegan al despliegue). Revisa 'npm audit' en ${PWD##*/}."
       - run: npm test
       - run: npm run build
