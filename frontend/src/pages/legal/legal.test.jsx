@@ -41,6 +41,8 @@ describe('Términos y privacidad (FT-0017)', () => {
       expect(text).toContain(provider);
     }
     expect(text).toContain('Ley 1581 de 2012');
+    // El asistente y el bot también le mandan a la IA lo que escribe la persona.
+    expect(text).toContain('asistente o al bot de WhatsApp');
     expect(allText(TERMS)).toContain('no son asesoría financiera');
   });
 });

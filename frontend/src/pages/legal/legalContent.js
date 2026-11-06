@@ -109,7 +109,7 @@ export const PRIVACY = [
     title: '3. Para qué los usamos',
     items: [
       'Prestarte el servicio: guardar tus registros, calcular tus totales, presupuestos y avances.',
-      'Clasificar tus movimientos y darte consejos, también con inteligencia artificial.',
+      'Clasificar tus movimientos, darte consejos y responder tus preguntas al asistente, también con inteligencia artificial.',
       'Enviarte correos de verificación, recuperación de contraseña e invitaciones, y recordatorios que tú configures.',
       'Mostrar a los miembros de una vaca o socios de un negocio lo que corresponde a ese grupo.',
       'Mantener la seguridad del servicio y corregir errores.',
@@ -124,7 +124,7 @@ export const PRIVACY = [
     items: [
       'Supabase: base de datos y almacenamiento de soportes.',
       'Render y Vercel: servidores donde corre la aplicación.',
-      'Google Gemini (IA): recibe la descripción de un movimiento para sugerir su categoría y, para los consejos, solo totales agregados (sin nombres ni descripciones).',
+      'Google Gemini (IA): recibe la descripción de un movimiento para sugerir su categoría; para los consejos, solo totales agregados (sin nombres ni descripciones); y lo que le escribas al asistente o al bot de WhatsApp, junto con los totales por categoría que el asistente consulte para responderte.',
       'Groq: transcribe el audio cuando dictas un movimiento; no guardamos el audio.',
       'Meta (WhatsApp), solo si vinculas tu número al bot.',
       'Brevo: envío de correos.',

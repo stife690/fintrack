@@ -142,7 +142,7 @@ export default function Register() {
               )}
             />
             <Label htmlFor="acceptTerms" className="leading-snug text-white/55">
-              Acepto los{' '}
+              Soy mayor de edad y acepto los{' '}
               <Link to="/terminos" target="_blank" rel="noopener" className="text-violet-light underline underline-offset-4">
                 términos de uso
               </Link>{' '}
